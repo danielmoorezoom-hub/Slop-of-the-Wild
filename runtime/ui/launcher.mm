@@ -230,9 +230,15 @@ static std::string check_copied_files(const std::string &root) {
         if (v) g_files_version = v->name;
         return v ? NOT_SUPPORTED_YET : NOT_SUPPORTED;
     }
-    if (!is_dir(root + "/romfs") || (!file_exists(root + "/romfs.bin") && !file_exists(root + "/romfs.idx")))
-        return "Game data missing";
+    if (!is_dir(root + "/romfs")) return "Game data missing";
     return "";
+}
+
+// An older version's data image: the game reads the romfs/ folder itself now (runtime/romfs_image.h), 15 GB back
+static void remove_old_image(const std::string &root) {
+    if (file_exists(root + "/romfs.bin") && check_copied_files(root).empty() &&
+        rt_remove_game_file(root.c_str(), "romfs.bin"))
+        fprintf(stderr, "[launcher] removed the old game data image (romfs.bin)\n");
 }
 
 // "" = ready to play, else what is wrong
@@ -246,7 +252,10 @@ static std::string check_game_files(const std::string &root) {
 }
 
 // (runtime/main.c) a plain start goes straight into the game when this is true
-extern "C" bool launcher_game_ready(const char *root) { return check_game_files(root).empty(); }
+extern "C" bool launcher_game_ready(const char *root) {
+    remove_old_image(root);
+    return check_game_files(root).empty();
+}
 
 #ifdef __APPLE__
 // (runtime/main.c) macOS: Option held while the app opens asks for the configuration screen - what "Savage Wind
@@ -257,8 +266,7 @@ extern "C" bool launcher_config_key_held(void) { return (NSEvent.modifierFlags &
 
 // ------------------------------------------------------------------ setup (background thread)
 // The player brings their own game files: a folder holding exefs/ and romfs/. They're copied into the data root (APFS
-// clones / hard links where the file system allows) and the data image the game reads is built from romfs/
-// (runtime/romfs_build.c).
+// clones / hard links where the file system allows); the game reads romfs/ in place (runtime/romfs_image.h).
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 static std::string g_src;           // the picked folder
 static std::string g_job;           // current setup step / result for the status line
@@ -366,16 +374,12 @@ static void find_game(const std::string &dir, int depth, std::string &exefs, std
     for (auto &s : sub) find_game(s, depth + 1, exefs, romfs, unusable);
 }
 
-// progress (the overlay's bar): the romfs copy, then the image build - each about the size of romfs/
+// progress (the overlay's bar): the romfs copy (bytes)
 static std::atomic<unsigned long long> g_done, g_total;
-// The bar: copying and the data image are the first tenth, building the game code (runtime/gamebuild.c) the rest
-static unsigned long long g_phase_base;
+// The bar: copying is the first tenth, building the game code (runtime/gamebuild.c) the rest
 static std::atomic<float> g_build_frac{-1};  // -1: not building
 static bool g_copy_skipped;                  // (only the game code to build: the bar is all of that)
-static void setup_progress(uint64_t done, uint64_t total) {
-    if (!g_total && total) g_total = total + total / 50;  // (the copy's own total; the index after it is quick)
-    g_done = g_phase_base + done;
-}
+static void setup_progress(uint64_t done, uint64_t) { g_done = done; }
 static void build_progress(double f, const char *step) {
     g_build_frac = (float)f;
     static const char *last;
@@ -416,7 +420,7 @@ static void run_precompile(void) {
     atomic_store(&g_pc.cancel, false);
     g_precompiling = true;
     set_job("Precompiling shaders...");
-    bool ok = shader_precompile_run(&g_pc, (g_root + "/romfs.bin").c_str());
+    bool ok = shader_precompile_run(&g_pc, (g_root + "/romfs").c_str());
     g_precompiling = false;
     if (ok) set_job("Shaders precompiled.");
     else if (atomic_load(&g_pc.state) == SP_CANCELLED) set_job("Shader precompilation stopped.");
@@ -463,7 +467,7 @@ static void *extract_thread(void *) {
     pthread_mutex_lock(&g_lock);
     src = g_src;
     pthread_mutex_unlock(&g_lock);
-    g_done = 0, g_total = 0, g_phase_base = 0, g_build_frac = -1, g_copy_skipped = false;
+    g_done = 0, g_total = 0, g_build_frac = -1, g_copy_skipped = false;
     std::string exefs, romfs;
     bool unusable = false;  // (game packages rather than its files)
     if (src.empty() && check_copied_files(g_root).empty()) {  // copied already (an update needs new game code)
@@ -502,21 +506,11 @@ static void *extract_thread(void *) {
         set_job("Clearing the earlier copy...");
         rt_remove_game_files(g_root.c_str());  // (an earlier or interrupted setup's; removes the folder too)
         mkdir(g_root.c_str(), 0755);
-        g_total = 0;  // (set by the copy's first progress: no separate walk to add the sizes up)
+        unsigned long long rbytes = romfs_dir_bytes(romfs.c_str());
+        g_total = rbytes;
         set_job("Copying the game files...");
         if (!romfs_copy_tree(exefs.c_str(), (g_root + "/exefs").c_str(), NULL) ||
             !romfs_copy_tree(romfs.c_str(), (g_root + "/romfs").c_str(), setup_progress)) {
-            set_failure(FAIL_COPY);
-            goto done;
-        }
-        g_phase_base = g_done;
-        set_job("Indexing the game data...");
-        char why[256] = "";
-        // Slop of the Wild: an index (romfs.idx, a few MB) instead of a second 14 GB copy (romfs.bin): the game reads
-        // each file from romfs/ (romfs_build.c romfs_image_*)
-        remove((g_root + "/romfs.bin").c_str());
-        if (!romfs_build_index((g_root + "/romfs").c_str(), (g_root + "/romfs.idx").c_str(), NULL, why, sizeof why)) {
-            fprintf(stderr, "[launcher] romfs image: %s\n", why);
             set_failure(FAIL_COPY);
             goto done;
         }
@@ -975,41 +969,6 @@ static void launcher_fonts_follow_language(void) {
 #endif
 }
 
-// Slop of the Wild: an install from before romfs.idx keeps a 14 GB romfs.bin next to the romfs folder it was built
-// from. The index is built (seconds), checked against the image - same size, same header and tables - and then the
-// image goes. On a thread: the start screen is up meanwhile (the game isn't started before it's done).
-static std::atomic<bool> g_slimming{false};
-static void *slim_thread(void *) {
-    std::string bin = g_root + "/romfs.bin", idx = g_root + "/romfs.idx", tmp = g_root + "/romfs.idx.new";
-    char why[256] = "";
-    bool ok = romfs_build_index((g_root + "/romfs").c_str(), tmp.c_str(), NULL, why, sizeof why);
-    if (ok) {
-        rename(tmp.c_str(), idx.c_str());  // (romfs_image_open prefers romfs.bin while it's there)
-        int a = open(bin.c_str(), O_RDONLY | O_BINARY);
-        int b = romfs_index_open(idx.c_str());
-        uint64_t sa = a >= 0 ? romfs_image_size(a) : 0, sb = b >= 0 ? romfs_image_size(b) : 0;
-        ok = a >= 0 && b >= 0 && sa == sb && sa > 0;
-        if (ok) {  // the header and the tables, byte for byte
-            uint64_t h[10];
-            ok = pread(a, h, sizeof h, 0) == (ssize_t)sizeof h;
-            uint64_t from = ok ? h[1] : 0, n = ok ? sa - from : 0;
-            std::vector<uint8_t> x(n + 0x200), y(n + 0x200);
-            ok = ok && n < (256u << 20) && pread(a, x.data(), 0x200, 0) == 0x200 &&
-                 romfs_image_pread(b, y.data(), 0x200, 0) == 0x200 &&
-                 pread(a, x.data() + 0x200, n, (off_t)from) == (ssize_t)n &&
-                 romfs_image_pread(b, y.data() + 0x200, n, from) == (ssize_t)n && x == y;
-        }
-        if (a >= 0) close(a);
-        if (b >= 0) romfs_image_close(b);
-        if (ok) remove(bin.c_str());
-        else remove(idx.c_str());
-    } else
-        remove(tmp.c_str());
-    fprintf(stderr, "[launcher] romfs.bin -> romfs.idx: %s%s\n", ok ? "done, 14 GB freed" : "kept romfs.bin", why[0] ? why : "");
-    g_slimming = false;
-    return NULL;
-}
-
 // mode (runtime/main.c): 0 setup - the game files page alone, the game starts once they're ready; 1 configuration.
 // Returns when the game is to start; QUIT (and closing the setup page) exits.
 static bool g_setup_only;
@@ -1053,13 +1012,8 @@ extern "C" void launcher_run(const char *root, int mode) {
     launcher_pad_open_all();
     io.BackendFlags |= ImGuiBackendFlags_HasGamepad;
     splash_load();
-    if (file_exists(g_root + "/romfs.bin") && is_dir(g_root + "/romfs") && !getenv("SAVAGEWIND_KEEP_ROMFS_BIN")) {
-        g_slimming = true;
-        pthread_t th;
-        pthread_create(&th, NULL, slim_thread, NULL);
-        pthread_detach(th);
-    }
 
+    remove_old_image(g_root);
     std::string status = check_game_files(g_root);
     Page page = status.empty() && !g_setup_only ? MAIN : SETUP;
     set_job("");  // (an earlier visit's result)
@@ -1658,8 +1612,6 @@ extern "C" void launcher_run(const char *root, int mode) {
 #endif
         }
     }
-    // play: hand the window to the game (once a romfs.bin -> romfs.idx switch is through: a few seconds at most)
-    while (g_slimming.load()) SDL_Delay(20);
     settings_save();
     SDL_SetWindowTitle(win, "Slop of the Wild");
     splash_unload();
