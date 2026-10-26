@@ -44,6 +44,7 @@ typedef struct {
     int clarity;         // Cemu's Clarity in place of BOTW's tone map: 0 off, 1 Serfrost, 2 dim, 3 bright display (nvn/vulkan/clarity.c)
     bool fast_path;      // AMD / Intel on Windows: attachment feedback loops on (vulkan/device.c); about 1.6x the frame rate
     int render_scale;    // supersampling: 0 = 100% (the window's size), 1 = 125%, 2 = 150%, 3 = 200% (nvn/output_scale.c)
+    bool frame_gen;      // AMD FSR 3 frame generation: a frame made between each two the game draws (vulkan/framegen.cpp)
     float volume;        // master volume, 1 = 100%
     bool reverb;         // room reverb effect
     bool movie_audio;

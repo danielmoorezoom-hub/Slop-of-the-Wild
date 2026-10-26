@@ -125,6 +125,7 @@ void settings_load(void) {
             int p = atoi(val);
             g_settings.render_scale = p >= 200 ? 3 : p >= 150 ? 2 : p >= 125 ? 1 : 0;
         }
+        else if (!strcmp(key, "frame_generation")) g_settings.frame_gen = atoi(val) != 0;
         else if (!strcmp(key, "sharpening")) {  // (percent, in steps of 10)
             int p = atoi(val);
             g_settings.sharpening = p < 0 ? 0 : p > 50 ? 5 : (p + 5) / 10;  // (at most 50%: CAS halos above)
@@ -253,6 +254,7 @@ void settings_save(void) {
       fprintf(f, "clarity = %s\n", cl[c >= 0 && c < 4 ? c : 0]); }
     { static const int rs[4] = {100, 125, 150, 200}; int r = g_settings.render_scale;
       fprintf(f, "render_scale = %d\n", rs[r >= 0 && r < 4 ? r : 0]); }
+    fprintf(f, "frame_generation = %d\n", g_settings.frame_gen ? 1 : 0);
     fprintf(f, "dpad_move = %d\n", g_settings.dpad_move);
     fprintf(f, "left_stick_deadzone = %.0f\n", g_settings.stick_deadzone[0] * 100);
     fprintf(f, "right_stick_deadzone = %.0f\n", g_settings.stick_deadzone[1] * 100);

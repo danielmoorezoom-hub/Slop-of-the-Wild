@@ -377,6 +377,10 @@ void build_items(void) {
     v.push_back(toggle(P_VIDEO, "AMD fast path", "About 1.6x the frame rate on Radeon. Next start.",
                        [](const Item &) { return (int)g_settings.fast_path; },
                        [](const Item &, int x) { g_settings.fast_path = x; }, 1));
+    // AMD FSR 3 frame generation (vulkan/framegen.cpp)
+    v.push_back(toggle(P_VIDEO, "Frame generation (AMD FSR 3)", "Twice the frames on screen. Adds a little delay.",
+                       [](const Item &) { return (int)g_settings.frame_gen; },
+                       [](const Item &, int x) { g_settings.frame_gen = x; }, 0));
 #endif
     v.push_back(toggle(P_VIDEO, "Asynchronous shaders", "On: no stutter, but some effects appear late.",
                        [](const Item &) { return (int)g_settings.async_shaders; },
