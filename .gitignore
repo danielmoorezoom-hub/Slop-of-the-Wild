@@ -47,3 +47,5 @@ swgame.dll
 swgame.dll.id
 swgame.so
 /sw-*/
+# the player's own colour LUTs (runtime/color_grade.h): in the data root, which is the checkout in a source build
+/luts/
