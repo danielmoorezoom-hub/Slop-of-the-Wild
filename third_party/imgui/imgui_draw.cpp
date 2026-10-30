@@ -4047,6 +4047,9 @@ const char* ImFont::CalcWordWrapPositionA(float scale, const char* text, const c
 
             // Allow wrapping after punctuation.
             inside_word = (c != '.' && c != ',' && c != ';' && c != '!' && c != '?' && c != '\"');
+            // (Slop of the Wild: no break inside a number - "1.8.2", "2,560" - a '.' or ',' followed by a digit)
+            if (!inside_word && (c == '.' || c == ',') && next_s < text_end && *next_s >= '0' && *next_s <= '9')
+                inside_word = true;
         }
         prev_c = c;
 

@@ -17,6 +17,21 @@ smoothness and polish of the [TotK PC recomp](https://github.com/valentderah/tot
 > the game, version 1.9.0 with the update merged, dumped from your own Switch. Even the launcher's background art is
 > not shipped: the game saves it from your own copy's title screen the first time you play.
 
+## Download and install
+
+1. Download **Savage Wind 0.3.1-alpha.3** for Windows from
+   [Savage Wind's releases](https://github.com/Revivedx/SavageWindRecomp/releases/tag/v0.3.1-alpha.3) and extract it
+   to a folder you can write to (not Program Files).
+2. Download **`SlopOfTheWild-0.0-windows.zip`** from [this fork's releases](../../releases) and extract it *into
+   that same folder*, replacing the files it asks about (`savagewind.exe` and the README).
+3. Start `savagewind.exe`. Set up your game files from your own dump (version 1.9.0 with the update merged), then
+   press Play.
+
+Slop of the Wild 0.0 ships as a drop-in update rather than a full package. Savage Wind's release already has the
+parts that don't change (the game code builder, the bundled compiler, the DLLs, the fonts), so they aren't uploaded
+again. Already have Savage Wind 0.3.1-alpha.3 set up? Just do step 2: your game files, saves and settings are kept,
+and the 14 GB `romfs.bin` is replaced by a small index the first time the start screen opens.
+
 Version **0.0**, built on Savage Wind **0.3.1-alpha.3**. Tested on one PC: Windows, AMD Radeon RX 9070 XT
 (driver 26.10.1), 2560 x 1440 at 280 Hz, 12 CPU threads.
 
@@ -58,12 +73,13 @@ and pipeline compiles.
 | **The launcher shows every time** (`main.c`) | A two-step start: Quiver (or the exe) opens the launcher, then Play. `--play` still starts the game straight away. |
 | **Setup lands on the launcher when it finishes**, with a live file counter and a "clearing the earlier copy" step | Setup used to go straight into the game, and it looked frozen while it checked about 41,000 files. |
 | **Game Files page no longer freezes** | It added up the size of all 41,000 files before drawing anything. That now happens on a background thread. |
+| **Text keeps numbers together** (`third_party/imgui/imgui_draw.cpp`) | Wrapped text used to break version numbers in two ("1." on one line, "8.2" on the next). |
 | **Renamed**: title screen "Slop of the Wild 0.0 / a fork of Savage Wind", window titles, menus, error dialogs | The title screen's version text box only holds 15 characters, so the game's line is left blank and the overlay draws ours in its place. The program and settings files keep their names (`savagewind.exe`, `savagewind.ini`) so existing shortcuts and settings keep working. |
 
 ### Not done / known issues
 
 - **Graphics pipeline libraries still crash on AMD** (a GPU page fault at the same address every run). The TotK port uses the same Vulkan feature on the same GPU without trouble, so this is a bug in Savage Wind's code, not the driver. Disabling the guest-memory import and disabling feedback loops each ruled out one cause. Finding the rest needs the Vulkan validation layers. Pipeline libraries stay off on AMD, as in Savage Wind.
-- The "Not version 1.8.2 / 1.9.0" setup message wraps in the middle of a version number.
+- The program icon is still Savage Wind's.
 - A full fresh-install-to-play test was started on the final build and then postponed. Earlier builds passed the same test: setup in about 6 to 7 minutes, then booting and playing.
 - Ideas taken from the TotK port but not built yet: a video-memory mirror of game memory on discrete GPUs, GPU work submitted in parts, smarter skipping of draws whose pipeline is still compiling, and shipped shader seeds. See [SLOP-TODO.md](SLOP-TODO.md).
 

@@ -248,6 +248,8 @@ $(B)/rt/platform/windows_config.o: runtime/platform/windows_config.c
 $(B)/savagewind-config.exe: $(B)/rt/platform/windows_config.o $(B)/rt/platform/windows_rc.o
 	$(CC) -o $@ $^ -fuse-ld=lld -Wl,--subsystem,windows
 
+# Slop of the Wild's own version (VERSION stays Savage Wind's: the game code's id uses it)
+SLOP_VERSION := 0.0
 VERSION  := $(shell sed -n 's/^\#define SAVAGEWIND_VERSION "\(.*\)"/\1/p' runtime/ui/launcher.mm)
 
 # macOS: build/Savage Wind.app, runs on macOS $(APP_MIN)+: the game rebuilt for that in build/mac15 against build/deps
@@ -266,7 +268,7 @@ app:
 dmg: app
 	tools/make_dmg.sh
 
-# Windows: build/dist/SavageWind-<version>-windows.zip, top folder "Savage Wind/": the exe, what the start screen
+# Windows: build/dist/SlopOfTheWild-<version>-windows.zip, top folder "Slop of the Wild/": the exe, what the start screen
 # builds the game code with on the player's machine (make gen-helper, tools/fetch_zig.sh slimmed by
 # tools/zig_slim.sh: its runtime built ahead of time, gamelib-src/, the exe's import library)
 # and the DLLs they load (runs without MSYS2). No game code. The exe is a release build in $(WIN_B):
@@ -275,7 +277,7 @@ dmg: app
 # with build/deps-win/bin first (the FFmpeg DLL names are the same as MSYS2's GPL ones). vulkan-1.dll is left
 # out: every Vulkan driver installs the loader in System32. Saves and game files go next to the exe at run time.
 # Needs: Windows 10+ x64, a Vulkan 1.3 driver, an SSE4.2 CPU (GENARCH_COMPAT x86-64-v2; checked at startup).
-DIST     := build/dist/Savage Wind
+DIST     := build/dist/Slop of the Wild
 WIN_B    := build/win-release
 deps-windows:
 	tools/build_deps_windows.sh
@@ -289,7 +291,7 @@ dist:
 	! nm $(WIN_B)/savagewind.exe | grep ' f_70' >/dev/null  # (no game code inside)
 	rm -rf build/dist && mkdir -p "$(DIST)/gamelib-src"
 	cp $(WIN_B)/savagewind.exe $(WIN_B)/savagewind.dll.a "$(DIST)/"
-	cp $(WIN_B)/savagewind-config.exe "$(DIST)/Savage Wind Configuration.exe"
+	cp $(WIN_B)/savagewind-config.exe "$(DIST)/Slop of the Wild Configuration.exe"
 	tools/zig_slim.sh $(strip $(filter-out -Iruntime,$(GENFLAGS))) \
 	    $(if $(GENFLAGS_COMPAT),-- $(strip $(filter-out -Iruntime,$(GENFLAGS_COMPAT))))  # (zig, its runtime built ahead of time)
 	cp -R build/helper/swgen "$(DIST)/"
@@ -306,9 +308,9 @@ dist:
 	    xargs -I{} cp -u {} "$(DIST)/"
 	! ls "$(DIST)" | grep -iE 'x264|x265|xvid|postproc'  # (no GPL codec libraries in the release)
 	! ls "$(DIST)" | grep -i splash  # (no start screen picture: the player's own, never shipped)
-	cd build/dist && if command -v zip >/dev/null; then zip -qr "SavageWind-$(VERSION)-windows.zip" "Savage Wind"; \
-	    else /c/Windows/System32/tar.exe -a -cf "SavageWind-$(VERSION)-windows.zip" "Savage Wind"; fi
-	@echo "build/dist/SavageWind-$(VERSION)-windows.zip"
+	cd build/dist && if command -v zip >/dev/null; then zip -qr "SlopOfTheWild-$(SLOP_VERSION)-windows.zip" "Slop of the Wild"; \
+	    else /c/Windows/System32/tar.exe -a -cf "SlopOfTheWild-$(SLOP_VERSION)-windows.zip" "Slop of the Wild"; fi
+	@echo "build/dist/SlopOfTheWild-$(SLOP_VERSION)-windows.zip"
 
 # The game code generator as a standalone helper, so players need no Python: build/helper/swgen/ (swgen[.exe] +
 # _internal/), frozen by PyInstaller from tools/swgen.spec in its own venv (build/gen-venv). Shipped as swgen/ next to
