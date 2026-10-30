@@ -22,7 +22,7 @@ enum { SHADOW_CONSOLE = 0, SHADOW_HIGH = 1 /* 2048 */, SHADOW_ULTRA = 2 /* 4096 
 enum { PERF_OFF = 0, PERF_FPS = 1, PERF_FULL = 2 };
 // Frame rate (Video > Frame rate; runtime/hle/framepace.c): frames per second, 0 = no limit. The game's clock is the
 // same at every rate. The console runs the game at 30.
-#define FPS_DEFAULT 120  // (Slop of the Wild; Savage Wind: 60)
+#define FPS_DEFAULT 60  // (until the display is known: settings_fps_for_display)
 #define FPS_CHOICES {0, 30, 60, 90, 120, 144, 165, 240}  // (Slop of the Wild: high refresh displays too; Off is 300)
 // VSync (Video > VSync; runtime/nvn/vulkan/device.c picks the present mode): On waits for the display (FIFO; with
 // G-SYNC / FreeSync the display waits for the game instead), Fast shows the newest frame at each refresh (MAILBOX),
@@ -75,3 +75,5 @@ extern Settings g_settings;
 
 void settings_load(void);
 void settings_save(void);
+
+void settings_fps_for_display(float hz);  // (window_size.c: no frame rate chosen yet -> the display's)

@@ -17,6 +17,20 @@ static const char *settings_file(void) {
     return e && *e ? e : "savagewind.ini";
 }
 
+bool g_fps_chosen;  // the settings file has a frame rate (else it follows the display: settings_fps_for_display)
+
+// Slop of the Wild: with no frame rate chosen yet, the highest offered one the display can show (a 280 Hz display:
+// 240; a 60 Hz one: 60)
+void settings_fps_for_display(float hz) {
+    if (g_fps_chosen || hz < 20) return;
+    static const int fps[] = FPS_CHOICES;
+    int best = 30;
+    for (unsigned i = 1; i < sizeof fps / sizeof fps[0]; i++)
+        if (fps[i] <= hz + 1 && fps[i] > best) best = fps[i];
+    if (g_settings.fps_limit != best) LOG("[settings] frame rate %d (the display's %.0f Hz)\n", best, hz);
+    g_settings.fps_limit = best;
+}
+
 Settings g_settings = {
     .fullscreen = true,  // (window size default: the display's native size)
     .fast_path = true,
@@ -78,7 +92,7 @@ void settings_load(void) {
         else if (!strcmp(key, "movie_audio")) g_settings.movie_audio = atoi(val) != 0;
         else if (!strcmp(key, "show_fps")) g_settings.perf_overlay = atoi(val) ? PERF_FPS : PERF_OFF;  // (older files)
         else if (!strcmp(key, "perf_overlay")) g_settings.perf_overlay = !strcmp(val, "full") ? PERF_FULL : !strcmp(val, "fps") ? PERF_FPS : PERF_OFF;
-        else if (!strcmp(key, "frame_rate")) g_settings.fps_limit = !strcmp(val, "off") ? 0 : atoi(val);  // (fps / off)
+        else if (!strcmp(key, "frame_rate")) g_fps_chosen = true, g_settings.fps_limit = !strcmp(val, "off") ? 0 : atoi(val);  // (fps / off)
         else if (!strcmp(key, "vsync")) {
             for (int i = 0; i < VSYNC_COUNT; i++)
                 if (!strcmp(val, k_vsync[i])) g_settings.vsync = i;
