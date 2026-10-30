@@ -967,8 +967,8 @@ static void tabs_body(float scale, bool in_game, void (*prelaunch)(float)) {
             bool lit = focused_tab == t.id && ImGui::GetCurrentContext()->NavCursorVisible;
             ImGui::PushStyleColor(ImGuiCol_NavCursor, ImVec4(0, 0, 0, 0));
             if (lit) {
-                ImGui::PushStyleColor(ImGuiCol_Tab, ImVec4(0.19f, 0.27f, 0.22f, 1));
-                ImGui::PushStyleColor(ImGuiCol_TabHovered, ImVec4(0.19f, 0.27f, 0.22f, 1));
+                ImGui::PushStyleColor(ImGuiCol_Tab, ImVec4(0.08f, 0.22f, 0.28f, 1));
+                ImGui::PushStyleColor(ImGuiCol_TabHovered, ImVec4(0.08f, 0.22f, 0.28f, 1));
             }
             if (g_focus_tab == -1 && !prelaunch) g_focus_tab = 8;  // (no Prelaunch in game: Controls, the first tab)
             bool focus_here = g_focus_tab == t.id || (g_focus_tab == -100 && t.id == g_tab);
@@ -985,7 +985,7 @@ static void tabs_body(float scale, bool in_game, void (*prelaunch)(float)) {
                 ImVec2 a = ImGui::GetItemRectMin(), b = ImGui::GetItemRectMax();
                 float h = 4 * scale > 2 ? 4 * scale : 2;
                 ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(a.x + 2, b.y - h), ImVec2(b.x - 2, b.y),
-                                                          IM_COL32(236, 194, 84, 255));  // (the menu's gold)
+                                                          IM_COL32(92, 222, 238, 255));  // (the menu accent)
             }
             if (ImGui::IsItemFocused()) focused_tab = t.id;
             else if (focused_tab == t.id) focused_tab = -99;
@@ -1094,10 +1094,10 @@ void menu_render(void *cmd, uint32_t target_w, uint32_t target_h) {
 
     if (g_settings.perf_overlay != PERF_OFF) perf_overlay_draw(io, scale);
     if (title) {  // the title screen's brand, where the game's version line was (fs.c leaves it blank)
-        bool up = tt && SDL_GetTicks() - tt < 300;
+        bool up = tt && SDL_GetTicks() - tt < 300 && !open;  // (hidden under the open menu)
         title_a += ((up ? 1.0f : 0.0f) - title_a) * fminf(1.0f, io.DeltaTime * 6);
         float W = io.DisplaySize.x, H = io.DisplaySize.y, fh = H * 0.0185f, pitch = H * 0.0285f, xr = W * 0.9553f;
-        ImDrawList *dl = ImGui::GetForegroundDrawList();
+        ImDrawList *dl = ImGui::GetBackgroundDrawList();
         ImFont *f1 = g_menu_font_big ? g_menu_font_big : g_font, *f2 = g_menu_font ? g_menu_font : g_font;
         const char *l1 = "Slop of the Wild " SLOP_VERSION, *l2 = "a fork of Savage Wind";
         ImVec2 s1 = f1->CalcTextSizeA(fh, FLT_MAX, 0, l1), s2 = f2->CalcTextSizeA(fh * 0.8f, FLT_MAX, 0, l2);
