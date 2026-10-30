@@ -103,9 +103,22 @@ const char *tr(const char *en) {
     if (!en || !*en) return en;
     std::lock_guard<std::mutex> g(lock);
     refresh();
-    if (by_text.empty()) return en;
-    auto t = by_text.find(std::string_view(en));
-    return t != by_text.end() && t->second && *t->second ? t->second : en;
+    const char *r = en;
+    if (!by_text.empty()) {
+        auto t = by_text.find(std::string_view(en));
+        if (t != by_text.end() && t->second && *t->second) r = t->second;
+    }
+    // Slop of the Wild: the menus' "Savage Wind" is this fork's name (the cached copy stays put: node-based map)
+    if (!strstr(r, "Savage Wind")) return r;
+    static std::unordered_map<std::string, std::string> rebranded;
+    auto it = rebranded.find(r);
+    if (it == rebranded.end()) {
+        std::string x = r;
+        for (size_t at = x.find("Savage Wind"); at != std::string::npos; at = x.find("Savage Wind", at + 16))
+            x.replace(at, 11, "Slop of the Wild");
+        it = rebranded.emplace(r, x).first;
+    }
+    return it->second.c_str();
 }
 
 const char *ui_lang(void) {

@@ -1125,11 +1125,6 @@ extern "C" void launcher_run(const char *root, int mode) {
                     ImU32 a = IM_COL32(3, 10, 18, (int)stops[i][1]), b = IM_COL32(3, 10, 18, (int)stops[i + 1][1]);
                     bg->AddRectFilledMultiColor(ImVec2(ds.x * stops[i][0], 0), ImVec2(ds.x * stops[i + 1][0], ds.y), a, b, b, a);
                 }
-                float y0 = ds.y - 190 * s, y1 = ds.y - 135 * s, y2 = ds.y - 40 * s, y3 = ds.y, x0r = ds.x * 0.5f;
-                ImU32 c0 = IM_COL32(3, 10, 18, 0), c1 = IM_COL32(3, 10, 18, 235);
-                bg->AddRectFilledMultiColor(ImVec2(x0r, y0), ImVec2(ds.x, y1), c0, c0, c1, c0);  // (feathered top)
-                bg->AddRectFilledMultiColor(ImVec2(x0r, y1), ImVec2(ds.x, y2), c0, c1, c1, c0);
-                bg->AddRectFilledMultiColor(ImVec2(x0r, y2), ImVec2(ds.x, y3), c0, c1, c0, c0);  // (feathered bottom)
             }
 
             ImGui::SetNextWindowPos(ImVec2(0, 0));
@@ -1556,13 +1551,13 @@ extern "C" void launcher_run(const char *root, int mode) {
                                                     IM_COL32(255, 255, 255, 255), b ? b + 1 : f);
             }
             }
-            {  // version (lower right), under a shadow banner from the right
+            if (page == MAIN) {  // version (top right; Slop of the Wild: off the art's subject and the other pages)
                 ImDrawList *dl = ImGui::GetWindowDrawList();
                 ImFont *font = ImGui::GetFont();
                 float fs = ImGui::GetFontSize(), right = ImGui::GetWindowPos().x + ds.x - 60 * s;
                 char ver[64];
                 snprintf(ver, sizeof ver, "Slop of the Wild 0.0  \xc2\xb7  Savage Wind %s", SAVAGEWIND_VERSION);
-                float vs = fs * 1.4f, y = ImGui::GetWindowPos().y + ds.y - 134 * s;
+                float vs = fs * 1.0f, y = ImGui::GetWindowPos().y + 40 * s;
                 ImVec2 vsz = font->CalcTextSizeA(vs, FLT_MAX, 0, ver);
                 ImVec2 p(right - vsz.x, y);
                 for (float d : {2.5f, 1.5f, 0.8f}) dl->AddText(font, vs, ImVec2(p.x + d * s, p.y + d * s), IM_COL32(2, 8, 16, 150), ver);
