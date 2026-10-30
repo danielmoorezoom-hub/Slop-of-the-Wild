@@ -23,6 +23,7 @@ bool romfs_build_index(const char *dir, const char *out, void (*progress)(uint64
 // A handle (-1: neither); pread / size / close as for a file descriptor.
 #include <sys/types.h>
 int romfs_image_open(const char *bin_path);
+int romfs_index_open(const char *idx_path);  // (romfs.idx itself, even with a romfs.bin next to it)
 ssize_t romfs_image_pread(int h, void *dst, size_t size, uint64_t off);
 uint64_t romfs_image_size(int h);
 void romfs_image_close(int h);

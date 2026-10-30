@@ -24,6 +24,10 @@
 #include <vector>
 #include <algorithm>
 #include <atomic>
+#include <fcntl.h>
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
 
 #include "i18n.h"
 #include "imgui.h"
@@ -971,6 +975,41 @@ static void launcher_fonts_follow_language(void) {
 #endif
 }
 
+// Slop of the Wild: an install from before romfs.idx keeps a 14 GB romfs.bin next to the romfs folder it was built
+// from. The index is built (seconds), checked against the image - same size, same header and tables - and then the
+// image goes. On a thread: the start screen is up meanwhile (the game isn't started before it's done).
+static std::atomic<bool> g_slimming{false};
+static void *slim_thread(void *) {
+    std::string bin = g_root + "/romfs.bin", idx = g_root + "/romfs.idx", tmp = g_root + "/romfs.idx.new";
+    char why[256] = "";
+    bool ok = romfs_build_index((g_root + "/romfs").c_str(), tmp.c_str(), NULL, why, sizeof why);
+    if (ok) {
+        rename(tmp.c_str(), idx.c_str());  // (romfs_image_open prefers romfs.bin while it's there)
+        int a = open(bin.c_str(), O_RDONLY | O_BINARY);
+        int b = romfs_index_open(idx.c_str());
+        uint64_t sa = a >= 0 ? romfs_image_size(a) : 0, sb = b >= 0 ? romfs_image_size(b) : 0;
+        ok = a >= 0 && b >= 0 && sa == sb && sa > 0;
+        if (ok) {  // the header and the tables, byte for byte
+            uint64_t h[10];
+            ok = pread(a, h, sizeof h, 0) == (ssize_t)sizeof h;
+            uint64_t from = ok ? h[1] : 0, n = ok ? sa - from : 0;
+            std::vector<uint8_t> x(n + 0x200), y(n + 0x200);
+            ok = ok && n < (256u << 20) && pread(a, x.data(), 0x200, 0) == 0x200 &&
+                 romfs_image_pread(b, y.data(), 0x200, 0) == 0x200 &&
+                 pread(a, x.data() + 0x200, n, (off_t)from) == (ssize_t)n &&
+                 romfs_image_pread(b, y.data() + 0x200, n, from) == (ssize_t)n && x == y;
+        }
+        if (a >= 0) close(a);
+        if (b >= 0) romfs_image_close(b);
+        if (ok) remove(bin.c_str());
+        else remove(idx.c_str());
+    } else
+        remove(tmp.c_str());
+    fprintf(stderr, "[launcher] romfs.bin -> romfs.idx: %s%s\n", ok ? "done, 14 GB freed" : "kept romfs.bin", why[0] ? why : "");
+    g_slimming = false;
+    return NULL;
+}
+
 // mode (runtime/main.c): 0 setup - the game files page alone, the game starts once they're ready; 1 configuration.
 // Returns when the game is to start; QUIT (and closing the setup page) exits.
 static bool g_setup_only;
@@ -1014,6 +1053,12 @@ extern "C" void launcher_run(const char *root, int mode) {
     launcher_pad_open_all();
     io.BackendFlags |= ImGuiBackendFlags_HasGamepad;
     splash_load();
+    if (file_exists(g_root + "/romfs.bin") && is_dir(g_root + "/romfs") && !getenv("SAVAGEWIND_KEEP_ROMFS_BIN")) {
+        g_slimming = true;
+        pthread_t th;
+        pthread_create(&th, NULL, slim_thread, NULL);
+        pthread_detach(th);
+    }
 
     std::string status = check_game_files(g_root);
     Page page = status.empty() && !g_setup_only ? MAIN : SETUP;
@@ -1613,7 +1658,8 @@ extern "C" void launcher_run(const char *root, int mode) {
 #endif
         }
     }
-    // play: hand the window to the game
+    // play: hand the window to the game (once a romfs.bin -> romfs.idx switch is through: a few seconds at most)
+    while (g_slimming.load()) SDL_Delay(20);
     settings_save();
     SDL_SetWindowTitle(win, "Slop of the Wild");
     splash_unload();

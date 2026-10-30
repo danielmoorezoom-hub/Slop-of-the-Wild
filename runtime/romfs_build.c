@@ -376,6 +376,8 @@ int romfs_image_open(const char *bin_path) {
     return vimg_open(idx);
 }
 
+int romfs_index_open(const char *idx_path) { return vimg_open(idx_path); }
+
 static VImg *vimg(int h) { return h >= VBASE && h < VBASE + NVIMG && g_vimg[h - VBASE].used ? &g_vimg[h - VBASE] : NULL; }
 
 ssize_t romfs_image_pread(int h, void *dst, size_t size, uint64_t off) {
