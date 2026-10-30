@@ -100,7 +100,7 @@ static void log_to_file_without_terminal(void) {
 static void require_cpu(void) {
     const char *need = gamelib_cpu_problem();
     if (!need) return;
-    fprintf(stderr, "FATAL: Savage Wind needs %s.\n", need);
+    fprintf(stderr, "FATAL: Slop of the Wild needs %s.\n", need);
     exit(1);
 }
 
@@ -156,8 +156,8 @@ void plat_fatal_notice(void) {
     if (!g_log_path[0]) return;
     fflush(stderr);
     char text[1200];
-    snprintf(text, sizeof text, "Savage Wind stopped because of an error.\n\nDetails: %s", g_log_path);
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Savage Wind", text, NULL);
+    snprintf(text, sizeof text, "Slop of the Wild stopped because of an error.\n\nDetails: %s", g_log_path);
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Slop of the Wild", text, NULL);
 }
 
 const char *rt_host_fn_name(uint64_t pc, uint64_t *offset);  // runtime/dispatch.c

@@ -307,7 +307,7 @@ bool gamebuild_run(const char *game_dir, const GameBuildOpts *o, char *why, size
     if (!registered) registered = true, atexit(end_all);
     Tools t;
     if (!find_tools(&t)) {
-        snprintf(why, why_size, "the game code builder is missing from this copy of Savage Wind");
+        snprintf(why, why_size, "the game code builder is missing from this copy of Slop of the Wild");
         return false;
     }
     char work[1100], lib[1100], tmp[1100];

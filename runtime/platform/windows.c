@@ -159,8 +159,8 @@ static void require_cpu(void) {
     const char *need = gamelib_cpu_problem();
     if (!need) return;
     char text[256];
-    snprintf(text, sizeof text, "Savage Wind needs %s.", need);
-    MessageBoxA(NULL, text, "Savage Wind", MB_ICONERROR | MB_OK);
+    snprintf(text, sizeof text, "Slop of the Wild needs %s.", need);
+    MessageBoxA(NULL, text, "Slop of the Wild", MB_ICONERROR | MB_OK);
     ExitProcess(1);
 }
 
@@ -168,7 +168,7 @@ static void require_cpu(void) {
 void plat_fatal_notice(void) {
     if (!g_log_path[0]) return;
     fflush(stderr);
-    char text[1024] = "Savage Wind stopped because of an error.";
+    char text[1024] = "Slop of the Wild stopped because of an error.";
     FILE *f = fopen(g_log_path, "rb");
     if (f) {
         static char tail[16384];
@@ -184,23 +184,23 @@ void plat_fatal_notice(void) {
         if (line) {
             char *end = strchr(line, '\n');
             if (end) *end = 0;
-            snprintf(text, sizeof text, "Savage Wind stopped because of an error:\n\n%.600s", line);
+            snprintf(text, sizeof text, "Slop of the Wild stopped because of an error:\n\n%.600s", line);
             if (strstr(line, "device lost")) {
                 size_t l = strlen(text);
                 snprintf(text + l, sizeof text - l, "\n\nThe graphics driver reset the GPU. Usually a frame took it too long "
                          "(Windows resets a GPU after 2 seconds) or it ran out of video memory. Lower Video > Upscaler "
                          "quality and Shadow resolution, close other programs and update the driver; on a laptop, run "
-                         "Savage Wind on the dedicated GPU.");
+                         "Slop of the Wild on the dedicated GPU.");
             } else if (strstr(line, "Vulkan") || strstr(line, "VK_") || strstr(line, "vk")) {
                 size_t l = strlen(text);
-                snprintf(text + l, sizeof text - l, "\n\nSavage Wind needs a graphics driver with Vulkan 1.3: install the "
+                snprintf(text + l, sizeof text - l, "\n\nSlop of the Wild needs a graphics driver with Vulkan 1.3: install the "
                          "latest driver for your GPU (NVIDIA, AMD or Intel).");
             }
         }
     }
     size_t l = strlen(text);
     snprintf(text + l, sizeof text - l, "\n\nDetails: %s", g_log_path);
-    MessageBoxA(NULL, text, "Savage Wind", MB_ICONERROR | MB_OK);
+    MessageBoxA(NULL, text, "Slop of the Wild", MB_ICONERROR | MB_OK);
 }
 
 void plat_init(void) {
