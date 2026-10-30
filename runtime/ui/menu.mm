@@ -78,9 +78,20 @@ extern "C" void menu_test_open(void) {
 
 void menu_tabs_focus(bool first_tab);
 static float g_open_a;  // the menu's fade / rise in (0..1)
+// Slop of the Wild: the game keeps running under the overlay (it only loses the controls), so opening it in play
+// presses the game's Plus - its pause menu - and closing it presses Plus again. Not on the title screen (the overlay
+// stands alone there) and not while a movie plays (Plus asks to skip it).
+extern "C" volatile int g_inject_plus, g_movie_playing;  // runtime/hle/input.c, movie.c
+static bool g_paused_game;
 static void set_open(bool open) {
     if (open == g_open.load()) return;
     if (open) g_open_a = 0;
+    {
+        uint64_t tt = g_title_tick.load();
+        bool title = tt && SDL_GetTicks() - tt < 1000;
+        if (open && !title && !g_movie_playing && !getenv("SAVAGEWIND_MENU_NO_PAUSE")) g_inject_plus = 1, g_paused_game = true;
+        else if (!open && g_paused_game) g_inject_plus = 1, g_paused_game = false;
+    }
     g_open.store(open);
     input_reset();  // nothing held while the menu had focus leaks into the game
     bind_capture_cancel();
