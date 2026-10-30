@@ -610,12 +610,12 @@ static void tab_display(void) {
                          "scaling. MetalFX: Apple's upscaler, sharper.\n\nRendering below the window's size (the modes "
                          "below) is coming in a later version.";
 #else
-        const char *ups[] = {"Off", "AMD FSR 1", fsr3.c_str(), dlss.c_str()};
-        static const int ups_value[] = {UPSCALE_OFF, UPSCALE_FSR1, UPSCALE_FSR3, UPSCALE_DLSS};
+        const char *ups[] = {"Off", "AMD FSR 1"};  // (FSR 3 / DLSS: not implemented, not listed)
+        static const int ups_value[] = {UPSCALE_OFF, UPSCALE_FSR1};
+        (void)fsr3; (void)dlss;
         const char *ud = "Off: the 3D image renders at the window's resolution. AMD FSR 1: it renders smaller (the mode "
                          "below), then FSR 1's edge-aware upscaling and sharpening bring it to the window. The HUD and "
-                         "menus always render at the window's resolution.\n\nAMD FSR 3 and NVIDIA DLSS (NVIDIA RTX "
-                         "graphics cards) are coming in a later version.";
+                         "menus always render at the window's resolution.";
 #endif
         enum { NU = sizeof ups_value / sizeof ups_value[0] };
         bool avail[NU];
@@ -629,7 +629,7 @@ static void tab_display(void) {
         for (int i = 0; i < NU; i++) if (ups_value[i] == UPSCALE_DEFAULT) udef = i;
         if (opt_choice_avail("Upscaler", &ui, &shown, ups, avail, NU, udef, ud)) g_settings.upscaler = ups_value[ui];
         // its mode (AMD's scale factors), one step in; greyed when the upscaler is off
-        static const char *const modes[] = {"Ultra Quality", "Quality", "Balanced", "Performance"};
+        static const char *const modes[] = {"Ultra Quality", "Quality", "Balanced", "Performance"};  // (the last two not offered)
         bool modes_ok = upscale_modes_available();
         std::string mode_names[UPQ_COUNT];
         const char *mn[UPQ_COUNT];
@@ -644,13 +644,12 @@ static void tab_display(void) {
         char rendering[100];
         snprintf(rendering, sizeof rendering, tr("Rendering at %.0f x %.0f."), 1600.0 * sx, 900.0 * sy);
         std::string md = std::string(tr("How much smaller the game renders before the upscaler brings it to the window, "
-                                        "on each side: Ultra Quality 1.3x, Quality 1.5x, Balanced 1.7x, Performance "
-                                        "2x. Smaller is faster and softer.")) +
+                                        "on each side: Ultra Quality 1.3x, Quality 1.5x. Smaller is faster and softer.")) +
                          "\n\n" + (modes_ok ? rendering : tr("Coming in a later version."));
         opt_indent(1);
         if (g_settings.upscaler == UPSCALE_OFF) opt_disable_next();
         static int mshown = -1;
-        opt_choice_avail("Upscaler mode", &g_settings.upscale_quality, &mshown, mn, mavail, UPQ_COUNT, UPQ_QUALITY,
+        opt_choice_avail("Upscaler mode", &g_settings.upscale_quality, &mshown, mn, mavail, UPQ_QUALITY + 1, UPQ_QUALITY,
                          md.c_str());
         opt_indent(-1);
     }
@@ -665,13 +664,18 @@ static void tab_display(void) {
                    "Keeps the textures of ground, paths and walls sharp where you look along them into the distance. "
                    "Off: the game's own filtering, as on the console. 16x is the sharpest and costs very little on a PC "
                    "graphics card.", false);
+        static const char *const clar[] = {"Off", "Serfrost", "Serfrost (dim display)", "Serfrost (bright display)"};
+        opt_choice("Clarity", &g_settings.clarity, clar, 4, 0,
+                   "Cemu's Clarity for Breath of the Wild (graphic packs, presets by Serfrost) in place of the game's own "
+                   "tone mapping: less bloom and haze, deeper blacks, richer color. Takes effect the next time the game "
+                   "starts.", false);
         static const char *const rscale[] = {"100%", "125%", "150%", "200%"};
         opt_choice("Render scale", &g_settings.render_scale, rscale, 4, 0,
                    "Supersampling: above 100% the game renders at a higher resolution than the window and is scaled "
                    "down to it, the cleanest way to smooth edges and shimmer. 200% is 4x the pixels: for fast "
                    "graphics cards.", false);
-        static const char *const sharp[] = {"Off", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%"};
-        opt_choice("Sharpening (AMD CAS)", &g_settings.sharpening, sharp, 11, 0,
+        static const char *const sharp[] = {"Off", "10%", "20%", "30%", "40%", "50%"};  // (CAS halos above 50%)
+        opt_choice("Sharpening (AMD CAS)", &g_settings.sharpening, sharp, 6, 0,
                    "AMD FidelityFX CAS sharpens the 3D image after the upscaler (or at the window's resolution with the "
                    "upscaler off), before the HUD is drawn over it: edges get crisper without halos. Most useful with "
                    "AMD FSR 1.", false);

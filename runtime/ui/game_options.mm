@@ -124,7 +124,7 @@ const char *const k_perf[] = {"Off", "FPS", "Full"};
 #ifdef __APPLE__
 const int k_ups_value[] = {UPSCALE_OFF, UPSCALE_METALFX};
 #else
-const int k_ups_value[] = {UPSCALE_OFF, UPSCALE_FSR1, UPSCALE_FSR3, UPSCALE_DLSS};
+const int k_ups_value[] = {UPSCALE_OFF, UPSCALE_FSR1};  // (FSR 3 / DLSS: not implemented, not listed)
 #endif
 #ifdef __APPLE__
 const int UPS_DEFAULT = 1;  // (UPSCALE_DEFAULT: MetalFX)
@@ -133,7 +133,7 @@ const int UPS_DEFAULT = 0;  // (UPSCALE_DEFAULT: Off, the window's resolution)
 #endif
 std::vector<int> g_shown;   // per item: the value shown instead of get(), one that can't be picked yet (-1: none)
 const char16_t GREY = 3;    // (the game's message colour for greyed values)
-const char *const k_modes[] = {"Ultra Quality", "Quality", "Balanced", "Performance"};
+const char *const k_modes[] = {"Ultra Quality", "Quality"};  // (Balanced / Performance: removed, too soft)
 const char *const k_aa[] = {"Off", "SMAA"};
 const char *const k_aniso[] = {"Off", "2x", "4x", "8x", "16x"};  // (settings anisotropy 0..4)
 const char *const k_shadow[] = {"Console (896)", "High (2048)", "Ultra (4096)", "Extreme (8192)"};  // (SHADOW_*)
@@ -344,7 +344,7 @@ void build_items(void) {
     mode.value_off = [](const Item &, int) { return !upscale_modes_available(); };
     mode.desc_fn = [](const Item &) {
         // (one line: the game's description pane is one English line wide)
-        return upscale_modes_available() ? tr("Ultra Quality is the sharpest, Performance the fastest.")
+        return upscale_modes_available() ? tr("Ultra Quality is the sharpest, Quality a little faster.")
                                          : tr("Renders smaller, then upscales. Coming in a later version.");
     };
     v.push_back(mode);
@@ -359,13 +359,18 @@ void build_items(void) {
                        [](const Item &, int x) { return x ? k_aniso[x] : tr("Off"); },
                        [](const Item &) { return g_settings.anisotropy; },
                        [](const Item &, int x) { g_settings.anisotropy = x; }, 0));
+    v.push_back(choice(P_VIDEO, "Clarity", "Cemu's Clarity look: less haze and bloom, richer color. Next start.",
+                       [](const Item &) { return 4; },
+                       [](const Item &, int x) { static const char *const c[] = {"Off", "Serfrost", "Serfrost (dim display)", "Serfrost (bright display)"}; return x ? c[x] : tr("Off"); },
+                       [](const Item &) { return g_settings.clarity; },
+                       [](const Item &, int x) { g_settings.clarity = x; }, 0));
     v.push_back(choice(P_VIDEO, "Render scale", "Above 100%: renders bigger, then shrinks to the window. Smoothest edges.",
                        [](const Item &) { return 4; },
                        [](const Item &, int x) { static const char *const r[] = {"100%", "125%", "150%", "200%"}; return r[x]; },
                        [](const Item &) { return g_settings.render_scale; },
                        [](const Item &, int x) { g_settings.render_scale = x; }, 0));
     v.push_back(choice(P_VIDEO, "Sharpening (AMD CAS)", "Sharpens the 3D image, not the HUD. Most useful with FSR 1.",
-                       [](const Item &) { return 11; },
+                       [](const Item &) { return 6; },  // (Off .. 50%: CAS halos above)
                        [](const Item &, int x) {
                            static std::string s;
                            s = x ? pct(x * 10) : std::string(tr("Off"));

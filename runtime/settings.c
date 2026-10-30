@@ -85,6 +85,7 @@ void settings_load(void) {
         else if (!strcmp(key, "upscaler_quality")) {
             for (int i = 0; i < UPQ_COUNT; i++)
                 if (!strcmp(val, k_quality[i])) g_settings.upscale_quality = i;
+            if (g_settings.upscale_quality > UPQ_QUALITY) g_settings.upscale_quality = UPQ_QUALITY;  // (Balanced / Performance: removed, too soft)
         }
         else if (!strcmp(key, "window_size")) {  // (WxH in pixels, or default)
             int w = 0, h = 0;
@@ -96,13 +97,15 @@ void settings_load(void) {
             int a = atoi(val);
             g_settings.anisotropy = a >= 16 ? 4 : a >= 8 ? 3 : a >= 4 ? 2 : a >= 2 ? 1 : 0;
         }
+        else if (!strcmp(key, "clarity"))  // (off, serfrost, serfrost_dim, serfrost_bright)
+            g_settings.clarity = !strcmp(val, "serfrost") ? 1 : !strcmp(val, "serfrost_dim") ? 2 : !strcmp(val, "serfrost_bright") ? 3 : 0;
         else if (!strcmp(key, "render_scale")) {  // (percent: 100, 125, 150, 200)
             int p = atoi(val);
             g_settings.render_scale = p >= 200 ? 3 : p >= 150 ? 2 : p >= 125 ? 1 : 0;
         }
         else if (!strcmp(key, "sharpening")) {  // (percent, in steps of 10)
             int p = atoi(val);
-            g_settings.sharpening = p < 0 ? 0 : p > 100 ? 10 : (p + 5) / 10;
+            g_settings.sharpening = p < 0 ? 0 : p > 50 ? 5 : (p + 5) / 10;  // (at most 50%: CAS halos above)
         }
         else if (!strcmp(key, "dpad_move")) g_settings.dpad_move = atoi(val) != 0;
         else if (!strcmp(key, "left_stick_deadzone")) g_settings.stick_deadzone[0] = (float)atof(val) / 100;  // (percent)
@@ -209,6 +212,8 @@ void settings_save(void) {
     if (an >= 1 && an <= 4) fprintf(f, "anisotropy = %dx\n", 1 << an);
     else fprintf(f, "anisotropy = game\n");
     fprintf(f, "sharpening = %d\n", g_settings.sharpening * 10);
+    { static const char *const cl[4] = {"off", "serfrost", "serfrost_dim", "serfrost_bright"}; int c = g_settings.clarity;
+      fprintf(f, "clarity = %s\n", cl[c >= 0 && c < 4 ? c : 0]); }
     { static const int rs[4] = {100, 125, 150, 200}; int r = g_settings.render_scale;
       fprintf(f, "render_scale = %d\n", rs[r >= 0 && r < 4 ? r : 0]); }
     fprintf(f, "dpad_move = %d\n", g_settings.dpad_move);

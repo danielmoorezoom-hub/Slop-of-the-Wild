@@ -180,7 +180,9 @@ static void strip_names(uint32_t *spv, size_t *nwords) {
     *nwords = o;
 }
 
+extern const char *vk_clarity_override(const char *src, int stage);  // (clarity.c)
 uint32_t *vk_glsl_to_spirv(const char *src, int stage, const char *name, size_t *nwords) {
+    src = vk_clarity_override(src, stage);
     uint64_t h = src_hash(src, stage);
     static int nocache = -1;
     if (nocache < 0) nocache = getenv("SAVAGEWIND_VK_NO_SPIRV_CACHE") != NULL;
