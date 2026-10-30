@@ -1,3 +1,5 @@
+> This is Savage Wind's own README, kept for reference. Slop of the Wild's is [../README.md](../README.md).
+
 # Savage Wind Recomp
 
 > [!IMPORTANT]
@@ -23,7 +25,7 @@ mouse, and its text and voices in any of its languages.
 > **Want to contribute? Look at the [`test`](https://github.com/Revivedx/SavageWindRecomp/tree/test) branch first.**
 > It has every change that is implemented and being tested, ahead of the latest release, so you don't start on
 > something that's already done or in progress. Base your work on `test` and open pull requests against it: `main`
-> only moves for a release. See [CONTRIBUTING.md](CONTRIBUTING.md).
+> only moves for a release. See [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 > [!NOTE]
 > **No game files are included.** Savage Wind Recomp needs your own legally obtained copy of the game, updated to
@@ -41,9 +43,9 @@ mouse, and its text and voices in any of its languages.
      NVIDIA it runs exactly as 0.3.0.
    - **Linux (x86-64, Steam Deck too):** `Savage_Wind-0.3.0-alpha.3-x86_64.AppImage`. Make it executable
      (`chmod +x`) and run it; your game files, saves and settings go to `~/.local/share/savagewind`. See
-     [docs/linux.md](docs/linux.md).
+     [docs/linux.md](linux.md).
    - **Linux on ARM (aarch64):** `Savage_Wind-0.3.0-alpha.3-aarch64.AppImage` is **highly experimental**: it has
-     never run on real ARM hardware. Reports from real hardware are welcome ([docs/linux.md](docs/linux.md),
+     never run on real ARM hardware. Reports from real hardware are welcome ([docs/linux.md](linux.md),
      "Testing on ARM").
 2. Run `savagewind.exe` (or the AppImage). The first time it asks for your game files: pick the folder with your own
    extracted game (`exefs/` and `romfs/`, version 1.9.0, see below) and choose **Set up game files**. It checks the
@@ -59,7 +61,7 @@ mouse, and its text and voices in any of its languages.
 
 Coming from Alpha 2: extract Alpha 3 to a new folder and set the game files up again with your 1.9.0 files (the game
 code has to be built again); copy your `save` folder over to keep your progress. What's new is in
-[CHANGELOG.md](CHANGELOG.md).
+[CHANGELOG.md](../CHANGELOG.md).
 
 The setup and configuration screens show Savage Wind's own art. To see a picture of your own there instead, put it
 next to `savagewind.exe` (on Linux, in the data folder) as `splash.jpg` or `splash.png`; it's only read from your folder and never part of
@@ -170,7 +172,7 @@ overlay (off, FPS, full).
 
 ### Windows
 
-More detail in [docs/BUILD-windows.md](docs/BUILD-windows.md).
+More detail in [docs/BUILD-windows.md](BUILD-windows.md).
 
 1. One-time setup, in PowerShell from the repository root:
    `powershell -ExecutionPolicy Bypass -File tools\setup_windows.ps1`.
@@ -186,11 +188,11 @@ More detail in [docs/BUILD-windows.md](docs/BUILD-windows.md).
 
 ### Linux
 
-See [docs/linux.md](docs/linux.md): the same steps with the distribution's clang, SDL 3, FFmpeg, shaderc and Vulkan
+See [docs/linux.md](linux.md): the same steps with the distribution's clang, SDL 3, FFmpeg, shaderc and Vulkan
 Memory Allocator (`build/savagewind`, `build/swgame.so`).
 
 Developer notes (in Spanish) - what was changed from LAS Recomp, how the boot got this far, and the debugging
-switches - are in [docs/SAVAGE-WIND.md](docs/SAVAGE-WIND.md).
+switches - are in [docs/SAVAGE-WIND.md](SAVAGE-WIND.md).
 
 ## Respect copyright
 
@@ -228,7 +230,7 @@ switches - are in [docs/SAVAGE-WIND.md](docs/SAVAGE-WIND.md).
 
 ## License
 
-Savage Wind Recomp's own code is open source under the [MIT License](LICENSE), as is LAS Recomp's, on which it
+Savage Wind Recomp's own code is open source under the [MIT License](../LICENSE), as is LAS Recomp's, on which it
 builds. Third-party components in `third_party/` keep their own licenses. The license covers this project's code
 only: it grants nothing for Nintendo's game, which you must supply yourself.
 
@@ -236,7 +238,7 @@ The Windows release zip also bundles, unchanged unless noted, under their own li
 
 - FFmpeg 9.0.2 (libavcodec, libavformat, libavutil, libswscale), LGPL 2.1 or later: built from the official
   [source](https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz) as LGPL only, without GPL or nonfree parts, by
-  [tools/build_deps_windows.sh](tools/build_deps_windows.sh). They are separate DLLs: you can replace them with your
+  [tools/build_deps_windows.sh](../tools/build_deps_windows.sh). They are separate DLLs: you can replace them with your
   own build of the same version.
 - From [MSYS2](https://packages.msys2.org) (UCRT64, sources there): SDL 3.4.18 (zlib), shaderc 2026.4 (Apache 2.0),
   libiconv 1.19 (LGPL 2.1 or later), the GCC 16.2 runtime (libgcc, libstdc++: GPL 3 with the GCC Runtime Library
