@@ -378,6 +378,11 @@ VkDescriptorSet vk_alloc_set(VkDescriptorSetLayout layout) {
         VkDescriptorSet set;
         VkResult r = vkAllocateDescriptorSets(g_vk.dev, &ai, &set);
         if (r == VK_SUCCESS) return set;
+        {   // (diagnostics: AMD with pipeline libraries went through every pool and died creating more)
+            static int logged;
+            if (logged++ < 8) LOG("[vk] descriptor set allocation failed: %d (pool %d of %d, layout %p)\n", r, s->cur_pool,
+                                  s->npools, (void *)layout);
+        }
         s->cur_pool++;
     }
 }
