@@ -15,6 +15,18 @@ extern "C" {
 bool romfs_build(const char *dir, const char *out, void (*progress)(uint64_t done, uint64_t total), char *why,
                  size_t why_size);
 
+// Slop of the Wild: the same image's header and tables alone (romfs.idx, a few MB); the data is read from the folder
+bool romfs_build_index(const char *dir, const char *out, void (*progress)(uint64_t done, uint64_t total), char *why,
+                       size_t why_size);
+
+// Reading an image: bin_path ("<root>/romfs.bin") itself, else <root>/romfs.idx with the data from <root>/romfs/.
+// A handle (-1: neither); pread / size / close as for a file descriptor.
+#include <sys/types.h>
+int romfs_image_open(const char *bin_path);
+ssize_t romfs_image_pread(int h, void *dst, size_t size, uint64_t off);
+uint64_t romfs_image_size(int h);
+void romfs_image_close(int h);
+
 // Bytes of file data under dir (the image is about this plus its tables).
 uint64_t romfs_dir_bytes(const char *dir);
 

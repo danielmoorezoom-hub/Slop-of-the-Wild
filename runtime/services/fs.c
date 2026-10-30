@@ -13,6 +13,7 @@
 #include <zlib.h>
 
 #include "../game_sites.h"
+#include "../romfs_build.h"
 #include "../hle.h"
 #include "../ipc.h"
 #include "../language.h"
@@ -60,7 +61,7 @@ RT_ON_RESET(fs_reset) {
     ov_meta = NULL, ov_meta_off = ov_meta_size = ov_end = 0;
     npatches = 0;
     rom_files = NULL, rom_nfiles = 0, rom_data_off = 0;
-    if (romfs_fd >= 0) close(romfs_fd);
+    if (romfs_fd >= 0) romfs_image_close(romfs_fd);
     romfs_fd = -1;
     g_save_dir = "save";
 }
@@ -176,11 +177,11 @@ static void add_new_files(int fd, const uint64_t *h, const uint8_t *dmeta, uint6
     uint64_t hoff = h[5], hsz = h[6];
     uint8_t *dcopy = malloc(dsz), *hcopy = malloc(hsz), *head = malloc(0x50);
     memcpy(dcopy, dmeta, dsz);
-    if (pread(fd, hcopy, hsz, (off_t)hoff) != (ssize_t)hsz || pread(fd, head, 0x50, 0) != 0x50) return;
+    if (romfs_image_pread(fd, hcopy, hsz, (off_t)hoff) != (ssize_t)hsz || romfs_image_pread(fd, head, 0x50, 0) != 0x50) return;
     // the file-meta table to extend: the override-patched copy if there is one
     const uint8_t *base_meta = ov_meta;
     uint8_t *tmp = NULL;
-    if (!base_meta) { tmp = malloc(fsz); pread(fd, tmp, fsz, (off_t)h[7]); base_meta = tmp; }
+    if (!base_meta) { tmp = malloc(fsz); romfs_image_pread(fd, tmp, fsz, (off_t)h[7]); base_meta = tmp; }
     uint64_t extra = 0;
     for (int i = 0; i < n; i++) {
         const char *name = strrchr(nf[i].rel, '/');
@@ -192,9 +193,7 @@ static void add_new_files(int fd, const uint64_t *h, const uint8_t *dmeta, uint6
     memcpy(meta, base_meta, fsz);
     free(tmp);
     if (!ov_end) {
-        struct stat rs;
-        fstat(fd, &rs);
-        ov_end = (rs.st_size + 0xF) & ~0xFull;
+        ov_end = (romfs_image_size(fd) + 0xF) & ~0xFull;
     }
     uint64_t meta_at = ov_end;  // the new table first, then the new files' data
     uint64_t data_at = (meta_at + nsz + 0xF) & ~0xFull;
@@ -252,9 +251,7 @@ static uint8_t *meta_copy(int fd, const uint8_t *fmeta, uint64_t foff, uint64_t 
         memcpy(ov_meta, fmeta, fsz);
         ov_meta_off = foff;
         ov_meta_size = fsz;
-        struct stat rs;
-        fstat(fd, &rs);
-        ov_end = (rs.st_size + 0xF) & ~0xFull;
+        ov_end = (romfs_image_size(fd) + 0xF) & ~0xFull;
     }
     return ov_meta;
 }
@@ -357,7 +354,7 @@ static void rstb_patch(int fd, const uint8_t *fmeta, uint64_t foff, uint64_t fsz
     }
     size_t zn = rom_files[k].size, n = 0;
     uint8_t *z = malloc(zn), *d = NULL;
-    if (pread(fd, z, zn, (off_t)rom_files[k].off) == (ssize_t)zn) d = yaz0_unpack(z, zn, &n);
+    if (romfs_image_pread(fd, z, zn, (off_t)rom_files[k].off) == (ssize_t)zn) d = yaz0_unpack(z, zn, &n);
     free(z);
     uint32_t ncrc = 0, nname = 0;
     if (d && n >= 12) memcpy(&ncrc, d + 4, 4), memcpy(&nname, d + 8, 4);
@@ -406,12 +403,12 @@ static void rstb_patch(int fd, const uint8_t *fmeta, uint64_t foff, uint64_t fsz
 
 static void rom_index(int fd) {
     uint64_t h[10];
-    if (pread(fd, h, sizeof h, 0) != (ssize_t)sizeof h) return;
+    if (romfs_image_pread(fd, h, sizeof h, 0) != (ssize_t)sizeof h) return;
     // header: size, dir hash (off,size), dir meta (off,size), file hash (off,size), file meta (off,size), data off
     uint64_t doff = h[3], dsz = h[4], foff = h[7], fsz = h[8];
     rom_data_off = h[9];
     uint8_t *dmeta = malloc(dsz), *fmeta = malloc(fsz);
-    if (pread(fd, dmeta, dsz, (off_t)doff) != (ssize_t)dsz || pread(fd, fmeta, fsz, (off_t)foff) != (ssize_t)fsz) return;
+    if (romfs_image_pread(fd, dmeta, dsz, (off_t)doff) != (ssize_t)dsz || romfs_image_pread(fd, fmeta, fsz, (off_t)foff) != (ssize_t)fsz) return;
     int cap = 4096;
     rom_files = malloc(sizeof(RomFile) * cap);
     for (uint64_t o = 0; o + 0x20 <= fsz;) {
@@ -500,7 +497,7 @@ void fs_title_version_patch(void) {
 
 // Virtual RomFS image read: original bytes, with the patched file table and appended replacement files.
 static ssize_t romfs_read(int fd, uint8_t *dst, uint64_t size, uint64_t off) {
-    if (!ov_n && !npatches) return pread(fd, dst, size, (off_t)off);
+    if (!ov_n && !npatches) return romfs_image_pread(fd, dst, size, (off_t)off);
     uint64_t done = 0;
     while (done < size) {
         uint64_t o = off + done, n = size - done;
@@ -522,7 +519,7 @@ static ssize_t romfs_read(int fd, uint8_t *dst, uint64_t size, uint64_t off) {
             if ((uint64_t)r < n) memset(dst + done + r, 0, n - r);
         } else {
             if (ov_n && o + n > ov[0].start) n = ov[0].start - o;
-            ssize_t r = pread(fd, dst + done, n, (off_t)o);
+            ssize_t r = romfs_image_pread(fd, dst + done, n, (off_t)o);
             if (r < 0) r = 0;
             if ((uint64_t)r < n) memset(dst + done + r, 0, n - r);
             // overlay the patched tables (file meta, and with added files: header, dir meta, file hash)
@@ -586,15 +583,13 @@ static Service *open_romfs_storage(void) {
     if (romfs_fd < 0) {
         char path[1024];
         snprintf(path, sizeof path, "%s.bin", g_romfs_dir);  // extracted/romfs.bin
-        romfs_fd = open(path, O_RDONLY);
+        romfs_fd = romfs_image_open(path);  // (romfs.bin, else romfs.idx and the romfs folder: romfs_build.c)
         if (romfs_fd < 0) FATAL("cannot open %s (set up the game files on the start screen)\n", path);
         rom_index(romfs_fd);
     }
     Storage *st = calloc(1, sizeof *st);
     st->fd = romfs_fd;
-    struct stat sb;
-    fstat(romfs_fd, &sb);
-    st->size = sb.st_size;
+    st->size = romfs_image_size(romfs_fd);
     return service_new("IStorage(romfs)", storage, st);
 }
 

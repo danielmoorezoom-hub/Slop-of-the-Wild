@@ -147,7 +147,8 @@ static bool copy_data(FILE *out, const char *path, uint64_t size, uint8_t *buf, 
     return true;
 }
 
-bool romfs_build(const char *dir, const char *out_path, void (*progress)(uint64_t, uint64_t), char *why, size_t why_size) {
+static bool build_impl(const char *dir, const char *out_path, void (*progress)(uint64_t, uint64_t), char *why,
+                       size_t why_size, bool index_only) {
     #define FAIL(...) do { if (why) snprintf(why, why_size, __VA_ARGS__); goto fail; } while (0)
     bool ok = false;
     FILE *out = NULL;
@@ -224,6 +225,20 @@ bool romfs_build(const char *dir, const char *out_path, void (*progress)(uint64_
 
     out = fopen(out_path, "wb");
     if (!out) FAIL("can't write %s", out_path);
+    if (index_only) {  // Slop of the Wild: romfs.idx - the header and tables; the data stays in the romfs folder
+        uint64_t image_size = fmeta_off + fsize, iv[3] = {0x49525753ull /* "SWRI" */ | (1ull << 32), image_size, dhash_off};
+        uint64_t pad = dhash_off - ((DATA_START + data + 3) & ~3ull);  // (0: the tables start right there)
+        (void)pad;
+        if (fwrite(iv, 8, 3, out) != 3 || fwrite(hdr, 1, DATA_START, out) != DATA_START ||
+            fwrite(dbuckets, 4, nbd, out) != nbd || fwrite(dtab, 1, dsize, out) != dsize ||
+            fwrite(fbuckets, 4, nbf, out) != nbf || fwrite(ftab, 1, fsize, out) != fsize)
+            FAIL("write failed (disk full?)");
+        if (progress) progress(total, total);
+        if (fclose(out) != 0) { out = NULL; FAIL("write failed (disk full?)"); }
+        out = NULL;
+        ok = true;
+        goto fail;
+    }
     if (fwrite(hdr, 1, DATA_START, out) != DATA_START) FAIL("write failed (disk full?)");
     size_t bufsize = 4u << 20;
     buf = malloc(bufsize);
@@ -251,6 +266,184 @@ fail:
     free_tree(root);
     return ok;
     #undef FAIL
+}
+
+bool romfs_build(const char *dir, const char *out_path, void (*progress)(uint64_t, uint64_t), char *why, size_t why_size) {
+    return build_impl(dir, out_path, progress, why, why_size, false);
+}
+bool romfs_build_index(const char *dir, const char *out_path, void (*progress)(uint64_t, uint64_t), char *why,
+                       size_t why_size) {
+    return build_impl(dir, out_path, progress, why, why_size, true);
+}
+
+// ------------------------------------------------------------------ reading an image: romfs.bin, or romfs.idx + romfs/
+// A virtual image reads the header and tables from romfs.idx and each file's data from its own file in the romfs
+// folder next to it (gaps read as zeros), so the game sees the same bytes romfs.bin would have.
+#include <fcntl.h>
+#include <pthread.h>
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
+typedef struct { uint64_t start, size; char *path; } VFile;
+typedef struct {
+    bool used;
+    uint64_t size, tab_off;
+    uint8_t hdr[DATA_START], *tabs;
+    VFile *files;
+    int nfiles;
+    pthread_mutex_t lock;
+    int cfd[64], cid[64];  // open data files, by file index % 64
+} VImg;
+enum { VBASE = 1 << 28, NVIMG = 4 };
+static VImg g_vimg[NVIMG];
+static pthread_mutex_t g_vimg_lock = PTHREAD_MUTEX_INITIALIZER;
+
+static int by_start(const void *a, const void *b) {
+    uint64_t x = ((const VFile *)a)->start, y = ((const VFile *)b)->start;
+    return x < y ? -1 : x > y;
+}
+
+static int vimg_open(const char *idx_path) {
+    FILE *f = fopen(idx_path, "rb");
+    if (!f) return -1;
+    uint64_t iv[3];
+    VImg v = {0};
+    if (fread(iv, 8, 3, f) != 3 || (uint32_t)iv[0] != 0x49525753u || fread(v.hdr, 1, DATA_START, f) != DATA_START ||
+        iv[2] > iv[1] || iv[1] - iv[2] > (256u << 20)) {
+        fclose(f);
+        return -1;
+    }
+    v.size = iv[1], v.tab_off = iv[2];
+    uint64_t tn = v.size - v.tab_off;
+    v.tabs = malloc(tn ? tn : 1);
+    if (fread(v.tabs, 1, tn, f) != tn) { fclose(f); free(v.tabs); return -1; }
+    fclose(f);
+    // the data files: <idx without .idx>/<dir>/<name>
+    char base[1100];
+    snprintf(base, sizeof base, "%s", idx_path);
+    char *dot = strrchr(base, '.');
+    if (dot) *dot = 0;
+    uint64_t h[10];
+    memcpy(h, v.hdr, sizeof h);
+    if (h[3] < v.tab_off || h[7] < v.tab_off || h[3] + h[4] > v.size || h[7] + h[8] > v.size) { free(v.tabs); return -1; }
+    const uint8_t *dm = v.tabs + (h[3] - v.tab_off), *fm = v.tabs + (h[7] - v.tab_off);
+    uint64_t dsz = h[4], fsz = h[8];
+    int cap = 1024;
+    v.files = malloc(sizeof *v.files * cap);
+    for (uint64_t o = 0; o + 0x20 <= fsz;) {
+        uint32_t parent, nl;
+        uint64_t data, size;
+        memcpy(&parent, fm + o, 4), memcpy(&data, fm + o + 8, 8), memcpy(&size, fm + o + 0x10, 8), memcpy(&nl, fm + o + 0x1C, 4);
+        if (o + 0x20 + nl > fsz) break;
+        char parts[16][256], dir[1024] = "";
+        int n = 0;
+        for (uint32_t d = parent; d != 0 && d + 0x18 <= dsz && n < 16; n++) {
+            uint32_t pp, dl;
+            memcpy(&pp, dm + d, 4), memcpy(&dl, dm + d + 0x14, 4);
+            if (dl > 255 || d + 0x18 + dl > dsz) break;
+            memcpy(parts[n], dm + d + 0x18, dl), parts[n][dl] = 0;
+            d = pp;
+        }
+        for (int i = n - 1; i >= 0; i--) { strncat(dir, parts[i], sizeof dir - strlen(dir) - 1); strncat(dir, "/", sizeof dir - strlen(dir) - 1); }
+        char path[1500];
+        snprintf(path, sizeof path, "%s/%s%.*s", base, dir, (int)nl, (const char *)fm + o + 0x20);
+        if (v.nfiles == cap) v.files = realloc(v.files, sizeof *v.files * (cap *= 2));
+        v.files[v.nfiles++] = (VFile){h[9] + data, size, strdup(path)};
+        o += 0x20 + ((nl + 3) & ~3u);
+    }
+    qsort(v.files, v.nfiles, sizeof *v.files, by_start);
+    for (int i = 0; i < 64; i++) v.cfd[i] = -1, v.cid[i] = -1;
+    pthread_mutex_init(&v.lock, NULL);
+    v.used = true;
+    pthread_mutex_lock(&g_vimg_lock);
+    int k = 0;
+    while (k < NVIMG && g_vimg[k].used) k++;
+    if (k == NVIMG) { pthread_mutex_unlock(&g_vimg_lock); return -1; }
+    g_vimg[k] = v;
+    pthread_mutex_unlock(&g_vimg_lock);
+    fprintf(stderr, "[romfs] %s: %d files read from %s/ (no romfs.bin)\n", idx_path, v.nfiles, base);
+    return VBASE + k;
+}
+
+int romfs_image_open(const char *bin_path) {
+    int fd = open(bin_path, O_RDONLY | O_BINARY);
+    if (fd >= 0) return fd;
+    char idx[1100];
+    snprintf(idx, sizeof idx, "%s", bin_path);
+    size_t n = strlen(idx);
+    if (n > 4 && !strcmp(idx + n - 4, ".bin")) strcpy(idx + n - 4, ".idx");
+    else return -1;
+    return vimg_open(idx);
+}
+
+static VImg *vimg(int h) { return h >= VBASE && h < VBASE + NVIMG && g_vimg[h - VBASE].used ? &g_vimg[h - VBASE] : NULL; }
+
+ssize_t romfs_image_pread(int h, void *dst, size_t size, uint64_t off) {
+    VImg *v = vimg(h);
+    if (!v) return pread(h, dst, size, (off_t)off);
+    uint8_t *out = dst;
+    size_t done = 0;
+    pthread_mutex_lock(&v->lock);
+    while (done < size) {
+        uint64_t o = off + done;
+        size_t n = size - done;
+        if (o >= v->size) break;
+        if (n > v->size - o) n = (size_t)(v->size - o);
+        if (o < DATA_START) {
+            if (n > DATA_START - o) n = (size_t)(DATA_START - o);
+            memcpy(out + done, v->hdr + o, n);
+        } else if (o >= v->tab_off) {
+            memcpy(out + done, v->tabs + (o - v->tab_off), n);
+        } else {
+            if (n > v->tab_off - o) n = (size_t)(v->tab_off - o);
+            int lo = 0, hi = v->nfiles - 1, at = -1;  // the last file starting at or before o
+            while (lo <= hi) {
+                int mid = (lo + hi) / 2;
+                if (v->files[mid].start <= o) at = mid, lo = mid + 1;
+                else hi = mid - 1;
+            }
+            if (at >= 0 && o < v->files[at].start + v->files[at].size) {
+                VFile *f = &v->files[at];
+                uint64_t in = o - f->start;
+                if (n > f->size - in) n = (size_t)(f->size - in);
+                int c = at & 63;
+                if (v->cid[c] != at) {
+                    if (v->cfd[c] >= 0) close(v->cfd[c]);
+                    v->cfd[c] = open(f->path, O_RDONLY | O_BINARY), v->cid[c] = at;
+                    if (v->cfd[c] < 0) fprintf(stderr, "[romfs] cannot open %s\n", f->path);
+                }
+                ssize_t r = v->cfd[c] >= 0 ? pread(v->cfd[c], out + done, n, (off_t)in) : -1;
+                if (r < 0) r = 0;
+                if ((size_t)r < n) memset(out + done + r, 0, n - r);
+            } else {  // padding between files
+                uint64_t next = at + 1 < v->nfiles ? v->files[at + 1].start : v->tab_off;
+                if (n > next - o) n = (size_t)(next - o);
+                memset(out + done, 0, n);
+            }
+        }
+        done += n;
+    }
+    pthread_mutex_unlock(&v->lock);
+    return (ssize_t)done;
+}
+
+uint64_t romfs_image_size(int h) {
+    VImg *v = vimg(h);
+    if (v) return v->size;
+    struct stat st;
+    return fstat(h, &st) == 0 ? (uint64_t)st.st_size : 0;
+}
+
+void romfs_image_close(int h) {
+    VImg *v = vimg(h);
+    if (!v) { if (h >= 0) close(h); return; }
+    pthread_mutex_lock(&g_vimg_lock);
+    for (int i = 0; i < 64; i++) if (v->cfd[i] >= 0) close(v->cfd[i]);
+    for (int i = 0; i < v->nfiles; i++) free(v->files[i].path);
+    free(v->files), free(v->tabs);
+    pthread_mutex_destroy(&v->lock);
+    memset(v, 0, sizeof *v);
+    pthread_mutex_unlock(&g_vimg_lock);
 }
 
 // ------------------------------------------------------------------ copying the player's folder

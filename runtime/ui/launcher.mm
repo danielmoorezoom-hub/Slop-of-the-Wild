@@ -225,7 +225,8 @@ static std::string check_copied_files(const std::string &root) {
         if (v) g_files_version = v->name;
         return v ? NOT_SUPPORTED_YET : NOT_SUPPORTED;
     }
-    if (!is_dir(root + "/romfs") || !file_exists(root + "/romfs.bin")) return "Game data missing";
+    if (!is_dir(root + "/romfs") || (!file_exists(root + "/romfs.bin") && !file_exists(root + "/romfs.idx")))
+        return "Game data missing";
     return "";
 }
 
@@ -366,7 +367,10 @@ static std::atomic<unsigned long long> g_done, g_total;
 static unsigned long long g_phase_base;
 static std::atomic<float> g_build_frac{-1};  // -1: not building
 static bool g_copy_skipped;                  // (only the game code to build: the bar is all of that)
-static void setup_progress(uint64_t done, uint64_t) { g_done = g_phase_base + done; }
+static void setup_progress(uint64_t done, uint64_t total) {
+    if (!g_total && total) g_total = total + total / 50;  // (the copy's own total; the index after it is quick)
+    g_done = g_phase_base + done;
+}
 static void build_progress(double f, const char *step) {
     g_build_frac = (float)f;
     static const char *last;
@@ -491,18 +495,20 @@ static void *extract_thread(void *) {
         }
         rt_remove_game_files(g_root.c_str());  // (an earlier or interrupted setup's; removes the folder too)
         mkdir(g_root.c_str(), 0755);
-        unsigned long long rbytes = romfs_dir_bytes(romfs.c_str());
-        g_total = 2 * rbytes;
+        g_total = 0;  // (set by the copy's first progress: no separate walk to add the sizes up)
         set_job("Copying the game files...");
         if (!romfs_copy_tree(exefs.c_str(), (g_root + "/exefs").c_str(), NULL) ||
             !romfs_copy_tree(romfs.c_str(), (g_root + "/romfs").c_str(), setup_progress)) {
             set_failure(FAIL_COPY);
             goto done;
         }
-        g_phase_base = rbytes, g_done = rbytes;
-        set_job("Building the game data image...");
+        g_phase_base = g_done;
+        set_job("Indexing the game data...");
         char why[256] = "";
-        if (!romfs_build((g_root + "/romfs").c_str(), (g_root + "/romfs.bin").c_str(), setup_progress, why, sizeof why)) {
+        // Slop of the Wild: an index (romfs.idx, a few MB) instead of a second 14 GB copy (romfs.bin): the game reads
+        // each file from romfs/ (romfs_build.c romfs_image_*)
+        remove((g_root + "/romfs.bin").c_str());
+        if (!romfs_build_index((g_root + "/romfs").c_str(), (g_root + "/romfs.idx").c_str(), NULL, why, sizeof why)) {
             fprintf(stderr, "[launcher] romfs image: %s\n", why);
             set_failure(FAIL_COPY);
             goto done;

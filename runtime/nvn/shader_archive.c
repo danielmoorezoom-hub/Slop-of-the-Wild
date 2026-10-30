@@ -8,6 +8,7 @@
 #include "../rt.h"
 #include "maxwell/shader.h"
 #include "shader_archive.h"
+#include "../romfs_build.h"
 
 #ifndef O_BINARY
 #define O_BINARY 0
@@ -315,17 +316,17 @@ static void scan_exefs(SaSet *set, const char *image) {
 bool shader_archive_scan(const char *image, SaSet *set, void (*progress)(float, void *), void *user, char *why, size_t wn) {
     memset(set, 0, sizeof *set);
     set->index = calloc(1, sizeof(Index));
-    int fd = open(image, O_RDONLY | O_BINARY);
+    int fd = romfs_image_open(image);  // (romfs.bin, else romfs.idx + romfs/)
     if (fd < 0) { snprintf(why, wn, "cannot open %s", image); return false; }
     uint64_t h[10];
-    if (pread(fd, h, sizeof h, 0) != (ssize_t)sizeof h || h[4] > (64u << 20) || h[8] > (64u << 20)) {
-        close(fd);
+    if (romfs_image_pread(fd, h, sizeof h, 0) != (ssize_t)sizeof h || h[4] > (64u << 20) || h[8] > (64u << 20)) {
+        romfs_image_close(fd);
         snprintf(why, wn, "%s is not a RomFS image", image);
         return false;
     }
     uint8_t *dm = malloc(h[4]), *fm = malloc(h[8]);
-    if (pread(fd, dm, h[4], (off_t)h[3]) != (ssize_t)h[4] || pread(fd, fm, h[8], (off_t)h[7]) != (ssize_t)h[8]) {
-        free(dm); free(fm); close(fd);
+    if (romfs_image_pread(fd, dm, h[4], (off_t)h[3]) != (ssize_t)h[4] || romfs_image_pread(fd, fm, h[8], (off_t)h[7]) != (ssize_t)h[8]) {
+        free(dm); free(fm); romfs_image_close(fd);
         snprintf(why, wn, "%s: cannot read its tables", image);
         return false;
     }
@@ -344,7 +345,7 @@ bool shader_archive_scan(const char *image, SaSet *set, void (*progress)(float, 
             dir_path(dm, h[4], parent, dir, sizeof dir);
             snprintf(path, sizeof path, "%s%s", dir, name);
             uint8_t *buf = malloc(size ? size : 1);
-            if (buf && pread(fd, buf, size, (off_t)(h[9] + data)) == (ssize_t)size) {
+            if (buf && romfs_image_pread(fd, buf, size, (off_t)(h[9] + data)) == (ssize_t)size) {
                 set->files++;
                 set->bytes += size;
                 scan_data(set, path, buf, size, 0);
@@ -356,7 +357,7 @@ bool shader_archive_scan(const char *image, SaSet *set, void (*progress)(float, 
     }
     free(dm);
     free(fm);
-    close(fd);
+    romfs_image_close(fd);
     scan_exefs(set, image);
     return true;
 }
