@@ -38,6 +38,7 @@ typedef struct {
     int antialias;       // AA_*: anti-aliasing of the game image before it is scaled to the window
     int anisotropy;      // texture filtering: 0 the game's own, 1..4 = 2x, 4x, 8x, 16x (vulkan/textures.c)
     int sharpening;      // AMD CAS sharpening of the 3D image, 0 (off) .. 10 (100%) (vulkan/exec.c scene_post)
+    int render_scale;    // supersampling: 0 = 100% (the window's size), 1 = 125%, 2 = 150%, 3 = 200% (nvn/output_scale.c)
     float volume;        // master volume, 1 = 100%
     bool reverb;         // room reverb effect
     bool movie_audio;

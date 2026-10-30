@@ -359,6 +359,11 @@ void build_items(void) {
                        [](const Item &, int x) { return x ? k_aniso[x] : tr("Off"); },
                        [](const Item &) { return g_settings.anisotropy; },
                        [](const Item &, int x) { g_settings.anisotropy = x; }, 0));
+    v.push_back(choice(P_VIDEO, "Render scale", "Above 100%: renders bigger, then shrinks to the window. Smoothest edges.",
+                       [](const Item &) { return 4; },
+                       [](const Item &, int x) { static const char *const r[] = {"100%", "125%", "150%", "200%"}; return r[x]; },
+                       [](const Item &) { return g_settings.render_scale; },
+                       [](const Item &, int x) { g_settings.render_scale = x; }, 0));
     v.push_back(choice(P_VIDEO, "Sharpening (AMD CAS)", "Sharpens the 3D image, not the HUD. Most useful with FSR 1.",
                        [](const Item &) { return 11; },
                        [](const Item &, int x) {

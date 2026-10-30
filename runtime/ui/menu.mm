@@ -665,6 +665,11 @@ static void tab_display(void) {
                    "Keeps the textures of ground, paths and walls sharp where you look along them into the distance. "
                    "Off: the game's own filtering, as on the console. 16x is the sharpest and costs very little on a PC "
                    "graphics card.", false);
+        static const char *const rscale[] = {"100%", "125%", "150%", "200%"};
+        opt_choice("Render scale", &g_settings.render_scale, rscale, 4, 0,
+                   "Supersampling: above 100% the game renders at a higher resolution than the window and is scaled "
+                   "down to it, the cleanest way to smooth edges and shimmer. 200% is 4x the pixels: for fast "
+                   "graphics cards.", false);
         static const char *const sharp[] = {"Off", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%"};
         opt_choice("Sharpening (AMD CAS)", &g_settings.sharpening, sharp, 11, 0,
                    "AMD FidelityFX CAS sharpens the 3D image after the upscaler (or at the window's resolution with the "
