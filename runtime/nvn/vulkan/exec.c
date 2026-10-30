@@ -3346,6 +3346,7 @@ static void texture_info(int stage, ShaderInfo *si, int i, VkDescriptorImageInfo
     VkImageView view = VK_NULL_HANDLE;
     VkSampler smp = VK_NULL_HANDLE;
     VkImageLayout layout = VK_IMAGE_LAYOUT_GENERAL;
+    bool mipmapped = true;  // (anisotropy override only on textures with mip levels: vk_sampler_ex)
     uint32_t tic = h & 0xFFFFF, tsc = (uint32_t)(h >> 20) & 0xFFF;
     sc[0] = sc[1] = 1;
     wh[0] = wh[1] = 0;
@@ -3353,6 +3354,7 @@ static void texture_info(int stage, ShaderInfo *si, int i, VkDescriptorImageInfo
         NvnTexEntry *e = &((NvnTexEntry *)st.tpool->entries)[tic];
         NvnTexture *et = e->tex;  // (a finalized one too: textures.c gives it the image of its memory and shape)
         if (et) {
+            mipmapped = et->levels > 1;
             // Per-frame memo: ~2400 lookups per overworld frame recomputed the view (format / range math, cache
             // probe). The first lookup of a frame still runs vk_view (upload check); a view that may have been
             // destroyed (eviction, image re-created) bumps vk_view_gen. SAVAGEWIND_VK_NO_TEX_MEMO=1 disables.
@@ -3391,7 +3393,7 @@ static void texture_info(int stage, ShaderInfo *si, int i, VkDescriptorImageInfo
                 }
         }
     }
-    if (h && st.spool && tsc < (uint32_t)st.spool->count) smp = vk_sampler(&((NvnSamplerDesc *)st.spool->entries)[tsc]);
+    if (h && st.spool && tsc < (uint32_t)st.spool->count) smp = vk_sampler_ex(&((NvnSamplerDesc *)st.spool->entries)[tsc], mipmapped);
     if (!view) view = vk_dummy_view(st_->type), layout = VK_IMAGE_LAYOUT_GENERAL;
     if (!smp) smp = vk_default_sampler(true);
     *out = (VkDescriptorImageInfo){smp, view, layout};

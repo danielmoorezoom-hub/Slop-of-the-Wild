@@ -1235,8 +1235,12 @@ static pthread_mutex_t g_sampler_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static VkSampler sampler_create(const NvnSamplerDesc *d, float aniso);
 
-VkSampler vk_sampler(NvnSamplerDesc *d) {
-    float an = sampler_aniso(d);
+// allow_aniso: false for a texture with one mip level (render targets read back: BOTW's FXAA input, read through
+// a sampler whose LOD range is 0..14). Anisotropic filtering still applies within level 0, and FXAA's taps, whose
+// coordinates jump between neighbouring pixels along edges, then average long streaks of texels: dark crust on
+// every detailed surface. Those keep the game's own anisotropy.
+VkSampler vk_sampler_ex(NvnSamplerDesc *d, bool allow_aniso) {
+    float an = allow_aniso ? sampler_aniso(d) : (d->max_aniso > 1 ? fminf(d->max_aniso, 16) : 1);
     if (d->backend && d->backend_aniso == an) return (VkSampler)d->backend;
     NvnSamplerDesc key = *d;
     key.backend = NULL;
@@ -1264,6 +1268,8 @@ VkSampler vk_sampler(NvnSamplerDesc *d) {
     d->backend_aniso = an;
     return s;
 }
+
+VkSampler vk_sampler(NvnSamplerDesc *d) { return vk_sampler_ex(d, true); }
 
 static VkSampler sampler_create(const NvnSamplerDesc *d, float aniso) {
     VkSamplerCreateInfo si = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
