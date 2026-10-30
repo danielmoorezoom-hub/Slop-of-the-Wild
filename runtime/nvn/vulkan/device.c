@@ -1157,7 +1157,12 @@ void vk_frame_end(const char *shot_path) {
         bool bgr = g_vk.sc_format == VK_FORMAT_B8G8R8A8_UNORM || g_vk.sc_format == VK_FORMAT_B8G8R8A8_SRGB;
         for (uint64_t i = 0; bgr && i < (uint64_t)w * h; i++) { uint8_t t = px[i * 4]; px[i * 4] = px[i * 4 + 2]; px[i * 4 + 2] = t; }
         for (uint64_t i = 0; i < (uint64_t)w * h; i++) px[i * 4 + 3] = 255;
-        vk_save_png(shot_path, px, w, h);
+        size_t pl = strlen(shot_path);
+        if (pl > 4 && !strcmp(shot_path + pl - 4, ".raw")) {  // (the title art capture: no PNG encoding, no hitch)
+            FILE *f = fopen(shot_path, "wb");
+            if (f) { uint32_t wh[2] = {w, h}; fwrite(wh, 4, 2, f); fwrite(px, 4, (size_t)w * h, f); fclose(f); }
+        } else
+            vk_save_png(shot_path, px, w, h);
     }
 }
 
@@ -1295,7 +1300,89 @@ static void present_locked(NvnTexture *t) {
                 if (*wnext == ',') wnext++;
             }
         }
-        vk_frame_end(shot ? "build/window.png" : wpath[0] ? wpath : NULL);
+        // Slop of the Wild: the start screen's backgrounds come from the player's own game. With no splash picture yet,
+        // the title screen's key art (it changes every ten seconds or so) is saved as splash.jpg, splash2.jpg, ...:
+        // the left three quarters (the logo and the menu are on the right), when it has held still and differs from
+        // the ones kept. Up to four.
+        bool art = false;
+        static int art_n = -1;
+        static uint64_t art_seen;
+        if (art_n < 0) {
+            char p[1100];
+            extern bool rt_user_splash(char *out, size_t n);
+            art_n = rt_user_splash(p, sizeof p) || getenv("SAVAGEWIND_NO_ART_CAPTURE") ? 99 : 0;
+        }
+        extern bool menu_title_visible(void);
+        if (art_n < 4 && !shot && !wpath[0] && menu_title_visible()) {
+            art_seen++;
+            if (art_seen % 160 == 120 || art_seen % 160 == 150) art = true;  // (two looks 30 frames apart: still?)
+        }
+        vk_frame_end(shot ? "build/window.png" : wpath[0] ? wpath : art ? "cache/art_tmp.raw" : NULL);
+        if (art) {
+            static uint8_t prev[48 * 27 * 3], kept[4][48 * 27 * 3];
+            static bool have_prev;
+            int w = 0, h = 0;
+            uint8_t *px = NULL;
+            FILE *f = fopen("cache/art_tmp.raw", "rb");
+            if (f) {
+                uint32_t wh[2];
+                if (fread(wh, 4, 2, f) == 2 && wh[0] <= 8192 && wh[1] <= 8192 && (px = malloc((size_t)wh[0] * wh[1] * 4)) &&
+                    fread(px, 4, (size_t)wh[0] * wh[1], f) == (size_t)wh[0] * wh[1])
+                    w = (int)wh[0], h = (int)wh[1];
+                fclose(f);
+            }
+            remove("cache/art_tmp.raw");
+            if (px && w >= 640 && h >= 360) {
+                int cw = (int)(w * 0.762), ch = cw * 9 / 16, y0 = (h - ch) / 2;
+                if (ch > h) ch = h, cw = ch * 16 / 9, y0 = 0;
+                uint8_t th[48 * 27 * 3];
+                long lum = 0;
+                for (int y = 0; y < 27; y++)
+                    for (int x = 0; x < 48; x++) {
+                        const uint8_t *q = px + ((size_t)(y0 + (y * ch + ch / 2) / 27) * w + (x * cw + cw / 2) / 48) * 4;
+                        for (int c = 0; c < 3; c++) th[(y * 48 + x) * 3 + c] = q[c], lum += q[c];
+                    }
+                long dprev = 0, dmin = 1 << 30;
+                for (int i = 0; i < 48 * 27 * 3; i++) dprev += abs((int)th[i] - (int)prev[i]);
+                for (int k = 0; k < art_n && k < 4; k++) {
+                    long d = 0;
+                    for (int i = 0; i < 48 * 27 * 3; i++) d += abs((int)th[i] - (int)kept[k][i]);
+                    if (d < dmin) dmin = d;
+                }
+                long npx = 48 * 27 * 3;
+                bool still = have_prev && dprev / npx < 3, bright = lum / npx > 30, fresh = dmin / npx > 25;
+                if (still && bright && fresh) {
+                    int ow = cw < 2560 ? cw : 2560, oh = ow * 9 / 16;  // (scaled down to at most 2560 x 1440)
+                    uint8_t *out = malloc((size_t)ow * oh * 4);
+                    for (int y = 0; out && y < oh; y++)
+                        for (int x = 0; x < ow; x++) {  // (a box filter over the source pixels)
+                            int sx0 = x * cw / ow, sx1 = (x + 1) * cw / ow, sy0 = y * ch / oh, sy1 = (y + 1) * ch / oh;
+                            if (sx1 <= sx0) sx1 = sx0 + 1;
+                            if (sy1 <= sy0) sy1 = sy0 + 1;
+                            unsigned acc[3] = {0}, n = 0;
+                            for (int yy = sy0; yy < sy1; yy++)
+                                for (int xx = sx0; xx < sx1; xx++) {
+                                    const uint8_t *q = px + ((size_t)(y0 + yy) * w + xx) * 4;
+                                    acc[0] += q[0], acc[1] += q[1], acc[2] += q[2], n++;
+                                }
+                            uint8_t *o = out + ((size_t)y * ow + x) * 4;
+                            o[0] = (uint8_t)(acc[0] / n), o[1] = (uint8_t)(acc[1] / n), o[2] = (uint8_t)(acc[2] / n), o[3] = 255;
+                        }
+                    char name[32];
+                    if (art_n) snprintf(name, sizeof name, "splash%d.jpg", art_n + 1);
+                    else snprintf(name, sizeof name, "splash.jpg");
+                    if (out && rt_save_jpg(name, out, ow, oh, 92)) {
+                        memcpy(kept[art_n], th, sizeof th);
+                        art_n++;
+                        LOG("[art] title art saved as %s (%dx%d) for the start screen\n", name, ow, oh);
+                    }
+                    free(out);
+                }
+                memcpy(prev, th, sizeof th);
+                have_prev = true;
+            }
+            free(px);
+        }
         if (shot && getenv("SAVAGEWIND_EXIT_AFTER_SHOT")) { fflush(stderr); _exit(0); }
     } else {
         renderer_submit();

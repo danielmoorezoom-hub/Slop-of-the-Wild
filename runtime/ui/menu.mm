@@ -70,6 +70,10 @@ bool menu_is_open(void) { return g_open.load(); }
 #define SLOP_VERSION "0.0"
 static std::atomic<uint64_t> g_title_tick{0};  // SDL_GetTicks() of the title menu's last update (game thread)
 extern "C" void menu_title_tick(void) { g_title_tick.store(SDL_GetTicks()); }
+extern "C" bool menu_title_visible(void) {  // (vulkan/device.c: the title art capture)
+    uint64_t tt = g_title_tick.load();
+    return tt && SDL_GetTicks() - tt < 300 && !g_open.load();
+}
 static void set_open(bool open);
 extern "C" void menu_test_open(void) {
     set_open(true);
@@ -458,10 +462,9 @@ static void drain_events(ImGuiIO &io) {
 }
 
 // Section header in the big font.
-static void header(const char *t) {
-    ImGui::PushFont(g_font_big);
-    ImGui::TextColored(ImVec4(0.93f, 0.76f, 0.33f, 1), "%s", tr(t));
-    ImGui::PopFont();
+static void header(const char *t) {  // (Slop of the Wild: a section title as on the other tabs - cyan, upper case)
+    std::string u = tr_upper(tr(t));
+    ImGui::TextColored(ImVec4(0.36f, 0.87f, 0.93f, 1), "%s", u.c_str());
     ImGui::Separator();
     ImGui::Spacing();
 }

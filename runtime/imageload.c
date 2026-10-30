@@ -38,3 +38,8 @@ bool rt_save_png(const char *path, const unsigned char *rgba, int w, int h) {
     free(px);
     return ok;
 }
+
+bool rt_save_jpg(const char *path, const unsigned char *rgba, int w, int h, int quality) {
+    if (w <= 0 || h <= 0) return false;
+    return stbi_write_jpg(path, w, h, 4, rgba, quality) != 0;
+}

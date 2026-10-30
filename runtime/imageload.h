@@ -19,6 +19,7 @@ void rt_image_free(void *px);
 
 // 8-bit PNG, alpha forced opaque (render targets often keep the G-buffer's alpha, which viewers turn into black).
 bool rt_save_png(const char *path, const unsigned char *rgba, int w, int h);
+bool rt_save_jpg(const char *path, const unsigned char *rgba, int w, int h, int quality);
 
 #ifdef __cplusplus
 }

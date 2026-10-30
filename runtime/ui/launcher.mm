@@ -170,6 +170,7 @@ static std::string trv(const std::string &key) {
 static const float ROMFS_FILES_MARGIN = 0.95f;  // (a few files short still passes: some tools skip empty ones)
 
 // Files under dir; the count stops at `enough` (a whole RomFS has tens of thousands: no need to walk them all)
+static std::atomic<unsigned> g_walked{0};  // (files looked at by the checks so far: shown while they run)
 static unsigned count_files(const std::string &dir, unsigned enough, unsigned n = 0) {
     DIR *d = opendir(dir.c_str());
     if (!d) return n;
@@ -179,7 +180,7 @@ static unsigned count_files(const std::string &dir, unsigned enough, unsigned n 
         if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
         std::string p = dir + "/" + e->d_name;
         if (is_dir(p)) n = count_files(p, enough, n);
-        else n++;
+        else n++, g_walked++;
     }
     closedir(d);
     return n;
@@ -479,6 +480,7 @@ static void *extract_thread(void *) {
             set_failure(v ? FAIL_NOT_YET : FAIL_NOT_SUPPORTED);
             goto done;
         }
+        g_walked = 0;
         set_job("Checking the game files...");
         const GameVersion *v = main_version(id);
         std::string found = check_romfs(romfs, *v);  // (the RomFS that goes with that ExeFS)
@@ -493,6 +495,7 @@ static void *extract_thread(void *) {
             set_failure(FAIL_NOT_FOUND);
             goto done;
         }
+        set_job("Clearing the earlier copy...");
         rt_remove_game_files(g_root.c_str());  // (an earlier or interrupted setup's; removes the folder too)
         mkdir(g_root.c_str(), 0755);
         g_total = 0;  // (set by the copy's first progress: no separate walk to add the sizes up)
@@ -1436,6 +1439,10 @@ extern "C" void launcher_run(const char *root, int mode) {
                     ImGui::PushTextWrapPos(0);
                     ImGui::TextColored(failed ? ImVec4(1, 0.5f, 0.4f, 1) : busy ? ImVec4(0.36f, 0.87f, 0.93f, 1)
                                               : ImVec4(0.45f, 0.95f, 0.55f, 1), "%s", trv(job_line).c_str());
+                    if (busy && job_line == "Checking the game files..." && g_walked.load()) {  // (a live count: not stuck)
+                        ImGui::SameLine();
+                        ImGui::TextDisabled("%u", g_walked.load());
+                    }
                     if (failed && !job_hint.empty())  // (what to do next, in the rows' own text colour)
                         ImGui::TextColored(ImVec4(0.86f, 0.85f, 0.80f, 1), "%s", trv(job_hint).c_str());
                     ImGui::PopTextWrapPos();
