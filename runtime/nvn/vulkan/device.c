@@ -698,7 +698,16 @@ static VkPresentModeKHR wanted_present_mode(void) {
              : !strcmp(e, "immediate") ? VK_PRESENT_MODE_IMMEDIATE_KHR
              : !strcmp(e, "relaxed")   ? VK_PRESENT_MODE_FIFO_RELAXED_KHR
                                        : VK_PRESENT_MODE_FIFO_KHR;
+    // Slop of the Wild: the menu's VSync applies once it has stayed put for 400 ms. Stepping through the values made a
+    // new swapchain several times a second, and that hard-crashed the AMD driver (fresh install, 2026-10-30).
+    static int applied = -1, seen = -1;
+    static uint64_t seen_at;
     int v = g_settings.vsync;
+    uint64_t now = SDL_GetTicks();
+    if (applied < 0) applied = seen = v, seen_at = now;
+    if (v != seen) seen = v, seen_at = now;
+    if (seen != applied && now - seen_at >= 400) applied = seen;
+    v = applied;
     return by_vsync[v >= 0 && v < VSYNC_COUNT ? v : VSYNC_DEFAULT];
 }
 

@@ -339,7 +339,9 @@ int main(int argc, char **argv) {
 #endif
     // A plain start goes straight into the game once the game files are set up and the game code built from them
     // matches this build; the start screen only when there is something to set up, or when asked for.
-    int mode = config ? LAUNCHER_CONFIG : skip_launcher || launcher_game_ready(root) ? LAUNCHER_NONE : LAUNCHER_SETUP;
+    // Slop of the Wild: the start screen every time (Play, Settings); --play goes straight in
+    bool ready = launcher_game_ready(root);
+    int mode = config ? LAUNCHER_CONFIG : skip_launcher && ready ? LAUNCHER_NONE : ready ? LAUNCHER_CONFIG : LAUNCHER_SETUP;
     // (tests of the start screen - screenshots, setup and delete runs - show it: the configuration screen, or
     // SAVAGEWIND_LAUNCHER_MODE=setup / config)
     const char *test_mode = getenv("SAVAGEWIND_LAUNCHER_MODE");
