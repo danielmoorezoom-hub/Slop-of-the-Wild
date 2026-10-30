@@ -1083,9 +1083,10 @@ extern "C" void launcher_run(const char *root, int mode) {
         static bool was_busy;
         if (was_busy && !busy) {
             status = check_game_files(g_root);
-            if (status.empty() && g_setup_only) {  // set up: on into the game (after the first-start note)
-                if (g_settings.menu_tip_seen) play = true;
-                else tip_then_play = true;
+            if (status.empty() && g_setup_only) {  // Slop of the Wild: set up - on to the start screen (Play, Settings)
+                g_setup_only = false;
+                page = MAIN;
+                SDL_SetWindowTitle(win, "Slop of the Wild - Configuration");
             } else if (status.empty() && !pc_only_finished()) page = MAIN;
         }
         was_busy = busy;
