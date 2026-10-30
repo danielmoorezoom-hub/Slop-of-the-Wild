@@ -12,8 +12,13 @@ smoothness and polish of the [TotK PC recomp](https://github.com/valentderah/tot
 > itself is also made almost entirely with AI (see [its README](docs/SAVAGE-WIND-README.md)). If you don't trust code
 > written by AI, don't run this. As with anything on the internet, you run it at your own risk.
 
+> [!CAUTION]
+> **No game files are included, and none ever will be, anywhere on this repository**: not in the code, the
+> releases, the issues or the wiki. Releases contain only the program built from this source. Please don't post game
+> files, dumps, keys, an installed copy, or anything extracted or captured from the game (screenshots of bugs are fine).
+
 > [!NOTE]
-> **No game files are included, and none ever will be.** Like Savage Wind, Slop of the Wild needs your own copy of
+> **Bring your own game.** Like Savage Wind, Slop of the Wild needs your own copy of
 > the game, version 1.9.0 with the update merged, dumped from your own Switch. Even the launcher's background art is
 > not shipped: the game saves it from your own copy's title screen the first time you play.
 

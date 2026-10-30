@@ -35,3 +35,15 @@ tools/ghidra/gq.local.json
 
 # Internal work-branch log, local only
 docs/RAMAS.md
+# Slop of the Wild: the captured title art, the game data index and the game code built from the player's files
+/splash*.jpg
+/splash*.png
+romfs/
+exefs/
+romfs.bin
+romfs.idx
+*.nso
+swgame.dll
+swgame.dll.id
+swgame.so
+/sw-*/
