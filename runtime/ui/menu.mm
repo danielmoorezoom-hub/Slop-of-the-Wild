@@ -729,7 +729,6 @@ static void tab_display(void) {
                "frame time graph. F10 switches between them while you play.");
 
     opt_section("Rendering");
-#ifdef __APPLE__
     {   // Upscaler: Off, this OS's spatial upscaler (its modes on the row below), and the temporal ones still to come.
         // Values that can't be picked yet are shown greyed ("coming soon"); stepping onto them keeps the one in use.
         // The modes wait for render-target scaling (upscale_modes_available): until then the upscaler brings the
