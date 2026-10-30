@@ -241,7 +241,7 @@ static void create_device(void) {
     // headers before 1.4.321) it is in ATTACHMENT_FEEDBACK_LOOP_OPTIMAL for the passes that loop (g_vk.feedback_layout,
     // exec.c begin_pass): on the Steam Deck the copies were half of the GPU's frame. SAVAGEWIND_VK_NO_FEEDBACK_LOOP=1:
     // copies, as before; SAVAGEWIND_VK_FEEDBACK_LAYOUT=1: the layout path where unified layouts exist too (testing).
-    bool legacy_off = win_legacy && !getenv("SAVAGEWIND_VK_FEEDBACK_LOOP");
+    bool legacy_off = win_legacy && !getenv("SAVAGEWIND_VK_FEEDBACK_LOOP") && !g_settings.fast_path;  // (Rendering > AMD fast path)
     bool fbl = !getenv("SAVAGEWIND_VK_NO_FEEDBACK_LOOP") && !legacy_off &&
                has_ext(ep, ne, VK_EXT_ATTACHMENT_FEEDBACK_LOOP_LAYOUT_EXTENSION_NAME) &&
                has_ext(ep, ne, VK_KHR_DYNAMIC_RENDERING_LOCAL_READ_EXTENSION_NAME);

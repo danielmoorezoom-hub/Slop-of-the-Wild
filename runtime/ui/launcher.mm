@@ -593,6 +593,27 @@ static void remove_fonts() {
 }
 
 // ------------------------------------------------------------------ screen
+// The game files' size, measured on a thread (40 000 files: seconds on Windows, the page used to hang on it).
+// -1 while measuring; files_size_reset() measures again next time.
+static std::atomic<double> g_files_gb{-1};
+static std::atomic<int> g_files_gb_state{0};  // 0 not started, 1 measuring, 2 done
+static void *files_size_thread(void *) {
+    g_files_gb = rt_game_files_size(g_root.c_str()) / 1e9;
+    g_files_gb_state = 2;
+    return NULL;
+}
+static double files_size_gb(void) {
+    int st = g_files_gb_state.load();
+    if (st == 0) {
+        g_files_gb_state = 1;
+        pthread_t th;
+        pthread_create(&th, NULL, files_size_thread, NULL);
+        pthread_detach(th);
+    }
+    return st == 2 ? g_files_gb.load() : -1;
+}
+static void files_size_reset(void) { if (g_files_gb_state.load() == 2) g_files_gb_state = 0; }
+
 static ImFont *g_font_title, *g_font_menu, *g_font_small;
 enum Page { MAIN, SETTINGS, SETUP };  // SETTINGS: the in-game menu's tabs (runtime/ui/menu.mm)
 static int g_refocus = MAIN;  // back on the main page: select the item of the page we came from (controllers)
@@ -688,25 +709,29 @@ static bool menu_item(const char *label, bool enabled, bool *hovered = NULL, con
     bool clicked = ImGui::InvisibleButton("##b", ImVec2(sz.x + 40, sz.y + 6), ImGuiButtonFlags_EnableNav);
     ImGui::PopStyleColor();
     bool hot = ImGui::IsItemFocused() || ImGui::IsItemHovered();
+    float *kv = ImGui::GetStateStorage()->GetFloatRef(ImGui::GetItemID() + 0x51, 0);
     ImGui::PopID();
     if (hovered) *hovered = hot;
-    ImU32 col = !enabled ? IM_COL32(170, 175, 200, 140) : hot ? IM_COL32(255, 214, 64, 255) : IM_COL32(250, 250, 255, 255);
-    ImDrawList *dl = ImGui::GetWindowDrawList();
-    if (hot && enabled) {  // a shadow band behind the item (like the version corner's), feathered, with a warm glow
-        float x0 = ImGui::GetWindowPos().x, x1 = at.x + sz.x * 0.75f, x2 = at.x + sz.x + sz.y * 3.5f;
-        float f = sz.y * 0.22f, y0 = at.y - f * 0.4f, y1 = y0 + f, y3 = at.y + sz.y + f * 0.2f, y2 = y3 - f;
-        ImU32 c = IM_COL32(6, 10, 34, 150), g = IM_COL32(255, 190, 80, 34), n = IM_COL32(6, 10, 34, 0), ng = IM_COL32(255, 190, 80, 0);
-        for (int pass = 0; pass < 2; pass++) {  // dark band, then the glow over it
-            ImU32 a = pass ? g : c, z = pass ? ng : n;
-            dl->AddRectFilledMultiColor(ImVec2(x0, y1), ImVec2(x1, y2), a, a, a, a);
-            dl->AddRectFilledMultiColor(ImVec2(x1, y1), ImVec2(x2, y2), a, z, z, a);
-            dl->AddRectFilledMultiColor(ImVec2(x0, y0), ImVec2(x1, y1), z, z, a, a);  // (feathered top / bottom)
-            dl->AddRectFilledMultiColor(ImVec2(x1, y0), ImVec2(x2, y1), z, z, z, a);
-            dl->AddRectFilledMultiColor(ImVec2(x0, y2), ImVec2(x1, y3), a, a, z, z);
-            dl->AddRectFilledMultiColor(ImVec2(x1, y2), ImVec2(x2, y3), a, z, z, z);
-        }
+    {   // eased selection (Slop of the Wild): the item slides right, a Sheikah-cyan marker and underline grow in
+        float dt = ImGui::GetIO().DeltaTime;
+        *kv += ((hot && enabled ? 1.0f : 0.0f) - *kv) * (1 - expf(-14 * (dt > 0.1f ? 0.1f : dt)));
     }
-    ImU32 col_b = hot && enabled ? IM_COL32(255, 160, 50, 255) : col;
+    float k = *kv;
+    ImU32 col = !enabled ? IM_COL32(150, 165, 175, 140) : IM_COL32(250 - (int)(20 * k), 252, 255, 255);
+    ImDrawList *dl = ImGui::GetWindowDrawList();
+    if (k > 0.01f) {
+        float x0 = ImGui::GetWindowPos().x, x2 = at.x + sz.x + sz.y * 4.0f, yc = at.y + sz.y * 0.5f, hh = sz.y * 0.62f;
+        ImU32 band = IM_COL32(4, 18, 30, (int)(170 * k)), none = IM_COL32(4, 18, 30, 0);
+        dl->AddRectFilledMultiColor(ImVec2(x0, yc - hh), ImVec2(at.x + sz.x * 0.6f, yc + hh), band, band, band, band);
+        dl->AddRectFilledMultiColor(ImVec2(at.x + sz.x * 0.6f, yc - hh), ImVec2(x2, yc + hh), band, none, none, band);
+        ImU32 cy = IM_COL32(92, 222, 238, (int)(255 * k)), cz = IM_COL32(92, 222, 238, 0);
+        float m = sz.y * 0.16f, mx = at.x - sz.y * 0.32f + sz.y * 0.18f * k;  // (a diamond to the left)
+        dl->AddQuadFilled(ImVec2(mx, yc - m), ImVec2(mx + m, yc), ImVec2(mx, yc + m), ImVec2(mx - m, yc), cy);
+        float uy = at.y + sz.y * 1.0f, ux = at.x + sz.y * 0.3f * k;
+        dl->AddRectFilledMultiColor(ImVec2(ux, uy), ImVec2(ux + (sz.x + sz.y) * k, uy + fmaxf(2, sz.y * 0.035f)), cy, cz, cz, cy);
+    }
+    at.x += sz.y * 0.3f * k;
+    ImU32 col_b = hot && enabled ? IM_COL32(140, 232, 244, 255) : col;
     if (split && enabled) {
         std::string head(label, split - label);
         text_fx(dl, ImGui::GetFont(), ImGui::GetFontSize(), at, col, col_b, head.c_str(), sz.y * 0.05f);
@@ -817,7 +842,7 @@ static void reveal_folder(const std::string &dir) {
 static SDL_Window *g_launcher_win;
 static bool g_files_deleted;  // set here: the start screen goes back to setting the game files up
 static void prelaunch_tab(float sc) {
-    const ImVec4 gold(0.93f, 0.76f, 0.33f, 1);
+    const ImVec4 gold(0.36f, 0.87f, 0.93f, 1);
     auto heading = [&](const char *t) {
         ImGui::PushFont(g_font_menu);
         ImGui::TextColored(gold, "%s", tr(t));
@@ -826,8 +851,7 @@ static void prelaunch_tab(float sc) {
         ImGui::Spacing();
     };
     heading("Game files");
-    static double gb = -1;
-    if (gb < 0) gb = rt_game_files_size(g_root.c_str()) / 1e9;
+    double gb = files_size_gb();
 #ifdef _WIN32
     if (ImGui::Button(tr("Show in Explorer"))) reveal_folder(g_root);
 #elif defined(__linux__)
@@ -947,7 +971,7 @@ extern "C" void launcher_run(const char *root, int mode) {
     ui_window_init();
     SDL_Window *win = ui_window();
     g_launcher_win = win;
-    SDL_SetWindowTitle(win, g_setup_only ? "Savage Wind" : "Savage Wind Configuration");
+    SDL_SetWindowTitle(win, g_setup_only ? "Slop of the Wild" : "Slop of the Wild - Configuration");
 #ifdef __APPLE__
     CAMetalLayer *layer = (__bridge CAMetalLayer *)ui_metal_layer();
     id<MTLDevice> dev = (__bridge id<MTLDevice>)ui_metal_device();
@@ -968,7 +992,7 @@ extern "C" void launcher_run(const char *root, int mode) {
     st.Colors[ImGuiCol_Header] = ImVec4(0, 0, 0, 0);
     st.Colors[ImGuiCol_HeaderHovered] = ImVec4(1, 1, 1, 0.08f);
     st.Colors[ImGuiCol_HeaderActive] = ImVec4(1, 1, 1, 0.14f);
-    st.Colors[ImGuiCol_NavCursor] = ImVec4(0.95f, 0.78f, 0.35f, 1);
+    st.Colors[ImGuiCol_NavCursor] = ImVec4(0.36f, 0.87f, 0.93f, 1);
     st.FrameRounding = st.WindowRounding = 10;
 #ifdef __APPLE__
     ImGui_ImplSDL3_InitForMetal(win);
@@ -1098,11 +1122,11 @@ extern "C" void launcher_run(const char *root, int mode) {
             {  // a shadow banner fading in from the left behind the menu, and one from the right behind the version
                 const float stops[][2] = {{0.0f, 225}, {0.3f, 215}, {0.44f, 165}, {0.55f, 95}, {0.64f, 35}, {0.74f, 0}};
                 for (int i = 0; i + 1 < (int)(sizeof stops / sizeof stops[0]); i++) {
-                    ImU32 a = IM_COL32(6, 10, 34, (int)stops[i][1]), b = IM_COL32(6, 10, 34, (int)stops[i + 1][1]);
+                    ImU32 a = IM_COL32(3, 10, 18, (int)stops[i][1]), b = IM_COL32(3, 10, 18, (int)stops[i + 1][1]);
                     bg->AddRectFilledMultiColor(ImVec2(ds.x * stops[i][0], 0), ImVec2(ds.x * stops[i + 1][0], ds.y), a, b, b, a);
                 }
                 float y0 = ds.y - 190 * s, y1 = ds.y - 135 * s, y2 = ds.y - 40 * s, y3 = ds.y, x0r = ds.x * 0.5f;
-                ImU32 c0 = IM_COL32(6, 10, 34, 0), c1 = IM_COL32(6, 10, 34, 235);
+                ImU32 c0 = IM_COL32(3, 10, 18, 0), c1 = IM_COL32(3, 10, 18, 235);
                 bg->AddRectFilledMultiColor(ImVec2(x0r, y0), ImVec2(ds.x, y1), c0, c0, c1, c0);  // (feathered top)
                 bg->AddRectFilledMultiColor(ImVec2(x0r, y1), ImVec2(ds.x, y2), c0, c1, c1, c0);
                 bg->AddRectFilledMultiColor(ImVec2(x0r, y2), ImVec2(ds.x, y3), c0, c1, c0, c0);  // (feathered bottom)
@@ -1119,18 +1143,18 @@ extern "C" void launcher_run(const char *root, int mode) {
             ImGui::SetCursorPos(ImVec2(x0, 120 * s));
             ImGui::PushFont(g_font_title);
             if (page == MAIN) {  // gold to orange, shadowed (not behind the Settings / Game Files windows)
-                const char *t = "Savage Wind";
+                const char *t = "Slop of the Wild";
                 ImVec2 p = ImGui::GetCursorScreenPos();
-                text_fx(ImGui::GetWindowDrawList(), ImGui::GetFont(), ImGui::GetFontSize(), p, IM_COL32(255, 232, 120, 255),
-                        IM_COL32(255, 138, 48, 255), t, 3 * s);
+                text_fx(ImGui::GetWindowDrawList(), ImGui::GetFont(), ImGui::GetFontSize(), p, IM_COL32(250, 253, 255, 255),
+                        IM_COL32(110, 226, 240, 255), t, 3 * s);
                 ImVec2 ts = ImGui::CalcTextSize(t);
                 ImGui::Dummy(ts);
                 // and what this screen is, under it in the ice blue of the art
-                std::string sub = tr_upper(tr("Configuration"));
+                std::string sub = tr_upper(tr("Configuration")) + "   \xc2\xb7   a fork of Savage Wind";
                 ImGui::PushFont(g_font_small);
                 ImVec2 sp(p.x + 6 * s, p.y + ts.y * 0.98f);
                 text_fx(ImGui::GetWindowDrawList(), ImGui::GetFont(), ImGui::GetFontSize() * 1.15f, sp,
-                        IM_COL32(205, 232, 250, 255), IM_COL32(150, 200, 235, 255), sub.c_str(), 1.5f * s);
+                        IM_COL32(200, 238, 246, 255), IM_COL32(120, 200, 220, 255), sub.c_str(), 1.5f * s);
                 ImGui::PopFont();
             }
             ImGui::PopFont();
@@ -1192,7 +1216,7 @@ extern "C" void launcher_run(const char *root, int mode) {
                                                           ImGui::GetWindowPos().y + ds.y), IM_COL32(0, 0, 0, 110));
                 ImVec2 wp = ImGui::GetWindowPos();
                 ImGui::SetCursorScreenPos(ImVec2(wp.x + (ds.x - w) * 0.5f, wp.y + (ds.y - h) * 0.5f));
-                ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.06f, 0.09f, 0.08f, 0.96f));
+                ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.025f, 0.045f, 0.07f, 0.94f));
                 ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 14 * sc);
                 ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(28 * sc, 24 * sc));
                 ImGui::BeginChild("##settings", ImVec2(w, h), ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_NavFlattened);
@@ -1200,7 +1224,7 @@ extern "C" void launcher_run(const char *root, int mode) {
                 ImGui::PopStyleColor();
                 ImGui::PushFont(g_font_small);
                 ImGui::PushFont(g_font_menu);
-                ImGui::TextColored(ImVec4(0.93f, 0.76f, 0.33f, 1), "%s", tr("Settings"));
+                ImGui::TextColored(ImVec4(0.36f, 0.87f, 0.93f, 1), "%s", tr("Settings"));
                 ImGui::PopFont();
                 bool back;
                 {  // close: a drawn X in the corner (B / Esc too)
@@ -1211,7 +1235,7 @@ extern "C" void launcher_run(const char *root, int mode) {
                     back = ImGui::InvisibleButton("##close", ImVec2(bx, bx), ImGuiButtonFlags_EnableNav);
                     ImGui::PopStyleColor();
                     bool hot = ImGui::IsItemHovered() || ImGui::IsItemFocused();
-                    ImU32 col = hot ? IM_COL32(236, 194, 84, 255) : IM_COL32(220, 216, 205, 255);
+                    ImU32 col = hot ? IM_COL32(92, 222, 238, 255) : IM_COL32(205, 215, 220, 255);
                     float m = bx * 0.3f, t = (hot ? 3.0f : 2.4f) * sc * 1.5f;
                     ImDrawList *dl = ImGui::GetWindowDrawList();
                     if (hot) dl->AddRectFilled(p, ImVec2(p.x + bx, p.y + bx), IM_COL32(255, 255, 255, 20), 8 * sc);
@@ -1250,7 +1274,7 @@ extern "C" void launcher_run(const char *root, int mode) {
                 bool welcome = g_setup_only && status == "No game files";
                 ImGui::PushFont(g_font_small);
                 ImGui::PushFont(g_font_menu);
-                ImGui::TextColored(ImVec4(0.93f, 0.76f, 0.33f, 1), "%s", tr(welcome ? "Welcome to Savage Wind" : "Game Files"));
+                ImGui::TextColored(ImVec4(0.36f, 0.87f, 0.93f, 1), "%s", tr(welcome ? "Welcome to Slop of the Wild" : "Game Files"));
                 ImGui::PopFont();
                 bool back = false;
                 if (!busy) {  // close: the drawn X in the corner, as Settings (B / Esc too; setup mode: the X quits)
@@ -1261,7 +1285,7 @@ extern "C" void launcher_run(const char *root, int mode) {
                     back = ImGui::InvisibleButton("##close", ImVec2(bx, bx), ImGuiButtonFlags_EnableNav);
                     ImGui::PopStyleColor();
                     bool hot = ImGui::IsItemHovered() || ImGui::IsItemFocused();
-                    ImU32 col = hot ? IM_COL32(236, 194, 84, 255) : IM_COL32(220, 216, 205, 255);
+                    ImU32 col = hot ? IM_COL32(92, 222, 238, 255) : IM_COL32(205, 215, 220, 255);
                     float m = bx * 0.3f, t = (hot ? 3.0f : 2.4f) * sc * 1.5f;
                     ImDrawList *dl = ImGui::GetWindowDrawList();
                     if (hot) dl->AddRectFilled(p, ImVec2(p.x + bx, p.y + bx), IM_COL32(255, 255, 255, 20), 8 * sc);
@@ -1322,9 +1346,10 @@ extern "C" void launcher_run(const char *root, int mode) {
                 if (ready && !g_setup_only) {
                     // DELETE: frees Savage Wind's copy (runtime/paths.c removes only what the setup made, only inside
                     // the data root). Saves, settings and the user's own files stay.
-                    if (files_gb < 0) files_gb = rt_game_files_size(g_root.c_str()) / 1e9;
+                    files_gb = files_size_gb();
                     char gb[32];
-                    snprintf(gb, sizeof gb, "%.1f GB", files_gb);
+                    if (files_gb < 0) snprintf(gb, sizeof gb, "...");
+                    else snprintf(gb, sizeof gb, "%.1f GB", files_gb);
                     opt_section("Game files");
                     if (!g_confirm_delete) {
                         if (opt_action("Delete game files", gb, "Frees the space Savage Wind's copy of the game files takes. "
@@ -1339,7 +1364,7 @@ extern "C" void launcher_run(const char *root, int mode) {
                             if (ok) set_job("Game files deleted.");
                             else set_job("Couldn't delete the game files", true, "They aren't in Savage Wind's data folder, "
                                          "so they were left alone.");
-                            g_confirm_delete = false, files_gb = -1;
+                            g_confirm_delete = false, files_gb = -1, files_size_reset();
                         }
                         if (opt_action("Cancel", "", "Keeps the game files.", true)) g_confirm_delete = false;
                     }
@@ -1402,12 +1427,12 @@ extern "C" void launcher_run(const char *root, int mode) {
                         pthread_create(&t, NULL, extract_thread, NULL);
                         pthread_detach(t);
                     }
-                    if (!ready) files_gb = -1;  // (re-measured after a setup)
+                    if (!ready) files_gb = -1, files_size_reset();  // (re-measured after a setup)
                 }
                 if (!job_line.empty()) {  // the current step / result
                     ImGui::Dummy(ImVec2(0, 14 * sc));
                     ImGui::PushTextWrapPos(0);
-                    ImGui::TextColored(failed ? ImVec4(1, 0.5f, 0.4f, 1) : busy ? ImVec4(0.93f, 0.76f, 0.33f, 1)
+                    ImGui::TextColored(failed ? ImVec4(1, 0.5f, 0.4f, 1) : busy ? ImVec4(0.36f, 0.87f, 0.93f, 1)
                                               : ImVec4(0.45f, 0.95f, 0.55f, 1), "%s", trv(job_line).c_str());
                     if (failed && !job_hint.empty())  // (what to do next, in the rows' own text colour)
                         ImGui::TextColored(ImVec4(0.86f, 0.85f, 0.80f, 1), "%s", trv(job_hint).c_str());
@@ -1473,10 +1498,10 @@ extern "C" void launcher_run(const char *root, int mode) {
                     ImVec2 a(o.x + (ds.x - pw) * 0.5f, o.y + (ds.y - ph) * 0.5f), b(a.x + pw, a.y + ph);
                     fg->AddRectFilled(a, b, IM_COL32(15, 23, 20, 250), 14 * sc);
                     fg->AddRect(a, b, IM_COL32(236, 194, 84, 140), 14 * sc, 0, 1.5f * sc);
-                    fg->AddText(g_font_menu, tfs, ImVec2((a.x + b.x - ts.x) * 0.5f, a.y + 36 * sc), IM_COL32(236, 194, 84, 255), title);
+                    fg->AddText(g_font_menu, tfs, ImVec2((a.x + b.x - ts.x) * 0.5f, a.y + 36 * sc), IM_COL32(92, 222, 238, 255), title);
                     ImVec2 ba(a.x + 48 * sc, a.y + bar_y), bb(b.x - 48 * sc, a.y + bar_y + 24 * sc);
                     fg->AddRectFilled(ba, bb, IM_COL32(255, 255, 255, 25), 12 * sc);
-                    if (f > 0) fg->AddRectFilled(ba, ImVec2(ba.x + (bb.x - ba.x) * f, bb.y), IM_COL32(236, 194, 84, 255), 12 * sc);
+                    if (f > 0) fg->AddRectFilled(ba, ImVec2(ba.x + (bb.x - ba.x) * f, bb.y), IM_COL32(92, 222, 238, 255), 12 * sc);
                     char line[200];
 #ifndef __APPLE__
                     std::string step = shaders ? precompile_line() : tr(test_busy ? "Setting up the game files..." : job.c_str());
@@ -1485,7 +1510,7 @@ extern "C" void launcher_run(const char *root, int mode) {
 #endif
                     snprintf(line, sizeof line, "%s   %d%%", step.c_str(), (int)(f * 100));
                     ImVec2 ls = g_font_small->CalcTextSizeA(sfs, FLT_MAX, 0, line);
-                    fg->AddText(g_font_small, sfs, ImVec2((a.x + b.x - ls.x) * 0.5f, bb.y + 26 * sc), IM_COL32(220, 216, 205, 255), line);
+                    fg->AddText(g_font_small, sfs, ImVec2((a.x + b.x - ls.x) * 0.5f, bb.y + 26 * sc), IM_COL32(205, 215, 220, 255), line);
                     for (int i = 0; i < nnotes; i++) {
                         ImVec2 ns = g_font_small->CalcTextSizeA(sfs, FLT_MAX, 0, notes[i]);
                         fg->AddText(g_font_small, sfs, ImVec2((a.x + b.x - ns.x) * 0.5f, bb.y + 26 * sc + (i + 1) * line_h + 14 * sc),
@@ -1536,11 +1561,11 @@ extern "C" void launcher_run(const char *root, int mode) {
                 ImFont *font = ImGui::GetFont();
                 float fs = ImGui::GetFontSize(), right = ImGui::GetWindowPos().x + ds.x - 60 * s;
                 char ver[64];
-                snprintf(ver, sizeof ver, tr("Version %s"), SAVAGEWIND_VERSION);
+                snprintf(ver, sizeof ver, "Slop of the Wild 0.0  \xc2\xb7  Savage Wind %s", SAVAGEWIND_VERSION);
                 float vs = fs * 1.4f, y = ImGui::GetWindowPos().y + ds.y - 134 * s;
                 ImVec2 vsz = font->CalcTextSizeA(vs, FLT_MAX, 0, ver);
                 ImVec2 p(right - vsz.x, y);
-                for (float d : {2.5f, 1.5f, 0.8f}) dl->AddText(font, vs, ImVec2(p.x + d * s, p.y + d * s), IM_COL32(4, 8, 30, 150), ver);
+                for (float d : {2.5f, 1.5f, 0.8f}) dl->AddText(font, vs, ImVec2(p.x + d * s, p.y + d * s), IM_COL32(2, 8, 16, 150), ver);
                 dl->AddText(font, vs, p, IM_COL32(255, 255, 255, 255), ver);
             }
             ImGui::PopFont();
@@ -1581,7 +1606,7 @@ extern "C" void launcher_run(const char *root, int mode) {
     }
     // play: hand the window to the game
     settings_save();
-    SDL_SetWindowTitle(win, "Savage Wind");
+    SDL_SetWindowTitle(win, "Slop of the Wild");
     splash_unload();
 #ifdef __APPLE__
     ImGui_ImplMetal_Shutdown();

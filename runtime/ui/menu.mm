@@ -6,6 +6,7 @@
 #import <Metal/Metal.h>
 #endif
 #include <SDL3/SDL.h>
+#include <float.h>
 #include <math.h>
 #include <pthread.h>
 #include <atomic>
@@ -66,6 +67,9 @@ static void push(const QEvent &e) {
 }
 
 bool menu_is_open(void) { return g_open.load(); }
+#define SLOP_VERSION "0.0"
+static std::atomic<uint64_t> g_title_tick{0};  // SDL_GetTicks() of the title menu's last update (game thread)
+extern "C" void menu_title_tick(void) { g_title_tick.store(SDL_GetTicks()); }
 static void set_open(bool open);
 extern "C" void menu_test_open(void) {
     set_open(true);
@@ -73,8 +77,10 @@ extern "C" void menu_test_open(void) {
 }
 
 void menu_tabs_focus(bool first_tab);
+static float g_open_a;  // the menu's fade / rise in (0..1)
 static void set_open(bool open) {
     if (open == g_open.load()) return;
+    if (open) g_open_a = 0;
     g_open.store(open);
     input_reset();  // nothing held while the menu had focus leaks into the game
     bind_capture_cancel();
@@ -155,7 +161,8 @@ extern "C" bool menu_input_captured(void) { return capturing() || game_options_i
 // longer open this menu (SAVAGEWIND_OVERLAY=1 brings it back). Esc frees the mouse cursor instead, a click in the
 // window holds it again (runtime/hle/input.c).
 static bool overlay_enabled(void) {
-    static const bool on = getenv("SAVAGEWIND_OVERLAY") && *getenv("SAVAGEWIND_OVERLAY") != '0';
+    // Slop of the Wild: the overlay is back - F1 / Esc / Guide / Back+Start open it (SAVAGEWIND_OVERLAY=0: off)
+    static const bool on = !(getenv("SAVAGEWIND_OVERLAY") && *getenv("SAVAGEWIND_OVERLAY") == '0');
     return on;
 }
 static std::atomic<bool> g_cursor_free{false};
@@ -309,37 +316,42 @@ static int g_focus_frames;
 void menu_tabs_focus(bool first_tab) { g_focus_tab = first_tab ? -1 : -100, g_focus_frames = 0; }
 int g_tab_request_ext = -1;
 
-static void style_init(void) {
+static void style_init(void) {  // Slop of the Wild: Sheikah slate - deep blue-black glass, cyan glow, amber for changes
     ImGuiStyle &s = ImGui::GetStyle();
     ImGui::StyleColorsDark();
-    s.WindowRounding = 14; s.FrameRounding = 8; s.GrabRounding = 8; s.TabRounding = 8; s.ChildRounding = 10;
-    s.WindowPadding = ImVec2(28, 24); s.FramePadding = ImVec2(14, 8); s.ItemSpacing = ImVec2(14, 12);
-    s.WindowBorderSize = 0; s.ScrollbarSize = 18;
+    s.WindowRounding = 18; s.FrameRounding = 6; s.GrabRounding = 6; s.TabRounding = 6; s.ChildRounding = 10;
+    s.WindowPadding = ImVec2(32, 26); s.FramePadding = ImVec2(16, 9); s.ItemSpacing = ImVec2(14, 12);
+    s.WindowBorderSize = 1; s.ScrollbarSize = 12; s.ScrollbarRounding = 6; s.TabBarBorderSize = 0;
     ImVec4 *c = s.Colors;
-    ImVec4 gold(0.93f, 0.76f, 0.33f, 1), gold_dim(0.62f, 0.49f, 0.20f, 1), green(0.15f, 0.36f, 0.25f, 1);
-    c[ImGuiCol_WindowBg] = ImVec4(0.06f, 0.09f, 0.08f, 0.94f);
-    c[ImGuiCol_ChildBg] = ImVec4(0.09f, 0.13f, 0.11f, 0.85f);
-    c[ImGuiCol_PopupBg] = ImVec4(0.07f, 0.10f, 0.09f, 0.98f);
-    c[ImGuiCol_Text] = ImVec4(0.96f, 0.94f, 0.88f, 1);
-    c[ImGuiCol_TextDisabled] = ImVec4(0.62f, 0.64f, 0.58f, 1);
-    c[ImGuiCol_FrameBg] = ImVec4(0.13f, 0.19f, 0.16f, 1);
-    c[ImGuiCol_FrameBgHovered] = green;
-    c[ImGuiCol_FrameBgActive] = ImVec4(0.19f, 0.45f, 0.31f, 1);
-    c[ImGuiCol_Button] = ImVec4(0.14f, 0.22f, 0.18f, 1);
-    c[ImGuiCol_ButtonHovered] = green;
-    c[ImGuiCol_ButtonActive] = ImVec4(0.21f, 0.50f, 0.34f, 1);
-    c[ImGuiCol_Header] = green;
-    c[ImGuiCol_HeaderHovered] = ImVec4(0.19f, 0.45f, 0.31f, 1);
-    c[ImGuiCol_HeaderActive] = ImVec4(0.21f, 0.50f, 0.34f, 1);
-    c[ImGuiCol_Tab] = ImVec4(0.12f, 0.18f, 0.15f, 1);
-    c[ImGuiCol_TabHovered] = green;
-    c[ImGuiCol_TabSelected] = ImVec4(0.21f, 0.44f, 0.31f, 1);
-    c[ImGuiCol_TabSelectedOverline] = gold;
-    c[ImGuiCol_CheckMark] = gold;
-    c[ImGuiCol_SliderGrab] = gold_dim;
-    c[ImGuiCol_SliderGrabActive] = gold;
-    c[ImGuiCol_NavCursor] = gold;
-    c[ImGuiCol_Separator] = ImVec4(0.30f, 0.36f, 0.30f, 1);
+    ImVec4 cyan(0.36f, 0.87f, 0.93f, 1), cyan_dim(0.20f, 0.55f, 0.62f, 1), deep(0.05f, 0.11f, 0.16f, 1);
+    c[ImGuiCol_WindowBg] = ImVec4(0.025f, 0.045f, 0.07f, 0.90f);
+    c[ImGuiCol_Border] = ImVec4(0.36f, 0.87f, 0.93f, 0.22f);
+    c[ImGuiCol_ChildBg] = ImVec4(0, 0, 0, 0);
+    c[ImGuiCol_PopupBg] = ImVec4(0.03f, 0.06f, 0.09f, 0.98f);
+    c[ImGuiCol_Text] = ImVec4(0.92f, 0.95f, 0.96f, 1);
+    c[ImGuiCol_TextDisabled] = ImVec4(0.48f, 0.56f, 0.60f, 1);
+    c[ImGuiCol_FrameBg] = deep;
+    c[ImGuiCol_FrameBgHovered] = ImVec4(0.08f, 0.22f, 0.28f, 1);
+    c[ImGuiCol_FrameBgActive] = ImVec4(0.10f, 0.30f, 0.37f, 1);
+    c[ImGuiCol_Button] = ImVec4(0.06f, 0.14f, 0.19f, 1);
+    c[ImGuiCol_ButtonHovered] = ImVec4(0.10f, 0.30f, 0.37f, 1);
+    c[ImGuiCol_ButtonActive] = ImVec4(0.14f, 0.42f, 0.50f, 1);
+    c[ImGuiCol_Header] = ImVec4(0.08f, 0.22f, 0.28f, 1);
+    c[ImGuiCol_HeaderHovered] = ImVec4(0.10f, 0.30f, 0.37f, 1);
+    c[ImGuiCol_HeaderActive] = ImVec4(0.14f, 0.42f, 0.50f, 1);
+    c[ImGuiCol_Tab] = ImVec4(0, 0, 0, 0);
+    c[ImGuiCol_TabHovered] = ImVec4(0.10f, 0.30f, 0.37f, 0.8f);
+    c[ImGuiCol_TabSelected] = ImVec4(0.08f, 0.22f, 0.28f, 1);
+    c[ImGuiCol_TabSelectedOverline] = cyan;
+    c[ImGuiCol_CheckMark] = cyan;
+    c[ImGuiCol_SliderGrab] = cyan_dim;
+    c[ImGuiCol_SliderGrabActive] = cyan;
+    c[ImGuiCol_ScrollbarBg] = ImVec4(0, 0, 0, 0);
+    c[ImGuiCol_ScrollbarGrab] = ImVec4(0.36f, 0.87f, 0.93f, 0.25f);
+    c[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.36f, 0.87f, 0.93f, 0.45f);
+    c[ImGuiCol_ScrollbarGrabActive] = cyan;
+    c[ImGuiCol_NavCursor] = cyan;
+    c[ImGuiCol_Separator] = ImVec4(0.36f, 0.87f, 0.93f, 0.18f);
     c[ImGuiCol_TitleBg] = c[ImGuiCol_TitleBgActive] = c[ImGuiCol_WindowBg];
 }
 
@@ -498,7 +510,7 @@ static void tab_display(void) {
     opt_begin("##video", scale);
     opt_section("Display");
     bool fs = g_settings.fullscreen;
-    if (opt_toggle("Fullscreen", &fs, false, "Fills the screen. Also: F11, Alt+Enter or Cmd+Ctrl+F.")) {
+    if (opt_toggle("Fullscreen", &fs, true, "Fills the screen. Also: F11, Alt+Enter or Cmd+Ctrl+F.")) {
         g_settings.fullscreen = fs;
         g_want_window_apply.store(true);
     }
@@ -597,6 +609,7 @@ static void tab_display(void) {
                "frame time graph. F10 switches between them while you play.");
 
     opt_section("Rendering");
+#ifdef __APPLE__
     {   // Upscaler: Off, this OS's spatial upscaler (its modes on the row below), and the temporal ones still to come.
         // Values that can't be picked yet are shown greyed ("coming soon"); stepping onto them keeps the one in use.
         // The modes wait for render-target scaling (upscale_modes_available): until then the upscaler brings the
@@ -653,19 +666,20 @@ static void tab_display(void) {
                          md.c_str());
         opt_indent(-1);
     }
+#endif
     static const char *aa[] = {"Off", "SMAA"};
-    opt_choice("Anti-aliasing", &g_settings.antialias, aa, 2, AA_OFF,
+    opt_choice("Anti-aliasing", &g_settings.antialias, aa, 2, AA_SMAA,
                "Smooths jagged edges of the game image before it is scaled to the window. SMAA: finds the edges and "
-               "blends only along them, so textures stay sharp. Most useful with an upscaler.");
+               "blends only along them, so textures stay sharp.");
 #ifndef __APPLE__
     {   // Anisotropic filtering and sharpening (Vulkan: vulkan/textures.c sampler_aniso, vulkan/exec.c scene_post)
         static const char *const aniso[] = {"Off", "2x", "4x", "8x", "16x"};
-        opt_choice("Anisotropic filtering", &g_settings.anisotropy, aniso, 5, 0,
+        opt_choice("Anisotropic filtering", &g_settings.anisotropy, aniso, 5, 4,
                    "Keeps the textures of ground, paths and walls sharp where you look along them into the distance. "
                    "Off: the game's own filtering, as on the console. 16x is the sharpest and costs very little on a PC "
-                   "graphics card.", false);
+                   "graphics card. Render targets keep the game's own filtering (no dark crust on edges).", false);
         static const char *const clar[] = {"Off", "Serfrost", "Serfrost (dim display)", "Serfrost (bright display)"};
-        opt_choice("Clarity", &g_settings.clarity, clar, 4, 0,
+        opt_choice("Clarity", &g_settings.clarity, clar, 4, 1,
                    "Cemu's Clarity for Breath of the Wild (graphic packs, presets by Serfrost) in place of the game's own "
                    "tone mapping: less bloom and haze, deeper blacks, richer color. Takes effect the next time the game "
                    "starts.", false);
@@ -674,14 +688,13 @@ static void tab_display(void) {
                    "Supersampling: above 100% the game renders at a higher resolution than the window and is scaled "
                    "down to it, the cleanest way to smooth edges and shimmer. 200% is 4x the pixels: for fast "
                    "graphics cards.", false);
-        static const char *const sharp[] = {"Off", "10%", "20%", "30%", "40%", "50%"};  // (CAS halos above 50%)
-        opt_choice("Sharpening (AMD CAS)", &g_settings.sharpening, sharp, 6, 0,
-                   "AMD FidelityFX CAS sharpens the 3D image after the upscaler (or at the window's resolution with the "
-                   "upscaler off), before the HUD is drawn over it: edges get crisper without halos. Most useful with "
-                   "AMD FSR 1.", false);
+        opt_toggle("AMD fast path", &g_settings.fast_path, true,
+                   "Lets the game read and write the same image in one pass (Vulkan attachment feedback loops) instead "
+                   "of copying it first. About 1.6x the frame rate on AMD Radeon. Off only to rule it out if something "
+                   "draws wrong. Takes effect the next time the game starts.");
     }
 #endif
-    opt_toggle("Asynchronous shaders", &g_settings.async_shaders, false,
+    opt_toggle("Asynchronous shaders", &g_settings.async_shaders, true,
                "Off: the game waits for each new shader to compile, a short stutter the first time an effect "
                "appears, and everything is drawn. On: no waiting, but what needs a shader still compiling is skipped "
                "meanwhile: effects pop in late, and pictures the game draws only once (the save file's screenshot) "
@@ -1029,7 +1042,11 @@ void menu_render(void *cmd, uint32_t target_w, uint32_t target_h) {
 #endif
     bool open = g_open.load();
     bool kbd = g_kbd.load() == 1;
-    if (!open && !kbd && g_settings.perf_overlay == PERF_OFF) {
+    uint64_t tt = g_title_tick.load();
+    bool title = tt && SDL_GetTicks() - tt < 300;
+    static float title_a;
+    if (!title && title_a > 0.004f) title = true;  // (fading out)
+    if (!open && !kbd && !title && g_settings.perf_overlay == PERF_OFF) {
         if (g_inited) { pthread_mutex_lock(&q_lock); q_events.clear(); pthread_mutex_unlock(&q_lock); }
         return;
     }
@@ -1076,12 +1093,37 @@ void menu_render(void *cmd, uint32_t target_w, uint32_t target_h) {
     ImGui::NewFrame();
 
     if (g_settings.perf_overlay != PERF_OFF) perf_overlay_draw(io, scale);
+    if (title) {  // the title screen's brand, where the game's version line was (fs.c leaves it blank)
+        bool up = tt && SDL_GetTicks() - tt < 300;
+        title_a += ((up ? 1.0f : 0.0f) - title_a) * fminf(1.0f, io.DeltaTime * 6);
+        float W = io.DisplaySize.x, H = io.DisplaySize.y, fh = H * 0.0185f, pitch = H * 0.0285f, xr = W * 0.9553f;
+        ImDrawList *dl = ImGui::GetForegroundDrawList();
+        ImFont *f1 = g_menu_font_big ? g_menu_font_big : g_font, *f2 = g_menu_font ? g_menu_font : g_font;
+        const char *l1 = "Slop of the Wild " SLOP_VERSION, *l2 = "a fork of Savage Wind";
+        ImVec2 s1 = f1->CalcTextSizeA(fh, FLT_MAX, 0, l1), s2 = f2->CalcTextSizeA(fh * 0.8f, FLT_MAX, 0, l2);
+        float y1 = H * 0.9142f - pitch, y2 = H * 0.9142f + fh * 0.1f;
+        int a = (int)(255 * title_a), sh = (int)(110 * title_a);
+        float o = fmaxf(1.0f, H / 1080.0f);
+        dl->AddText(f1, fh, ImVec2(xr - s1.x + o, y1 + o), IM_COL32(0, 0, 0, sh), l1);
+        dl->AddText(f1, fh, ImVec2(xr - s1.x, y1), IM_COL32(246, 244, 236, a), l1);
+        dl->AddText(f2, fh * 0.8f, ImVec2(xr - s2.x + o, y2 + o), IM_COL32(0, 0, 0, sh), l2);
+        dl->AddText(f2, fh * 0.8f, ImVec2(xr - s2.x, y2), IM_COL32(150, 226, 236, a), l2);
+    }
 
     if (open) {
         // dim the game behind the menu
-        ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), io.DisplaySize, IM_COL32(0, 0, 0, 110));
+        {   // dim and tint the game behind the menu, a vignette toward the edges
+            ImDrawList *bg = ImGui::GetBackgroundDrawList();
+            bg->AddRectFilled(ImVec2(0, 0), io.DisplaySize, IM_COL32(2, 8, 14, 150));
+            float ew = io.DisplaySize.x * 0.18f;
+            bg->AddRectFilledMultiColor(ImVec2(0, 0), ImVec2(ew, io.DisplaySize.y), IM_COL32(0, 0, 0, 120), IM_COL32(0, 0, 0, 0), IM_COL32(0, 0, 0, 0), IM_COL32(0, 0, 0, 120));
+            bg->AddRectFilledMultiColor(ImVec2(io.DisplaySize.x - ew, 0), io.DisplaySize, IM_COL32(0, 0, 0, 0), IM_COL32(0, 0, 0, 120), IM_COL32(0, 0, 0, 120), IM_COL32(0, 0, 0, 0));
+        }
         float w = fminf(io.DisplaySize.x * 0.9f, 1500 * scale), h = io.DisplaySize.y - 2 * 18 * scale;  // (all the height: a slim margin)
-        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        g_open_a += (1 - g_open_a) * fminf(1.0f, io.DeltaTime * 10);
+        float ease = g_open_a > 0.999f ? 1 : g_open_a;
+        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.15f + 0.85f * ease);
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f + (1 - ease) * 40 * scale), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
         ImGui::SetNextWindowSize(ImVec2(w, h), ImGuiCond_Always);
         ImGui::Begin("##menu", NULL, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings);
         ImFont *keep_big = g_font_big;  // (the window in the menu's font; header() uses g_font_big)
@@ -1090,7 +1132,9 @@ void menu_render(void *cmd, uint32_t target_w, uint32_t target_h) {
         // header as on the start screen's Settings: the title, and a close X in the corner (B / Esc too). ("Title
         // screen" - rt_request_reboot(RT_REBOOT_TITLE) - is to find a new home; user 2026-10-11.)
         ImGui::PushFont(g_font_big);
-        ImGui::TextColored(ImVec4(0.93f, 0.76f, 0.33f, 1), "%s", tr("Settings"));
+        ImGui::TextColored(ImVec4(0.36f, 0.87f, 0.93f, 1), "%s", tr("Settings"));
+        ImGui::SameLine();
+        ImGui::TextDisabled("Slop of the Wild " SLOP_VERSION);
         ImGui::PopFont();
         {
             float bx = 44 * scale;
@@ -1100,7 +1144,7 @@ void menu_render(void *cmd, uint32_t target_w, uint32_t target_h) {
             bool close = ImGui::InvisibleButton("##close", ImVec2(bx, bx), ImGuiButtonFlags_EnableNav);
             ImGui::PopStyleColor();
             bool hot = ImGui::IsItemHovered() || ImGui::IsItemFocused();
-            ImU32 col = hot ? IM_COL32(236, 194, 84, 255) : IM_COL32(220, 216, 205, 255);
+            ImU32 col = hot ? IM_COL32(92, 222, 238, 255) : IM_COL32(205, 215, 220, 255);
             float m = bx * 0.3f, t = (hot ? 3.0f : 2.4f) * scale * 1.5f;
             ImDrawList *dl = ImGui::GetWindowDrawList();
             if (hot) dl->AddRectFilled(p, ImVec2(p.x + bx, p.y + bx), IM_COL32(255, 255, 255, 20), 8 * scale);
@@ -1119,6 +1163,7 @@ void menu_render(void *cmd, uint32_t target_w, uint32_t target_h) {
         ImGui::PopFont();
         g_font_big = keep_big;
         ImGui::End();
+        ImGui::PopStyleVar();
         osk_draw(g_font_big, scale);  // (a text field activated with the controller)
     }
 

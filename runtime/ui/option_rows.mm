@@ -16,7 +16,18 @@ static float g_scale = 1;
 static std::string g_desc_hover, g_desc_focus, g_desc_shown;  // this frame's hovered / selected row, and the last shown
 static std::string g_desc_first;  // the page's first row (shown until a row is selected or hovered)
 
-static const ImU32 kGold = IM_COL32(236, 194, 84, 255);
+// Slop of the Wild palette: Sheikah slate cyan on deep blue-black, amber for changed values
+static const ImU32 kGold = IM_COL32(92, 222, 238, 255);   // (the accent; the name kept from the gold days)
+static const ImU32 kAmber = IM_COL32(244, 196, 98, 255);
+static float g_track = -1;   // next row: a track under the value (0..1 filled), -1 none
+static int g_track_n;        // its notches (a choice of n), 0: continuous
+static int g_switch = -1;    // next row: a toggle switch (0 off, 1 on), -1 none
+static float anim(ImGuiID id, bool on, float speed = 14) {  // eased 0..1 per row (hover / selection glow)
+    float *v = ImGui::GetStateStorage()->GetFloatRef(id + 0x5157, 0);
+    float dt = ImGui::GetIO().DeltaTime, k = 1 - expf(-speed * (dt > 0.1f ? 0.1f : dt));
+    *v += ((on ? 1.0f : 0.0f) - *v) * k;
+    return *v;
+}
 static bool g_next_disabled;
 void opt_disable_next(void) { g_next_disabled = true; }
 static bool g_value_dim;  // the next row's value is shown greyed (a value that can't be picked yet)
@@ -44,7 +55,11 @@ void opt_begin(const char *id, float scale) {
 void opt_section(const char *title) {
     std::string t = tr_upper(tr(title));
     if (ImGui::GetCursorPosY() > ImGui::GetStyle().WindowPadding.y + 1) ImGui::Dummy(ImVec2(0, 10 * g_scale));
-    ImGui::TextColored(ImVec4(0.55f, 0.58f, 0.52f, 1), "%s", t.c_str());
+    ImVec2 q = ImGui::GetCursorScreenPos();
+    ImGui::TextColored(ImVec4(0.36f, 0.87f, 0.93f, 1), "%s", t.c_str());
+    float tw = ImGui::CalcTextSize(t.c_str()).x, cy = q.y + ImGui::GetFontSize() * 0.55f, x1 = q.x + ImGui::GetContentRegionAvail().x;
+    ImGui::GetWindowDrawList()->AddRectFilledMultiColor(ImVec2(q.x + tw + 14 * g_scale, cy), ImVec2(x1, cy + 1.5f * g_scale),
+        IM_COL32(92, 222, 238, 120), IM_COL32(92, 222, 238, 0), IM_COL32(92, 222, 238, 0), IM_COL32(92, 222, 238, 120));
 }
 
 // One row: draws it, handles A / click and left / right while selected. Returns 2 (A / click), -1 / +1 (left / right) or 0.
@@ -91,46 +106,83 @@ static int row(const char *label, const std::string &value, bool changed, const 
     if (g_desc_first.empty() && desc) g_desc_first = desc;
 
     ImDrawList *dl = ImGui::GetWindowDrawList();
-    float r = 9 * g_scale, pad = 16 * g_scale, fs = ImGui::GetFontSize();
-    dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), hov || foc ? IM_COL32(255, 255, 255, 22) : IM_COL32(0, 0, 0, 40), r);
-    dl->AddRect(p, ImVec2(p.x + w, p.y + h), hov || foc ? (off ? IM_COL32(236, 194, 84, 120) : kGold)
-                                                        : IM_COL32(255, 255, 255, off ? 18 : 38), r, 0,
-                hov || foc ? 2.0f : 1.0f);
+    float r = 6 * g_scale, pad = 18 * g_scale, fs = ImGui::GetFontSize();
+    float a = anim(ImGui::GetItemID(), hov || foc);
+    // the row: a dark glass strip; selected, it lifts with a cyan wash from the left and an accent bar
+    dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), IM_COL32(8, 14, 22, (int)(120 + 60 * a)), r);
+    if (a > 0.01f) {
+        dl->AddRectFilledMultiColor(p, ImVec2(p.x + w * (0.35f + 0.65f * a), p.y + h), IM_COL32(92, 222, 238, (int)(60 * a)),
+                                    IM_COL32(92, 222, 238, 0), IM_COL32(92, 222, 238, 0), IM_COL32(92, 222, 238, (int)(60 * a)));
+        float bh = h * (0.3f + 0.5f * a);
+        dl->AddRectFilled(ImVec2(p.x, p.y + (h - bh) * 0.5f), ImVec2(p.x + 4 * g_scale, p.y + (h + bh) * 0.5f),
+                          off ? IM_COL32(92, 222, 238, 90) : kGold, 2 * g_scale);
+    }
+    dl->AddLine(ImVec2(p.x + r, p.y + h - 1), ImVec2(p.x + w - r, p.y + h - 1), IM_COL32(120, 200, 220, (int)(22 + 40 * a)), 1.0f);
     std::string t = upper ? tr_upper(tr(label)) : std::string(tr(label));
     float ty = p.y + (h - fs) * 0.5f;
-    ImU32 label_col = off ? IM_COL32(110, 110, 102, 255) : IM_COL32(240, 236, 224, 255);  // (greyed out: clearly dim)
-    dl->AddText(ImVec2(p.x + pad, ty), label_col, t.c_str());
+    ImU32 label_col = off ? IM_COL32(100, 108, 112, 255) : IM_COL32(232, 240, 242, 255);  // (greyed out: clearly dim)
+    dl->AddText(ImVec2(p.x + pad + 6 * g_scale * a, ty), label_col, t.c_str());
     float right = p.x + w - pad;  // (the value's right edge)
-    if (arrows && !value.empty()) {  // ◀ value ▶, drawn (the fonts have no arrow glyphs); a click on one steps
-        float aw = fs * 0.42f, gap = fs * 0.55f, cy = ty + fs * 0.52f;
+    if (g_switch >= 0) {  // a pill switch, the knob slides
+        float sh = fs * 0.9f, sw = sh * 1.9f, sx = right - sw, sy = p.y + (h - sh) * 0.5f;
+        float k = anim(ImGui::GetItemID() + 1, g_switch == 1, 18);
+        ImU32 track = off ? IM_COL32(60, 66, 70, 255) : IM_COL32((int)(40 + 52 * k), (int)(48 + 174 * k), (int)(58 + 180 * k), 255);
+        dl->AddRectFilled(ImVec2(sx, sy), ImVec2(sx + sw, sy + sh), track, sh * 0.5f);
+        float kr = sh * 0.5f - 3 * g_scale, kx = sx + sh * 0.5f + (sw - sh) * k;
+        dl->AddCircleFilled(ImVec2(kx, sy + sh * 0.5f), kr, off ? IM_COL32(130, 134, 136, 255) : IM_COL32(245, 250, 252, 255));
+        right = sx - pad;
+        g_switch = -1;
+    }
+    float vx0 = right;  // (the value's left edge, for the track)
+    if (arrows && !value.empty()) {  // < value >, drawn (the fonts have no arrow glyphs); a click on one steps
+        float aw = fs * 0.36f, gap = fs * 0.55f, cy = ty + fs * 0.52f;
         float rx = right - aw, lx = rx - gap - ImGui::CalcTextSize(value.c_str()).x - gap - aw;
-        ImU32 ac = off ? IM_COL32(110, 110, 100, 255) : hov || foc ? kGold : IM_COL32(170, 170, 160, 255);
-        dl->AddTriangleFilled(ImVec2(lx, cy), ImVec2(lx + aw, cy - aw * 0.75f), ImVec2(lx + aw, cy + aw * 0.75f), ac);
-        dl->AddTriangleFilled(ImVec2(rx + aw, cy), ImVec2(rx, cy - aw * 0.75f), ImVec2(rx, cy + aw * 0.75f), ac);
+        ImU32 ac = off ? IM_COL32(90, 96, 100, 255) : IM_COL32(150 - (int)(58 * a), 170 + (int)(52 * a), 178 + (int)(60 * a), 255);
+        dl->AddTriangleFilled(ImVec2(lx, cy), ImVec2(lx + aw, cy - aw * 0.8f), ImVec2(lx + aw, cy + aw * 0.8f), ac);
+        dl->AddTriangleFilled(ImVec2(rx + aw, cy), ImVec2(rx, cy - aw * 0.8f), ImVec2(rx, cy + aw * 0.8f), ac);
         if (clicked && !off) {
             float mx = ImGui::GetIO().MousePos.x, hit = gap;
             if (mx >= lx - hit && mx <= lx + aw + hit) step = -1;
             else if (mx >= rx - hit && mx <= rx + aw + hit) step = 1;
         }
+        vx0 = lx;
         right = rx - gap;
     }
     if (!value.empty()) {
         float vw = ImGui::CalcTextSize(value.c_str()).x, vx = right - vw;
-        dl->AddText(ImVec2(vx, ty), dim ? IM_COL32(110, 110, 102, 255) : changed ? IM_COL32(255, 255, 255, 255)
-                                                                                 : IM_COL32(205, 205, 195, 255), value.c_str());
+        if (!arrows) vx0 = vx;
+        dl->AddText(ImVec2(vx, ty), dim ? IM_COL32(100, 106, 110, 255) : changed ? kAmber : IM_COL32(210, 222, 226, 255),
+                    value.c_str());
+    }
+    if (g_track >= 0) {  // the value's place in its range: a slim bar with notches, eased
+        float x0 = vx0, x1 = p.x + w - pad, y = p.y + h - 6 * g_scale;
+        float *fv = ImGui::GetStateStorage()->GetFloatRef(ImGui::GetItemID() + 0x7ac, -1);
+        if (*fv < 0) *fv = g_track;
+        float dt = ImGui::GetIO().DeltaTime;
+        *fv += (g_track - *fv) * (1 - expf(-16 * (dt > 0.1f ? 0.1f : dt)));
+        dl->AddRectFilled(ImVec2(x0, y - 1.5f * g_scale), ImVec2(x1, y + 1.5f * g_scale), IM_COL32(255, 255, 255, 26), 2 * g_scale);
+        dl->AddRectFilled(ImVec2(x0, y - 1.5f * g_scale), ImVec2(x0 + (x1 - x0) * *fv, y + 1.5f * g_scale),
+                          dim ? IM_COL32(92, 222, 238, 70) : kGold, 2 * g_scale);
+        for (int i = 0; g_track_n > 1 && g_track_n <= 12 && i < g_track_n; i++) {
+            float nx = x0 + (x1 - x0) * i / (g_track_n - 1);
+            dl->AddCircleFilled(ImVec2(nx, y), 2.6f * g_scale, i <= roundf(g_track * (g_track_n - 1)) && !dim ? kGold : IM_COL32(255, 255, 255, 50));
+        }
+        g_track = -1, g_track_n = 0;
     }
     ImGui::PopID();
     return step;
 }
 
 bool opt_toggle(const char *label, bool *v, bool def, const char *desc) {
-    if (!row(label, tr(*v ? "On" : "Off"), *v != def, desc)) return false;  // (any step flips it)
+    g_switch = *v ? 1 : 0;
+    if (!row(label, "", *v != def, desc)) return false;  // (any step flips it)
     *v = !*v;
     return true;
 }
 
 bool opt_choice(const char *label, int *v, const char *const *names, int n, int def, const char *desc, bool wrap) {
     int cur = *v >= 0 && *v < n ? *v : 0;
+    g_track = n > 1 ? (float)cur / (n - 1) : 1, g_track_n = n;
     int step = row(label, tr(names[cur]), cur != def, desc, true, true);
     if (!step) return false;
     int nv = cur + (step == 2 ? 1 : step);
@@ -146,6 +198,7 @@ bool opt_choice_avail(const char *label, int *v, int *shown, const char *const *
     if (*shown < 0 || *shown >= n || (avail[*shown] && *shown != cur)) *shown = cur;  // (changed elsewhere)
     int s = *shown;
     g_value_dim = !avail[s];
+    g_track = n > 1 ? (float)s / (n - 1) : 1, g_track_n = n;
     int step = row(label, tr(names[s]), s != def, desc, true, true);
     if (!step) return false;
     s = (s + (step == 2 ? 1 : step) + n) % n;
@@ -158,6 +211,7 @@ bool opt_choice_avail(const char *label, int *v, int *shown, const char *const *
 bool opt_slider(const char *label, float *v, float lo, float hi, float step, float def, const char *fmt, const char *desc) {
     char buf[32];
     snprintf(buf, sizeof buf, tr(fmt), *v);
+    g_track = hi > lo ? (*v - lo) / (hi - lo) : 1, g_track_n = 0;
     int s = row(label, buf, fabsf(*v - def) > step * 0.01f, desc, true, true);
     if (!s) return false;
     float eps = step * 0.01f, n = roundf(*v / step) * step + (s == 2 ? step : s * step);
@@ -171,6 +225,7 @@ bool opt_int(const char *label, int *v, int lo, int hi, int step, int def, const
     char buf[48];
     if (lo_name && *v == lo) snprintf(buf, sizeof buf, "%s", tr(lo_name));
     else snprintf(buf, sizeof buf, tr(fmt), *v);
+    g_track = hi > lo ? (float)(*v - lo) / (hi - lo) : 1, g_track_n = 0;
     int s = row(label, buf, *v != def, desc, true, true);
     if (!s) return false;
     int d = s == 2 ? step : s * step * (g_held && hi - lo > 40 * step ? 10 : 1);
@@ -190,7 +245,7 @@ bool opt_radio(const char *label, bool selected, const char *desc) {
     ImVec2 a = ImGui::GetItemRectMin(), b = ImGui::GetItemRectMax();
     float r = ImGui::GetFontSize() * 0.32f, cx = b.x - 16 * g_scale - r, cy = (a.y + b.y) * 0.5f;
     ImDrawList *dl = ImGui::GetWindowDrawList();
-    ImU32 col = off ? IM_COL32(150, 150, 140, 255) : selected ? kGold : IM_COL32(205, 205, 195, 255);
+    ImU32 col = off ? IM_COL32(110, 116, 120, 255) : selected ? kGold : IM_COL32(205, 215, 220, 255);
     dl->AddCircle(ImVec2(cx, cy), r, col, 0, 2.0f);
     if (selected) dl->AddCircleFilled(ImVec2(cx, cy), r * 0.55f, col);
     return chosen && !selected;
@@ -233,7 +288,7 @@ void opt_end(void) {
     ImVec2 p = ImGui::GetCursorScreenPos(), avail = ImGui::GetContentRegionAvail();
     float gap = 24 * g_scale;
     ImGui::GetWindowDrawList()->AddLine(ImVec2(p.x + gap * 0.5f, p.y), ImVec2(p.x + gap * 0.5f, p.y + avail.y),
-                                        IM_COL32(236, 194, 84, 110), 1.0f);
+                                        IM_COL32(92, 222, 238, 70), 1.0f);
     ImGui::SetCursorScreenPos(ImVec2(p.x + gap, p.y));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14 * g_scale, 6 * g_scale));
     ImGui::BeginChild("##desc", ImVec2(0, avail.y), ImGuiChildFlags_AlwaysUseWindowPadding, ImGuiWindowFlags_NoNav);

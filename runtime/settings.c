@@ -18,7 +18,12 @@ static const char *settings_file(void) {
 }
 
 Settings g_settings = {
-    .fullscreen = false,
+    .fullscreen = true,  // (window size default: the display's native size)
+    .fast_path = true,
+    .anisotropy = 4,
+    .antialias = AA_SMAA,
+    .clarity = 1,
+    .async_shaders = true,
     .volume = 1.0f,
     .reverb = true,
     .movie_audio = true,
@@ -99,6 +104,7 @@ void settings_load(void) {
         }
         else if (!strcmp(key, "clarity"))  // (off, serfrost, serfrost_dim, serfrost_bright)
             g_settings.clarity = !strcmp(val, "serfrost") ? 1 : !strcmp(val, "serfrost_dim") ? 2 : !strcmp(val, "serfrost_bright") ? 3 : 0;
+        else if (!strcmp(key, "fast_path")) g_settings.fast_path = atoi(val) != 0;
         else if (!strcmp(key, "render_scale")) {  // (percent: 100, 125, 150, 200)
             int p = atoi(val);
             g_settings.render_scale = p >= 200 ? 3 : p >= 150 ? 2 : p >= 125 ? 1 : 0;
@@ -180,6 +186,11 @@ void settings_load(void) {
     for (int i = 0; i < 2; i++)
         if (!(g_settings.stick_deadzone[i] >= 0 && g_settings.stick_deadzone[i] <= 0.5f))
             g_settings.stick_deadzone[i] = STICK_DEADZONE_DEFAULT;
+#ifndef __APPLE__
+    // Slop of the Wild: the upscaler and CAS are gone from the menus (render scale supersamples instead)
+    g_settings.upscaler = UPSCALE_OFF;
+    g_settings.sharpening = 0;
+#endif
     LOG("[settings] loaded %s\n", SETTINGS_FILE);
 }
 
@@ -228,6 +239,7 @@ void settings_save(void) {
     fprintf(f, "button_icons = %s\n", k_icons[g_settings.button_icons >= 0 && g_settings.button_icons < ICONS_COUNT ?
                                                 g_settings.button_icons : ICONS_AUTO]);
     fprintf(f, "async_shaders = %d\n", g_settings.async_shaders);
+    fprintf(f, "fast_path = %d\n", g_settings.fast_path);
     fprintf(f, "precompile_shaders = %d\n", g_settings.precompile_shaders);
     static const char *const shadow[SHADOW_COUNT] = {"console", "high", "ultra", "extreme"};
     int sr = g_settings.shadow_res;

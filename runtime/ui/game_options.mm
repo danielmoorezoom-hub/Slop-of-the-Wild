@@ -327,6 +327,7 @@ void build_items(void) {
                        [](const Item &) { return N(k_perf); }, [](const Item &, int x) { return tr(k_perf[x]); },
                        [](const Item &) { return g_settings.perf_overlay; },
                        [](const Item &, int x) { g_settings.perf_overlay = x; }, PERF_OFF));
+#ifdef __APPLE__
     v.push_back(choice(P_VIDEO, "Upscaler", "Off: full resolution. AMD FSR 1: renders smaller, then upscales.",
                        [](const Item &) { return N(k_ups_value); }, ups_label,
                        [](const Item &) {
@@ -348,40 +349,35 @@ void build_items(void) {
                                          : tr("Renders smaller, then upscales. Coming in a later version.");
     };
     v.push_back(mode);
-    v.push_back(choice(P_VIDEO, "Anti-aliasing", "Smooths jagged edges. Best at a lower resolution.",
+#endif
+    v.push_back(choice(P_VIDEO, "Anti-aliasing", "Smooths jagged edges.",
                        [](const Item &) { return N(k_aa); }, [](const Item &, int x) { return tr(k_aa[x]); },
                        [](const Item &) { return g_settings.antialias; },
-                       [](const Item &, int x) { g_settings.antialias = x; }, AA_OFF));
+                       [](const Item &, int x) { g_settings.antialias = x; }, AA_SMAA));
 #ifndef __APPLE__
     // Anisotropic filtering and sharpening (Vulkan: vulkan/textures.c sampler_aniso, vulkan/exec.c scene_post)
     v.push_back(choice(P_VIDEO, "Anisotropic filtering", "Sharper ground and paths at a distance. Off: as on the console.",
                        [](const Item &) { return N(k_aniso); },
                        [](const Item &, int x) { return x ? k_aniso[x] : tr("Off"); },
                        [](const Item &) { return g_settings.anisotropy; },
-                       [](const Item &, int x) { g_settings.anisotropy = x; }, 0));
+                       [](const Item &, int x) { g_settings.anisotropy = x; }, 4));
     v.push_back(choice(P_VIDEO, "Clarity", "Cemu's Clarity look: less haze and bloom, richer color. Next start.",
                        [](const Item &) { return 4; },
                        [](const Item &, int x) { static const char *const c[] = {"Off", "Serfrost", "Serfrost (dim display)", "Serfrost (bright display)"}; return x ? c[x] : tr("Off"); },
                        [](const Item &) { return g_settings.clarity; },
-                       [](const Item &, int x) { g_settings.clarity = x; }, 0));
+                       [](const Item &, int x) { g_settings.clarity = x; }, 1));
     v.push_back(choice(P_VIDEO, "Render scale", "Above 100%: renders bigger, then shrinks to the window. Smoothest edges.",
                        [](const Item &) { return 4; },
                        [](const Item &, int x) { static const char *const r[] = {"100%", "125%", "150%", "200%"}; return r[x]; },
                        [](const Item &) { return g_settings.render_scale; },
                        [](const Item &, int x) { g_settings.render_scale = x; }, 0));
-    v.push_back(choice(P_VIDEO, "Sharpening (AMD CAS)", "Sharpens the 3D image, not the HUD. Most useful with FSR 1.",
-                       [](const Item &) { return 6; },  // (Off .. 50%: CAS halos above)
-                       [](const Item &, int x) {
-                           static std::string s;
-                           s = x ? pct(x * 10) : std::string(tr("Off"));
-                           return s.c_str();
-                       },
-                       [](const Item &) { return g_settings.sharpening; },
-                       [](const Item &, int x) { g_settings.sharpening = x; }, 0));
+    v.push_back(toggle(P_VIDEO, "AMD fast path", "About 1.6x the frame rate on Radeon. Next start.",
+                       [](const Item &) { return (int)g_settings.fast_path; },
+                       [](const Item &, int x) { g_settings.fast_path = x; }, 1));
 #endif
     v.push_back(toggle(P_VIDEO, "Asynchronous shaders", "On: no stutter, but some effects appear late.",
                        [](const Item &) { return (int)g_settings.async_shaders; },
-                       [](const Item &, int x) { g_settings.async_shaders = x; }, 0));
+                       [](const Item &, int x) { g_settings.async_shaders = x; }, 1));
     // shadow resolution (its own block)
     v.push_back(choice(P_VIDEO, "Shadow resolution", "Sharper sun shadows. Higher costs more GPU time.",
                        [](const Item &) { return N(k_shadow); }, [](const Item &, int x) { return tr(k_shadow[x]); },
@@ -868,7 +864,9 @@ static void title_hide_dlc(uint64_t menu) {
 
 // The title menu's update (menu = the screen): 1 = open the Options screen again now (it has gone, a page is due).
 // The quit question's answer is read here too.
+extern "C" void menu_title_tick(void);  // menu.mm: the title screen is up (its brand lines are drawn)
 extern "C" int rt_opt_title_tick(uint64_t menu) {
+    menu_title_tick();
     quit_poll();
     title_hide_dlc(menu);
     if (rd32(menu + g_site.title_options_state) != MENU_OPTIONS_ACTIVE) {  // (the Options button isn't active: next opening, first page)

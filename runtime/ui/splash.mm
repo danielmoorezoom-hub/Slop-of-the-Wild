@@ -28,51 +28,101 @@ void vk_imgui_texture_free(uint64_t tex);
 #endif
 }
 
-// ------------------------------------------------------------------ the player's picture
-static ImTextureID g_tex;
+// ------------------------------------------------------------------ the pictures
+// Slop of the Wild: splash.jpg / .png, then splash2 .. splash8 (the BOTW title art the setup leaves there). The first
+// is decoded at once; the others on a thread, uploaded as they arrive. They take turns, crossfading, each drifting
+// slowly (a slow zoom and pan).
+#include <pthread.h>
+#include <atomic>
+#include <string.h>
+enum { MAX_PICS = 8 };
+struct Pic { ImTextureID tex; int w, h; unsigned char *px; std::atomic<int> state; };  // state 0 none, 1 decoded, 2 uploaded
+static Pic g_pics[MAX_PICS];
+static int g_npics;
+static char g_paths[MAX_PICS][1100];
+static ImTextureID g_tex;  // (the first: splash_is_user)
 static int g_tex_w, g_tex_h;
 #ifdef __APPLE__
-static id<MTLTexture> g_mtl_tex;  // (ImGui only holds the pointer)
+static id<MTLTexture> g_mtl[MAX_PICS];  // (ImGui only holds the pointer)
 #endif
 
-void splash_load(void) {
-    splash_unload();
-    char path[1100];
-    if (!rt_user_splash(path, sizeof path)) return;
-    int w, h;
-    if (!rt_image_info(path, &w, &h) || w <= 0 || h <= 0 || w > 8192 || h > 8192) {
-        fprintf(stderr, "[splash] %s: not a JPEG / PNG up to 8192x8192, using the default art\n", path);
-        return;
-    }
-    unsigned char *px = rt_image_rgba(path, &w, &h);
-    if (!px) {
-        fprintf(stderr, "[splash] %s: %s, using the default art\n", path, rt_image_error());
-        return;
-    }
+static bool upload(int i) {
+    Pic &p = g_pics[i];
 #ifdef __APPLE__
     id<MTLDevice> dev = (__bridge id<MTLDevice>)ui_metal_device();
     MTLTextureDescriptor *td = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
-                                                                                   width:w height:h mipmapped:NO];
-    g_mtl_tex = [dev newTextureWithDescriptor:td];
-    if (g_mtl_tex) {
-        [g_mtl_tex replaceRegion:MTLRegionMake2D(0, 0, w, h) mipmapLevel:0 withBytes:px bytesPerRow:(NSUInteger)w * 4];
-        g_tex = (ImTextureID)(intptr_t)(__bridge void *)g_mtl_tex;
+                                                                                   width:p.w height:p.h mipmapped:NO];
+    g_mtl[i] = [dev newTextureWithDescriptor:td];
+    if (g_mtl[i]) {
+        [g_mtl[i] replaceRegion:MTLRegionMake2D(0, 0, p.w, p.h) mipmapLevel:0 withBytes:p.px bytesPerRow:(NSUInteger)p.w * 4];
+        p.tex = (ImTextureID)(intptr_t)(__bridge void *)g_mtl[i];
     }
 #else
-    g_tex = (ImTextureID)vk_imgui_texture_rgba(px, w, h);
+    p.tex = (ImTextureID)vk_imgui_texture_rgba(p.px, p.w, p.h);
 #endif
-    rt_image_free(px);
-    if (g_tex) g_tex_w = w, g_tex_h = h;
-    fprintf(stderr, "[splash] %s (%dx%d)%s\n", path, w, h, g_tex ? "" : ": no texture, using the default art");
+    rt_image_free(p.px);
+    p.px = NULL;
+    p.state = 2;
+    return p.tex != 0;
+}
+
+static bool decode(int i) {
+    Pic &p = g_pics[i];
+    int w, h;
+    if (!rt_image_info(g_paths[i], &w, &h) || w <= 0 || h <= 0 || w > 8192 || h > 8192) return false;
+    p.px = rt_image_rgba(g_paths[i], &p.w, &p.h);
+    if (!p.px) return false;
+    p.state = 1;
+    return true;
+}
+
+static void *decode_rest(void *) {
+    for (int i = 1; i < g_npics; i++) decode(i);
+    return NULL;
+}
+
+void splash_load(void) {
+    splash_unload();
+    char first[1100];
+    if (!rt_user_splash(first, sizeof first)) return;
+    strlcpy(g_paths[0], first, sizeof g_paths[0]);
+    g_npics = 1;
+    // splash2 .. splash8 next to the first, same extension
+    const char *dot = strrchr(first, '.');
+    for (int k = 2; k <= MAX_PICS && dot; k++) {
+        char p[1100];
+        snprintf(p, sizeof p, "%.*s%d%s", (int)(dot - first), first, k, dot);
+        if (FILE *f = fopen(p, "rb")) fclose(f);
+        else break;
+        strlcpy(g_paths[g_npics++], p, sizeof g_paths[0]);
+    }
+    if (!decode(0) || !upload(0)) {
+        fprintf(stderr, "[splash] %s: unreadable, using the default art\n", first);
+        g_npics = 0;
+        return;
+    }
+    g_tex = g_pics[0].tex, g_tex_w = g_pics[0].w, g_tex_h = g_pics[0].h;
+    fprintf(stderr, "[splash] %d picture(s), first %s (%dx%d)\n", g_npics, first, g_tex_w, g_tex_h);
+    if (g_npics > 1) {
+        pthread_t th;
+        pthread_create(&th, NULL, decode_rest, NULL);
+        pthread_detach(th);
+    }
 }
 
 void splash_unload(void) {
-    if (!g_tex) return;
+    for (int i = 0; i < g_npics; i++) {
+        if (g_pics[i].state.load() == 1) continue;  // (still decoding elsewhere: left; only at exit)
+        if (g_pics[i].tex) {
 #ifdef __APPLE__
-    g_mtl_tex = nil;
+            g_mtl[i] = nil;
 #else
-    vk_imgui_texture_free((uint64_t)g_tex);
+            vk_imgui_texture_free((uint64_t)g_pics[i].tex);
 #endif
+        }
+        g_pics[i].tex = 0, g_pics[i].state = 0;
+    }
+    g_npics = 0;
     g_tex = 0;
 }
 
@@ -386,13 +436,34 @@ static void forest_art(ImDrawList *dl, ImVec2 sz, float t) {
     dl->AddRectFilledMultiColor(ImVec2(0, H * 0.82f), sz, z, z, v, v);
 }
 
+static void pic_draw(ImDrawList *dl, ImVec2 sz, const Pic &p, float k, float alpha, int seed) {
+    // fill the window (cropped to its shape), zoomed 1.0 -> 1.07 over its turn and drifting toward one side
+    float ia = (float)p.w / p.h, da = sz.x / sz.y;
+    float cw = 1, ch = 1;  // (the crop, in uv)
+    if (ia > da) cw = da / ia; else ch = ia / da;
+    float z = 1.0f / (1.0f + 0.07f * k);
+    cw *= z, ch *= z;
+    float dx = (seed & 1 ? 1 : -1) * 0.5f, dy = (seed & 2 ? 1 : -1) * 0.5f;
+    float cx = 0.5f + dx * (1 - cw) * (k - 0.5f) * 0.9f, cy = 0.5f + dy * (1 - ch) * (k - 0.5f) * 0.9f;
+    ImVec2 uv0(cx - cw * 0.5f, cy - ch * 0.5f), uv1(cx + cw * 0.5f, cy + ch * 0.5f);
+    dl->AddImage(p.tex, ImVec2(0, 0), sz, uv0, uv1, IM_COL32(255, 255, 255, (int)(255 * alpha)));
+}
+
 void splash_draw(ImDrawList *dl, ImVec2 sz, float t) {
     if (!g_tex) { forest_art(dl, sz, t); return; }
-    // the picture fills the window (cropped to its shape, centred)
-    float ia = (float)g_tex_w / g_tex_h, da = sz.x / sz.y;
-    ImVec2 uv0(0, 0), uv1(1, 1);
-    if (ia > da) uv0.x = (1 - da / ia) * 0.5f, uv1.x = 1 - uv0.x;
-    else uv0.y = (1 - ia / da) * 0.5f, uv1.y = 1 - uv0.y;
-    dl->AddImage(g_tex, ImVec2(0, 0), sz, uv0, uv1);
-    dl->AddRectFilled(ImVec2(0, 0), sz, IM_COL32(4, 8, 20, 56));  // (a touch darker: the text stays the brightest)
+    int ready[MAX_PICS], n = 0;
+    for (int i = 0; i < g_npics; i++) {
+        if (g_pics[i].state.load() == 1) upload(i);  // (decoded on the thread: to the GPU here, the render thread)
+        if (g_pics[i].state.load() == 2 && g_pics[i].tex) ready[n++] = i;
+    }
+    const float turn = 10.0f, fade = 1.6f;
+    int cur = (int)(t / turn), a = ready[cur % n], b = ready[(cur + 1) % n];
+    float in = fmodf(t, turn);
+    pic_draw(dl, sz, g_pics[a], (in + fade) / (turn + fade), 1, cur);
+    if (n > 1 && in > turn - fade) {
+        float f = (in - (turn - fade)) / fade;
+        f = f * f * (3 - 2 * f);
+        pic_draw(dl, sz, g_pics[b], (in - (turn - fade)) / (turn + fade), f, cur + 1);
+    }
+    dl->AddRectFilled(ImVec2(0, 0), sz, IM_COL32(4, 8, 20, 40));  // (a touch darker: the text stays the brightest)
 }

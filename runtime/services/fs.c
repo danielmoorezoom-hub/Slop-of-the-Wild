@@ -466,8 +466,10 @@ static void rom_index(int fd) {
         static char text[64];
         const char *v = rt_version(), *dot = strchr(v, '.');
         int n = dot ? (int)strcspn(dot + 1, ".-") + (int)(dot - v) + 1 : (int)strlen(v);  // (up to the second '.')
-        snprintf(text, sizeof text, "Savage Wind %.*s", n, v);
-        if (strlen(text) > 15) snprintf(text, sizeof text, "Savage Wind");
+        (void)n;
+        // Slop of the Wild: the line is left blank and the overlay draws "Slop of the Wild 0.0" and "a fork of Savage
+        // Wind" in its place (runtime/ui/menu.mm title_brand; the text box holds only 15 characters)
+        snprintf(text, sizeof text, " ");
         meta_copy(fd, fmeta, foff, fsz);
         uint64_t rel = ov_end - rom_data_off, size = strlen(text);
         memcpy(ov_meta + rom_files[i].meta + 8, &rel, 8);

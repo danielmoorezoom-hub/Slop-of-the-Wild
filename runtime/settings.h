@@ -39,6 +39,7 @@ typedef struct {
     int anisotropy;      // texture filtering: 0 the game's own, 1..4 = 2x, 4x, 8x, 16x (vulkan/textures.c)
     int sharpening;      // AMD CAS sharpening of the 3D image, 0 (off) .. 10 (100%) (vulkan/exec.c scene_post)
     int clarity;         // Cemu's Clarity in place of BOTW's tone map: 0 off, 1 Serfrost, 2 dim, 3 bright display (nvn/vulkan/clarity.c)
+    bool fast_path;      // AMD / Intel on Windows: attachment feedback loops on (vulkan/device.c); about 1.6x the frame rate
     int render_scale;    // supersampling: 0 = 100% (the window's size), 1 = 125%, 2 = 150%, 3 = 200% (nvn/output_scale.c)
     float volume;        // master volume, 1 = 100%
     bool reverb;         // room reverb effect
