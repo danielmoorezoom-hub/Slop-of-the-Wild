@@ -23,6 +23,7 @@
 #else
 #include "imgui_impl_vulkan.h"
 extern "C" bool vk_imgui_backend_init(void);  // runtime/nvn/vulkan/imgui_glue.cpp
+extern "C" void rec_drain(void);              // runtime/nvn/vulkan/record.c
 #endif
 
 extern "C" {
@@ -1324,6 +1325,7 @@ void menu_render(void *cmd, uint32_t target_w, uint32_t target_h) {
 #ifdef __APPLE__
     if (!g_inited) init(dev);
 #else
+    rec_drain();  // (ImGui records into cmd itself: the title's brand lines too, which menu_render_needed doesn't count)
     if (!g_inited) init();
 #endif
     ImGui::SetCurrentContext(g_ctx);
