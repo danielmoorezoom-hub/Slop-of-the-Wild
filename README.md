@@ -1,250 +1,144 @@
-# Savage Wind Recomp
+# Slop of the Wild
+
+**A fork of [Savage Wind Recomp](https://github.com/Revivedx/SavageWindRecomp)** (the static recompilation of
+*The Legend of Zelda: Breath of the Wild*, Switch version 1.9.0, into a native Windows program), aimed at the look,
+smoothness and polish of the [TotK PC recomp](https://github.com/valentderah/totk-pc-recomp).
 
 > [!IMPORTANT]
-> **This project is made almost entirely with AI.** Nearly all of the code, tooling, reverse engineering and
-> documentation here is written by an AI (Anthropic's Claude, through Claude Code), directed, tested and reviewed by
-> a human. It builds on [LAS Recomp](https://github.com/peiikai/LASRecomp), which was made the same way. If you don't
-> trust code written by AI, you can simply ignore this project. As with anything on the internet, you run the code at
-> your own discretion.
-
-**Savage Wind Recomp** is a work-in-progress static recompilation of *The Legend of Zelda: Breath of the Wild*
-(Nintendo Switch, version 1.9.0) into a native application for Windows and Linux. The goal is a full PC
-version of your own copy of the game: a launcher, PC-style graphics options, mods, any controller, keyboard and
-mouse, and its text and voices in any of its languages.
-
-> [!WARNING]
-> **Playable, but how far is unknown.** Savage Wind plays the opening in the Shrine of Resurrection and the Great
-> Plateau around it at 60 fps, with sound, voices, the HUD, saving and loading. Nobody has played past the Great
-> Plateau on Savage Wind yet, so expect bugs or crashes further on. This is an alpha, a preview for testers. If you
-> find a bug, please [report it on GitHub](https://github.com/Revivedx/SavageWindRecomp/issues/new/choose): every
-> report shows how far the game really works.
-
-> [!TIP]
-> **Want to contribute? Look at the [`test`](https://github.com/Revivedx/SavageWindRecomp/tree/test) branch first.**
-> It has every change that is implemented and being tested, ahead of the latest release, so you don't start on
-> something that's already done or in progress. Base your work on `test` and open pull requests against it: `main`
-> only moves for a release. See [CONTRIBUTING.md](CONTRIBUTING.md).
+> **Everything in this fork was made with Claude.** Every line of code, every test, every measurement and this page
+> were written by Claude (Anthropic's AI model, working through Claude Code), in one long session on 2026-10-29/30.
+> A human ([devall96](https://github.com/devall96)) directed it: set the goals, played the game, judged how it looked
+> and felt, reported what was wrong, and made the calls. No human wrote or reviewed the code line by line. Savage Wind
+> itself is also made almost entirely with AI (see [its README](docs/SAVAGE-WIND-README.md)). If you don't trust code
+> written by AI, don't run this. As with anything on the internet, you run it at your own risk.
 
 > [!NOTE]
-> **No game files are included.** Savage Wind Recomp needs your own legally obtained copy of the game, updated to
-> **version 1.9.0**, dumped from **your own** Nintendo Switch. This project does not include, and will not
-> provide, game files, keys, firmware, dumping or decryption tools, or instructions on how to obtain any of them.
-> Savage Wind never decrypts anything: it only reads files you have already extracted yourself. The recompilation of
-> the game code happens locally, on your machine, from your files.
+> **No game files are included, and none ever will be.** Like Savage Wind, Slop of the Wild needs your own copy of
+> the game, version 1.9.0 with the update merged, dumped from your own Switch. Even the launcher's background art is
+> not shipped: the game saves it from your own copy's title screen the first time you play.
 
-## Getting started (Alpha 3)
+Version **0.0**, built on Savage Wind **0.3.1-alpha.3**. Tested on one PC: Windows, AMD Radeon RX 9070 XT
+(driver 26.10.1), 2560 x 1440 at 280 Hz, 12 CPU threads.
 
-1. Download from [Releases](https://github.com/Revivedx/SavageWindRecomp/releases):
-   - **Windows:** `SavageWind-0.3.1-alpha.3-windows.zip`. Extract it to a folder you can write to (not Program
-     Files): your game files, saves and settings are kept in that folder. 0.3.1 is a hotfix for AMD and Intel
-     graphics on Windows (a black window in 0.3.0, [#85](https://github.com/Revivedx/SavageWindRecomp/issues/85)); on
-     NVIDIA it runs exactly as 0.3.0.
-   - **Linux (x86-64, Steam Deck too):** `Savage_Wind-0.3.0-alpha.3-x86_64.AppImage`. Make it executable
-     (`chmod +x`) and run it; your game files, saves and settings go to `~/.local/share/savagewind`. See
-     [docs/linux.md](docs/linux.md).
-   - **Linux on ARM (aarch64):** `Savage_Wind-0.3.0-alpha.3-aarch64.AppImage` is **highly experimental**: it has
-     never run on real ARM hardware. Reports from real hardware are welcome ([docs/linux.md](docs/linux.md),
-     "Testing on ARM").
-2. Run `savagewind.exe` (or the AppImage). The first time it asks for your game files: pick the folder with your own
-   extracted game (`exefs/` and `romfs/`, version 1.9.0, see below) and choose **Set up game files**. It checks the
-   version, copies the files, builds the data image and recompiles the game code on your machine - once (about 6
-   minutes for the game code with a 12-thread CPU, plus the copy and the optional shader precompilation). Your own
-   files aren't changed. When it's done the game starts.
-3. From then on Savage Wind goes straight into the game. The settings, including the text and voice languages,
-   are in the game's Options (pause menu > System > Options, or Options on the title screen).
-4. **Savage Wind Configuration** (`Savage Wind Configuration.exe` on Windows, the AppImage's **Savage Wind
-   Configuration** desktop action or `--config` on Linux) opens the configuration screen: Play, Settings, your game
-   files (set them up again, rebuild the game code, delete them) and Quit. In game, Quit to Start Screen also comes
-   back to it.
+---
 
-Coming from Alpha 2: extract Alpha 3 to a new folder and set the game files up again with your 1.9.0 files (the game
-code has to be built again); copy your `save` folder over to keep your progress. What's new is in
-[CHANGELOG.md](CHANGELOG.md).
+## What changed, and why
 
-The setup and configuration screens show Savage Wind's own art. To see a picture of your own there instead, put it
-next to `savagewind.exe` (on Linux, in the data folder) as `splash.jpg` or `splash.png`; it's only read from your folder and never part of
-Savage Wind.
+### Picture quality
 
-Needs Windows 10 or later, a CPU with SSE4.2 (2008 or newer), a GPU with Vulkan 1.3 and about 35 GB of free disk
-space. AVX2 isn't required: on a CPU without AVX2 / FMA the setup builds the game code in a compatible mode, which runs
-slower.
+| Change | Why |
+| --- | --- |
+| **Fixed the dark "crust" outlining Link and edges** (`vulkan/textures.c`, `exec.c`) | Savage Wind forced 16x anisotropic filtering on *every* sampler, including ones reading render targets that have a single mip level. BOTW's FXAA pass samples the scene with a sampler whose LOD range is 0..14, so the override smeared its taps and left a dark speckled outline on edges. Found by dumping the FXAA pass's input and output and re-running the shader on the CPU. Anisotropy now applies only to textures with more than one mip level. Measured: speckled edge pixels went from 2.86 % to 0.17 % of the frame. |
+| **Clarity** (`vulkan/clarity.c`, new) | A port of Cemu's well-known BOTW "Clarity" graphic pack (CC0; shader by Jamie, Kiri and Crementif, presets by Serfrost). It replaces BOTW's tone-mapping pass (found by its shader constants) with Clarity's: less haze and bloom, deeper blacks, richer color. Presets: Serfrost, Serfrost (dim display), Serfrost (bright display). |
+| **Render scale** 100 / 125 / 150 / 200 % (`nvn/output_scale.c`) | Supersampling: the cleanest anti-aliasing there is, and the TotK port's main quality lever. 150 % at 1440p is 4K internally, and it held 120 fps on the test PC. |
+| **Removed the upscaler, upscaler mode and CAS sharpening options** | FSR 1 only helps when rendering *below* the window size, and with render scale nobody needs that. Its "Performance" mode and CAS above 50 % made the picture visibly worse. "FSR 3" and "DLSS" were placeholders that did nothing. |
+| **Better defaults**: fullscreen at the display's native size, 16x anisotropic, SMAA, Clarity on, asynchronous shaders on, the frame rate matched to the display | A fresh install should look its best without a trip to the settings. |
 
-## What you need
+### Performance
 
-- Your own *Breath of the Wild* (cartridge or digital) and its **1.9.0 update**, the latest, extracted from your own
-  console:
-  - the **ExeFS** of that version (`main`, `main.npdm`, `rtld`, `sdk`, `subsdk0`)
-  - the **RomFS** with that update applied (base game and update merged)
-- DLC: not supported yet (planned, see the roadmap); the title screen's Downloadable Content entry is hidden until then.
-- Windows 10 or later or Linux, on x86-64 (a CPU with SSE4.2; without AVX2 / FMA the game code runs in a slower
-  compatible mode), and a GPU with Vulkan 1.3.
+| Change | Why |
+| --- | --- |
+| **"AMD fast path" setting, on by default** (`vulkan/device.c`) | Savage Wind turns Vulkan *attachment feedback loops* off on AMD and Intel on Windows, after a black-screen bug in 0.3.0. On the test PC, turning them back on took the game from about 72 to 120 fps with no visible problem. It's now a toggle (Video > AMD fast path), so anyone who hits trouble can switch it off. |
+| **No more 14 GB second copy of the game data** (`romfs_build.c`, `services/fs.c`, `nvn/shader_archive.c`) | Setup used to copy the game files (as hard links, so that cost nothing) and then write *all of them again* into a 14 GB `romfs.bin` image. Now it writes `romfs.idx`, a 2.6 MB index of the image's header and tables, and the game reads each file's bytes straight from the `romfs` folder. Verified byte for byte against the old image (a full read plus 20,000 random reads). Existing installs switch over automatically at the start screen, after the same check, which frees 14 GB. The TotK port does the same thing (`romfs-index.bin`). |
+| **Frame rate choices 144 / 165 / 240**, and a default that follows the display | The test monitor is 280 Hz. With no frame rate chosen yet, the game picks the highest choice the display can show. |
+| **VSync changes settle for 0.4 s before they apply** | Stepping through VSync values in the menu rebuilt the swapchain several times a second, and that hard-crashed the AMD driver during play testing. |
 
-The files go in `extracted/` next to the program (git ignores this folder):
+Measured afterwards: with no frame rate limit at 150 % render scale, the open world ran at about 115 to 150 fps with
+the GPU about 70 % busy, so the game's own CPU work is now the limit. The stutters that remain are first-time shader
+and pipeline compiles.
 
-```
-extracted/
-  exefs/   main, main.npdm, rtld, sdk, subsdk0
-  romfs/   the complete RomFS (base game + the 1.9.0 update merged)
-```
+### Launcher and menus
 
-The `main` module's build id tells the exact version; `python tools/sw_probe.py` (it reads `extracted/exefs`)
-prints it and what the recompiler will find there.
+| Change | Why |
+| --- | --- |
+| **New look** for the launcher and the in-game settings (`ui/option_rows.mm`, `menu.mm`, `launcher.mm`) | The old one "looked and felt rushed". The new one is a Sheikah-slate style: deep blue glass, a cyan accent, animated on/off switches, value bars with notches, eased highlights, and amber for any value you changed from its default. |
+| **The settings menu opens again with F1 / Esc** (also the controller's Guide button, or Back + Start) | Savage Wind had turned its overlay menu off, so nothing came up when you pressed Esc or F1. It's back, restyled. |
+| **The game pauses while the menu is open** | During testing the game kept running behind the menu and Link died while settings were being changed. Opening the menu now presses the game's own pause (Plus), and closing it unpauses. This is skipped on the title screen and during cutscenes. |
+| **Real BOTW art behind the launcher** (`ui/splash.mm`, `vulkan/device.c`) | The title screen's own key art (plateau, Epona, cliff, Guardian) cycles behind the launcher with a slow crossfade and pan. It can't be shipped, since it's Nintendo's, so the game captures it from your own title screen the first time you play and saves it as `splash.jpg`, `splash2.jpg` and so on next to the program. |
+| **The launcher shows every time** (`main.c`) | A two-step start: Quiver (or the exe) opens the launcher, then Play. `--play` still starts the game straight away. |
+| **Setup lands on the launcher when it finishes**, with a live file counter and a "clearing the earlier copy" step | Setup used to go straight into the game, and it looked frozen while it checked about 41,000 files. |
+| **Game Files page no longer freezes** | It added up the size of all 41,000 files before drawing anything. That now happens on a background thread. |
+| **Renamed**: title screen "Slop of the Wild 0.0 / a fork of Savage Wind", window titles, menus, error dialogs | The title screen's version text box only holds 15 characters, so the game's line is left blank and the overlay draws ours in its place. The program and settings files keep their names (`savagewind.exe`, `savagewind.ini`) so existing shortcuts and settings keep working. |
 
-## Status
+### Not done / known issues
 
-Estimates of where each part stands. "Tested in game" is how much of the game has been played through on Savage Wind so far.
+- **Graphics pipeline libraries still crash on AMD** (a GPU page fault at the same address every run). The TotK port uses the same Vulkan feature on the same GPU without trouble, so this is a bug in Savage Wind's code, not the driver. Disabling the guest-memory import and disabling feedback loops each ruled out one cause. Finding the rest needs the Vulkan validation layers. Pipeline libraries stay off on AMD, as in Savage Wind.
+- The "Not version 1.8.2 / 1.9.0" setup message wraps in the middle of a version number.
+- A full fresh-install-to-play test was started on the final build and then postponed. Earlier builds passed the same test: setup in about 6 to 7 minutes, then booting and playing.
+- Ideas taken from the TotK port but not built yet: a video-memory mirror of game memory on discrete GPUs, GPU work submitted in parts, smarter skipping of draws whose pipeline is still compiling, and shipped shader seeds. See [SLOP-TODO.md](SLOP-TODO.md).
 
-| | Part | Progress | What it means |
-|---|---|---|---|
-| ✅ | **Recompiler** | ![100%](https://progress-bar.xyz/100/?width=150&style=square&progress_color=5cb85c) | The whole game (main, sdk and multimedia modules) recompiles to native code |
-| ✅ | **Game files setup** | ![100%](https://progress-bar.xyz/100/?width=150&style=square&progress_color=5cb85c) | Version check, copy, data image and code build, all from your own files |
-| ✅ | **Text and voice languages** | ![100%](https://progress-bar.xyz/100/?width=150&style=square&progress_color=5cb85c) | Any of the game's 15 text languages (16 with 1.9.0's Thai) with any of its 8 voice languages |
-| ✅ | **Voices in another language: crash fix** | ![100%](https://progress-bar.xyz/100/?width=150&style=square&progress_color=5cb85c) | Fixed ([#2](https://github.com/Revivedx/SavageWindRecomp/issues/2)): the game now sets aside enough memory for voice banks bigger than its own, so any voice language works with any text language |
-| ✅ | **Menus in 12 languages** | ![100%](https://progress-bar.xyz/100/?width=150&style=square&progress_color=5cb85c) | Savage Wind's own screens follow the text language |
-| ✅ | **Sound and voices** | ![100%](https://progress-bar.xyz/100/?width=150&style=square&progress_color=5cb85c) | Mixed by the game SDK's own audio renderer, with room reverb |
-| ✅ | **Keyboard and mouse** | ![100%](https://progress-bar.xyz/100/?width=150&style=square&progress_color=5cb85c) | Every key and mouse button remappable, mouse camera |
-| ✅ | **Settings in the game's Options** | ![100%](https://progress-bar.xyz/100/?width=150&style=square&progress_color=5cb85c) | Video, audio, controls and language pages drawn by the game itself |
-| ✅ | **Direct start + Configuration** | ![100%](https://progress-bar.xyz/100/?width=150&style=square&progress_color=5cb85c) | savagewind.exe goes straight into the game; Savage Wind Configuration has the rest |
-| ✅ | **Window sizes and fullscreen** | ![100%](https://progress-bar.xyz/100/?width=150&style=square&progress_color=5cb85c) | The sizes your display can show; windowed, borderless or exclusive |
-| ✅ | **Ultrawide** | ![100%](https://progress-bar.xyz/100/?width=150&style=square&progress_color=5cb85c) | Video > Fill wide screens (on by default): a window or screen wider than 16:9 (21:9, 32:9) shows more of the world to the sides instead of bars. The HUD stays 16:9 in the middle; the pause menu, the map and the start screen are shown 16:9. Narrower shapes (16:10, 4:3) keep the 16:9 picture with bars |
-| ✅ | **Internal resolution and FSR 1** | ![100%](https://progress-bar.xyz/100/?width=150&style=square&progress_color=5cb85c) | Native resolution up to 4K, or AMD FSR 1 quality modes |
-| ✅ | **Anisotropic filtering and sharpening** | ![100%](https://progress-bar.xyz/100/?width=150&style=square&progress_color=5cb85c) | Ground and paths sharp at a distance (2x to 16x); AMD CAS sharpening of the 3D image, useful with FSR 1 |
-| ✅ | **Higher-resolution shadows** | ![100%](https://progress-bar.xyz/100/?width=150&style=square&progress_color=5cb85c) | Sun shadows at the console's 896x896, or sharper at 2048, 4096 or 8192 (Video > Shadow resolution) |
-| ✅ | **Shader and pipeline cache** | ![100%](https://progress-bar.xyz/100/?width=150&style=square&progress_color=5cb85c) | Places you've already seen don't stutter again |
-| ✅ | **Full shader precompilation** | ![100%](https://progress-bar.xyz/100/?width=150&style=square&progress_color=5cb85c) | Optional and on by default, at setup or later in Savage Wind Configuration: all of the game's ~14,000 shaders are translated and compiled ahead of time, so new places and effects don't stutter the first time |
-| ✅ | **Faster game code build** | ![100%](https://progress-bar.xyz/100/?width=150&style=square&progress_color=5cb85c) | The one-time setup takes about 15 minutes instead of about 40 (12 threads) from the next release: the game code builds in about 6 minutes instead of 30 ([#43](https://github.com/Revivedx/SavageWindRecomp/pull/43), by [@adriadam10](https://github.com/adriadam10)) |
-| ✅ | **Frame rate** | ![100%](https://progress-bar.xyz/100/?width=150&style=square&progress_color=5cb85c) | 60 fps by default, or 30, 90, 120 or no limit, with the game at the same speed; menus, cutscenes and conversations too, and videos at their own speed |
-| ✅ | **Field of view** | ![100%](https://progress-bar.xyz/100/?width=150&style=square&progress_color=5cb85c) | Video > Field of view: 70% to 150% of the game's own in play; cutscenes and conversations keep theirs |
-| ✅ | **Steady 60 fps in the open world** | ![100%](https://progress-bar.xyz/100/?width=150&style=square&progress_color=5cb85c) | Holds 60 fps in real play on the Great Plateau (RTX 3060, Ryzen 5 5600X); steady 120 fps (8 ms frames) is the next goal |
-| ✅ | **Game version 1.9.0** | ![100%](https://progress-bar.xyz/100/?width=150&style=square&progress_color=5cb85c) | The latest version and the supported one (its Thai text isn't offered yet). 1.8.2 still sets up and runs, but isn't supported: a bug is only fixed if it also happens on 1.9.0 |
-| 🔧 | **Horizon OS services** | ![90%](https://progress-bar.xyz/90/?width=150&style=square&progress_color=5cb85c) | Threads, files, controllers, applets and time: all the opening and the Great Plateau use |
-| 🔧 | **Maxwell shader translator** | ![90%](https://progress-bar.xyz/90/?width=150&style=square&progress_color=5cb85c) | Every shader seen so far translates to Vulkan |
-| 🔧 | **Graphics (NVN on Vulkan)** | ![80%](https://progress-bar.xyz/80/?width=150&style=square&progress_color=5cb85c) | Shrine and Great Plateau look right, shadows included; far parts of the map can still be missing ([#20](https://github.com/Revivedx/SavageWindRecomp/issues/20)) |
-| 🔧 | **Controllers** | ![70%](https://progress-bar.xyz/70/?width=150&style=square&progress_color=5cb85c) | Any controller SDL knows, by button position; automatic recognition is next, then camera speed set apart for each axis |
-| 🔧 | **Motion controls (gyro)** | ![80%](https://progress-bar.xyz/80/?width=150&style=square&progress_color=5cb85c) | The controller's gyroscope and accelerometer (DualSense, DualShock 4, Switch controllers, Steam Deck) for motion aiming and the tilt shrines; without one, hold T and move the mouse to tilt. Sensitivity and inversion in Options > Controls. Not yet tried with a real controller or in a shrine |
-| 🔧 | **Button icons for your device** | ![80%](https://progress-bar.xyz/80/?width=150&style=square&progress_color=5cb85c) | The game's button prompts show your bound keys and mouse buttons, or Xbox / PlayStation / Nintendo buttons, switching with the device you use |
-| 🔧 | **Variable refresh rate (VRR)** | ![80%](https://progress-bar.xyz/80/?width=150&style=square&progress_color=5cb85c) | Video > VSync: On lets G-SYNC and FreeSync displays show every frame as soon as it's ready, a little under the refresh rate; Fast (the default), Adaptive and Off too. Still to be tried on a VRR display |
-| 🔧 | **Tested in game** | ![50%](https://progress-bar.xyz/50/?width=150&style=square&progress_color=f0ad4e) | The Shrine of Resurrection, the Great Plateau, and a walk through every region on a 100% save file. The main quests and the Divine Beasts aren't tested yet, so expect bugs there: [report what breaks](https://github.com/Revivedx/SavageWindRecomp/issues/new/choose) |
-| 🔧 | **Linux** | ![90%](https://progress-bar.xyz/90/?width=150&style=square&progress_color=5cb85c) | Builds and runs on x86-64 (from LAS Recomp); a steady 144 fps on an RTX 3070 Ti with a Ryzen 5 7600X, and no Linux-only issues so far |
-| 🗺️ | **AMD FSR 3 + frame generation** | ![5%](https://progress-bar.xyz/5/?width=150&style=square&progress_color=d9534f) | Planned: motion vectors from depth and the camera, FidelityFX SDK |
-| 🗺️ | **NVIDIA DLSS (RTX)** | ![0%](https://progress-bar.xyz/0/?width=150&style=square&progress_color=d9534f) | Planned, after FSR 3; under NVIDIA's own SDK license |
-| 🗺️ | **Colour grading and HDR** | ![0%](https://progress-bar.xyz/0/?width=150&style=square&progress_color=d9534f) | Planned: exposure, contrast and saturation settings, colour presets, fog and bloom on or off, and real HDR output on HDR displays |
-| 🗺️ | **Draw distance and detail** | ![0%](https://progress-bar.xyz/0/?width=150&style=square&progress_color=d9534f) | Planned: trees, grass and objects drawn farther away on strong PCs, or nearer for more fps, and a fixed level of detail (the most detailed models at any distance) |
-| 🗺️ | **Free camera and photo mode** | ![0%](https://progress-bar.xyz/0/?width=150&style=square&progress_color=d9534f) | Planned: a free camera with the HUD hidden and its own speed and sensitivity, for screenshots, and camera paths through keyframes for videos |
-| 🗺️ | **Effects on or off** | ![0%](https://progress-bar.xyz/0/?width=150&style=square&progress_color=d9534f) | Planned: a Video page that turns each of the game's own effects on or off, where BOTW has them: ambient occlusion, volumetric fog, grass (3 layers), character light (normal and custom), tone mapper, fragment and main lighting, bloom (3 layers), lens flare, cel shading, fog effects, water, torch fire, the sword sheath, depth of field (also when aiming the bow), screen-space reflections, global illumination and far lights |
-| 🗺️ | **Graphics extras** | ![0%](https://progress-bar.xyz/0/?width=150&style=square&progress_color=d9534f) | Later: ambient occlusion, volumetric fog and depth of field |
-| 🗺️ | **Built-in benchmark** | ![0%](https://progress-bar.xyz/0/?width=150&style=square&progress_color=d9534f) | Planned: fixed camera routes that measure fps and frame times and save the results, to compare settings |
-| 🗺️ | **GPU readings on AMD and Intel (Windows)** | ![0%](https://progress-bar.xyz/0/?width=150&style=square&progress_color=d9534f) | Planned: the performance overlay's GPU use and VRAM for any GPU on Windows ([#58](https://github.com/Revivedx/SavageWindRecomp/issues/58)); today only NVIDIA, and AMD on Linux |
-| 🗺️ | **Mods** | ![0%](https://progress-bar.xyz/0/?width=150&style=square&progress_color=d9534f) | Planned |
-| 🗺️ | **Accessibility and assists** | ![0%](https://progress-bar.xyz/0/?width=150&style=square&progress_color=d9534f) | Planned: text size, colour-blind filters and toggles in place of held buttons; enemy and Link health, damage dealt and taken, weapon durability and stamina use on screen; optional assists: infinite stamina, health or weapon durability, arrows and rupees, no damage at all, no fall damage, health that refills over time, nearby enemies defeated at once, and multipliers for weapon durability, stamina use, damage dealt and taken, and walking, running, climbing, swimming and gliding speed |
-| 🗺️ | **Teleport with bookmarks** | ![0%](https://progress-bar.xyz/0/?width=150&style=square&progress_color=d9534f) | Planned: save places and travel back to them |
-| 🗺️ | **DLC** | ![0%](https://progress-bar.xyz/0/?width=150&style=square&progress_color=d9534f) | Later |
-| 🗺️ | **amiibo rewards without figures** | ![0%](https://progress-bar.xyz/0/?width=150&style=square&progress_color=d9534f) | Planned |
+---
 
-✅ done · 🔧 in progress · 🗺️ roadmap
+## Who did what
 
-## Controls
+**From devall96 (the human):**
+- The project and its goal: make Breath of the Wild on PC as good as the TotK PC recomp, by fixing Savage Wind rather than starting over.
+- The name, "Slop of the Wild", and the title-screen wording.
+- Spotting the dark crust around Link and the washed-out color, and insisting it was real when the first measurements missed it ("it's very obvious even in your crops").
+- The order of work: filtering and broken toggles, then a clarity filter, then the launcher rewrite, then optimization.
+- Asking for Cemu's BOTW clarity filter specifically, and for options that make the picture worse to be removed.
+- The launcher brief: smooth and unique, default to fullscreen at native resolution, useless options gone, toggles for every fix, real BOTW art in the background, no slow start or hang.
+- Asking that the AMD fast path be a real setting, and that the launcher open every time.
+- Reporting that Esc and F1 did nothing, the hard crash while changing options, and that setup was slow and looked stuck.
+- The frame-rate default (highest native, with options), asking for a test from a fresh install, and pointing Claude at the TotK install to learn from.
+- Lending the PC: running the test and build agents, the PS5 controller, the game dump, and play testing.
 
-Any controller SDL knows works, by button position; one with a gyroscope (DualSense, DualShock 4, Switch controllers,
-Steam Deck) also aims and tilts by motion. Keyboard and mouse defaults:
+**From Claude:**
+- All the code, the scripts and this page.
+- The test rig: a job agent on the PC that runs the game with scripted controller input, screenshots and logs; a build agent that builds from a patch with MSYS2; and frame dumps, shader dumps and CPU emulation of single shader passes.
+- Root-causing the crust to the anisotropy override, and measuring the fix.
+- Porting Clarity, finding which shader to replace, and adding render scale.
+- The romfs index design, its byte-for-byte check, and the automatic switch for existing installs.
+- The launcher and menu design, art capture from the title screen, the pause-under-menu fix, VSync debouncing, and the frame-rate default logic.
+- The benchmarks, the GPL investigation, and reading the TotK port's headers for ideas.
 
-| Action | Key | Action | Key |
-|---|---|---|---|
-| Move | W A S D | Camera | Mouse (or I J K L) |
-| Walk (hold) | C | Crouch | Left Ctrl |
-| Jump (X) | Space | Sprint / back (B) | Left Shift |
-| Interact / confirm (A) | E | Attack (Y) | Left click |
-| Shield / lock on (ZL) | Right click | Bow (ZR) | F |
-| Rune (L) | Q | Throw (R) | R |
-| Look (right stick press) | Middle click | D-pad | Arrow keys |
-| Inventory (Plus) | Tab | Map (Minus) | M |
-| Tilt the controller (hold, motion puzzles) | T + mouse | | |
+**Together:**
+- The crust hunt: devall96's eye said it was there, Claude's frame dumps showed why.
+- The look of the picture: Claude proposed and measured, devall96 judged ("wooow that looked amazing").
+- The launcher: devall96's brief and feedback through several rounds, Claude's design.
+- Setup speed: devall96 reported it, Claude found the 14 GB rewrite and replaced it.
+- What to keep, cut or default, decided option by option.
 
-Every key and mouse button can be remapped in the game's Options (the Keyboard pages), next to the mouse sensitivity
-and Y inversion, motion sensitivity and inversion and the tilt key (Controls). The game's button prompts show the
-keys you bound, or your controller's own buttons (Controls > Button icons: Automatic follows the device you use).
-Esc frees the cursor, a click in the window takes it back. F10 cycles the performance
-overlay (off, FPS, full).
+---
 
-## Building from source
+## Build it yourself
 
-### Windows
+Slop of the Wild is a set of changes on top of Savage Wind's source at the tag `v0.3.1-alpha.3`. To build it on
+Windows (from [Savage Wind's build notes](docs/BUILD-windows.md); this is what the build agent ran):
 
-More detail in [docs/BUILD-windows.md](docs/BUILD-windows.md).
+1. Install [MSYS2](https://www.msys2.org) (`C:\msys64`), open the **UCRT64** shell, then update twice and install the tools:
+   ```sh
+   pacman -Syuu    # twice, as MSYS2 asks
+   pacman -S --needed git make mingw-w64-ucrt-x86_64-clang mingw-w64-ucrt-x86_64-lld mingw-w64-ucrt-x86_64-sdl3 \
+     mingw-w64-ucrt-x86_64-ffmpeg mingw-w64-ucrt-x86_64-vulkan-headers mingw-w64-ucrt-x86_64-vulkan-loader \
+     mingw-w64-ucrt-x86_64-shaderc mingw-w64-ucrt-x86_64-spirv-tools mingw-w64-ucrt-x86_64-pkgconf \
+     mingw-w64-ucrt-x86_64-vulkan-memory-allocator mingw-w64-ucrt-x86_64-nasm
+   ```
+2. Get this fork, or Savage Wind at `v0.3.1-alpha.3` with this fork's changes applied:
+   ```sh
+   git -c core.autocrlf=false clone <this fork's URL> slop && cd slop
+   # or: git clone https://github.com/Revivedx/SavageWindRecomp slop && cd slop &&
+   #     git checkout v0.3.1-alpha.3 && git apply slop.patch   (git diff v0.3.1-alpha.3..HEAD from this fork)
+   ```
+3. Build:
+   ```sh
+   make -j RELEASE=1 build/savagewind.exe
+   ```
+4. Put `build/savagewind.exe` in a Savage Wind 0.3.1-alpha.3 release folder, in place of its exe (the release has the
+   DLLs, fonts, the code generator and the bundled compiler that setup needs). Start it, set up your game files from
+   your own dump, and play.
 
-1. One-time setup, in PowerShell from the repository root:
-   `powershell -ExecutionPolicy Bypass -File tools\setup_windows.ps1`.
-   It installs MSYS2 (UCRT64: clang, make, SDL3, FFmpeg, Vulkan, shaderc) and Python for the tools, and switches
-   the clone to LF line endings.
-2. From an MSYS2 UCRT64 shell (or Git Bash with `export PATH="/c/msys64/ucrt64/bin:/c/msys64/usr/bin:$PATH"`):
-   - `make -j` builds the app, `build/savagewind.exe`.
-   - Put your files in `extracted/` (above), then `make gen` (recompiles the game code into `generated/`, about a
-     minute) and `make -j` again (builds it into `build/swgame.dll`; the first build takes 15-20 minutes).
-   - `build/savagewind.exe extracted --build-romfs` packs your RomFS into the image the runtime reads
-     (`extracted/romfs.bin`, about 15 GB).
-3. Run: `build/savagewind.exe extracted --play`, from a shell with `C:\msys64\ucrt64\bin` on PATH.
+**To recreate the work rather than just the build:** each change above is its own commit with a message that says
+what and why, and the code comments carry the reasoning and measurements. The order matches the sections above. The
+test numbers came from scripted runs: the game was started with `SAVAGEWIND_*` environment variables (scripted input
+`SAVAGEWIND_HOST_INPUT`, screenshots `SAVAGEWIND_SCREENSHOT_EVERY` and `SAVAGEWIND_WINDOW_SHOT_AT`, the profiler
+`SAVAGEWIND_VK_PROF=2`, `SAVAGEWIND_DATA_ROOT` for a clean test install), and the logs were compared.
 
-### Linux
-
-See [docs/linux.md](docs/linux.md): the same steps with the distribution's clang, SDL 3, FFmpeg, shaderc and Vulkan
-Memory Allocator (`build/savagewind`, `build/swgame.so`).
-
-Developer notes (in Spanish) - what was changed from LAS Recomp, how the boot got this far, and the debugging
-switches - are in [docs/SAVAGE-WIND.md](docs/SAVAGE-WIND.md).
-
-## Respect copyright
-
-- *The Legend of Zelda: Breath of the Wild* is © Nintendo. This is a fan project. It is not affiliated with,
-  endorsed by or sponsored by Nintendo. *Nintendo Switch* and *The Legend of Zelda* are trademarks of Nintendo.
-- This repository contains no game files, no game code (also not the C code the recompiler generates from it), no
-  assets, no fonts, no keys - and release builds won't either.
-- The game code you generate and the build made from it contain Nintendo's code. They are for your own use only:
-  don't share them, upload them or ship them.
-- Issues, pull requests or discussions that contain game files, keys, generated code or links to pirated copies
-  will be removed. Piracy is not supported in any way.
-- Follow the copyright laws of your country. Dumping a game you own for personal use is legal in some countries and
-  not in others; that is your responsibility.
+---
 
 ## Credits
 
-- **[LAS Recomp](https://github.com/peiikai/LASRecomp)** by peiikai - the recompiler, the runtime and most of what
-  this project is built on (MIT).
-- [Ryujinx](https://github.com/Ryujinx/Ryujinx) (MIT) - its shader decoder was the reference for instruction field
-  layouts.
-- [envytools](https://github.com/envytools/envytools) - NVIDIA GPU documentation used for the shader translator.
-- The Switch homebrew community's documentation ([Switchbrew](https://switchbrew.org)).
-- [Ghidra](https://github.com/NationalSecurityAgency/ghidra) and the
-  [Switch Loader](https://github.com/Adubbz/Ghidra-Switch-Loader) - used for reverse engineering (not bundled).
-- Libraries: [SDL 3](https://libsdl.org) (zlib), [FFmpeg](https://ffmpeg.org) (LGPL),
-  [Dear ImGui](https://github.com/ocornut/imgui) (MIT),
-  [Vulkan Memory Allocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) (MIT),
-  [SMAA](https://github.com/iryoku/smaa) (MIT), [AMD FidelityFX Super Resolution 1](https://github.com/GPUOpen-Effects/FidelityFX-FSR)
-  (MIT), [AMD FidelityFX CAS](https://github.com/GPUOpen-Effects/FidelityFX-CAS) (MIT),
-  [Fira Sans](https://github.com/mozilla/Fira) (SIL OFL 1.1), [Noto Sans Thai](https://github.com/notofonts/thai)
-  (SIL OFL 1.1), [stb_image / stb_image_write](https://github.com/nothings/stb)
-  (public domain / MIT), [shaderc](https://github.com/google/shaderc)
-  (Apache 2.0), [Zig](https://ziglang.org) (MIT), [Capstone](https://www.capstone-engine.org) (BSD),
-  [Unicorn](https://www.unicorn-engine.org) (GPL 2.0), [python-lz4](https://github.com/python-lz4/python-lz4) (BSD).
-
-## License
-
-Savage Wind Recomp's own code is open source under the [MIT License](LICENSE), as is LAS Recomp's, on which it
-builds. Third-party components in `third_party/` keep their own licenses. The license covers this project's code
-only: it grants nothing for Nintendo's game, which you must supply yourself.
-
-The Windows release zip also bundles, unchanged unless noted, under their own licenses:
-
-- FFmpeg 9.0.2 (libavcodec, libavformat, libavutil, libswscale), LGPL 2.1 or later: built from the official
-  [source](https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz) as LGPL only, without GPL or nonfree parts, by
-  [tools/build_deps_windows.sh](tools/build_deps_windows.sh). They are separate DLLs: you can replace them with your
-  own build of the same version.
-- From [MSYS2](https://packages.msys2.org) (UCRT64, sources there): SDL 3.4.18 (zlib), shaderc 2026.4 (Apache 2.0),
-  libiconv 1.19 (LGPL 2.1 or later), the GCC 16.2 runtime (libgcc, libstdc++: GPL 3 with the GCC Runtime Library
-  Exception) and winpthreads (MIT and BSD).
-- Zig 0.17.0 (MIT; its bundled LLVM, Clang and LLD: Apache 2.0 with LLVM Exceptions; the MinGW-w64 headers and
-  runtime: their own permissive licenses), trimmed to what the game code build uses.
-- `swgen/`, this project's generator frozen with PyInstaller 6.22 (GPL 2.0 with the bootloader exception): Python
-  3.14 (PSF License), Capstone 5.0.9 (BSD), [Unicorn 2.1.4](https://github.com/unicorn-engine/unicorn/tree/2.1.4)
-  (GPL 2.0, source at that link) and python-lz4 4.4.5 (BSD).
-- The Fira Sans font, Medium and SemiBold (SIL OFL 1.1, `FiraSans-OFL.txt`), and the Noto Sans Thai font, Medium,
-  for the menus in Thai (SIL OFL 1.1, `NotoSansThai-OFL.txt`).
+- **[Savage Wind Recomp](https://github.com/Revivedx/SavageWindRecomp)** by Revivedx and contributors, and **[LAS Recomp](https://github.com/peiikai/LASRecomp)** by Peiikai, which it builds on: nearly everything here is theirs. MIT License (see [LICENSE](LICENSE)).
+- **Clarity** from the [Cemu graphic packs](https://github.com/cemu-project/cemu_graphic_packs) (CC0): Jamie, Kiri and Crementif; presets by Serfrost.
+- **[TotK PC recomp](https://github.com/valentderah/totk-pc-recomp)** by valentderah: the bar this aims for, and the source of several ideas.
+- *The Legend of Zelda: Breath of the Wild* is Nintendo's. This project is not affiliated with or endorsed by Nintendo.
