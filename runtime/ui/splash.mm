@@ -85,7 +85,7 @@ void splash_load(void) {
     splash_unload();
     char first[1100];
     if (!rt_user_splash(first, sizeof first)) return;
-    strlcpy(g_paths[0], first, sizeof g_paths[0]);
+    snprintf(g_paths[0], sizeof g_paths[0], "%s", first);
     g_npics = 1;
     // splash2 .. splash8 next to the first, same extension
     const char *dot = strrchr(first, '.');
@@ -94,7 +94,7 @@ void splash_load(void) {
         snprintf(p, sizeof p, "%.*s%d%s", (int)(dot - first), first, k, dot);
         if (FILE *f = fopen(p, "rb")) fclose(f);
         else break;
-        strlcpy(g_paths[g_npics++], p, sizeof g_paths[0]);
+        snprintf(g_paths[g_npics++], sizeof g_paths[0], "%s", p);
     }
     if (!decode(0) || !upload(0)) {
         fprintf(stderr, "[splash] %s: unreadable, using the default art\n", first);
