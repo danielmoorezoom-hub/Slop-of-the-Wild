@@ -449,6 +449,18 @@ void build_items(void) {
     for (int i = 0; i < teleport_place_count(); i++)
         v.push_back(button(P_TELEPORT, teleport_place_name(i), "Restarts the game: press Continue and you land there. Unsaved progress is lost.", "Go", A_TELEPORT_PLACE, i));
     // Cheats (runtime/cheats.c)
+    v.push_back(toggle(P_CHEATS, "Infinite rupees", "Keeps you at 9999 rupees, within about 5 seconds.",
+                       [](const Item &) { return (int)g_settings.cheat_rupees; },
+                       [](const Item &, int x) { g_settings.cheat_rupees = x; }, 0));
+    v.push_back(choice(P_CHEATS, "Weapon wear", "How fast weapons, bows and shields wear out. 100% is the game's own.",
+                       [](const Item &) { return 30; },
+                       [](const Item &, int x) {
+                           static char buf[16];
+                           snprintf(buf, sizeof buf, "%d%%", 10 + x * 10);
+                           return (const char *)buf;
+                       },
+                       [](const Item &) { return (g_settings.weapon_wear - 10) / 10; },
+                       [](const Item &, int x) { g_settings.weapon_wear = 10 + x * 10; }, 9));
     v.push_back(toggle(P_CHEATS, "Infinite health", "You lose no hearts and can't die. Healing still works.",
                        [](const Item &) { return (int)g_settings.cheat_health; },
                        [](const Item &, int x) { g_settings.cheat_health = x; }, 0));

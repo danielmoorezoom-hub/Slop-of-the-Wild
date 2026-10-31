@@ -52,3 +52,9 @@ int rt_no_wear(void) {
     note(3);
     return 1;
 }
+
+// A hit's cost on it, in hundredths
+uint32_t rt_wear_cost(uint32_t cost) {
+    if (rt_no_wear()) return 0;
+    return g_settings.weapon_wear == 100 ? cost : (uint32_t)((uint64_t)cost * g_settings.weapon_wear / 100);
+}

@@ -761,6 +761,8 @@ static void tab_display(void) {
                "FPS: the frame rate and frame time. Full: also CPU, memory and GPU load and temperatures, and a "
                "frame time graph. F10 switches between them while you play.");
 
+    opt_section("Saves");
+    opt_toggle("Back up saves when the game starts", &g_settings.save_backups, true, "Keeps the last 5 copies in save-backups, if the saves have changed.");
     opt_section("Benchmark");
     for (int i = 0; i < benchmark_count(); i++) {  // (runtime/benchmark.c: the game restarts for it)
         std::string d = std::string(tr(benchmark_about(i))) + " " +
@@ -922,6 +924,12 @@ static void tab_cheats(void) {
     opt_toggle("Infinite stamina", &g_settings.cheat_stamina, false, "The stamina wheel doesn't go down. It still fills.");
     opt_toggle("Infinite arrows", &g_settings.cheat_arrows, false, "Shooting doesn't use up arrows.");
     opt_toggle("Unbreakable weapons", &g_settings.cheat_weapons, false, "Weapons, bows and shields lose no durability and never break.");
+    opt_toggle("Infinite rupees", &g_settings.cheat_rupees, false, "Keeps you at 9999 rupees, within about 5 seconds.");
+    {
+        float wear = (float)g_settings.weapon_wear;
+        if (opt_slider("Weapon wear", &wear, 10, 300, 10, 100, "%g%%", "How fast weapons, bows and shields wear out. 100% is the game's own."))
+            g_settings.weapon_wear = (int)wear;
+    }
     opt_end();
 }
 
@@ -1111,6 +1119,12 @@ static void perf_overlay_draw(ImGuiIO &io, float scale) {
         perf_cell("%.0f", s.fps);
         perf_cell("%.1f ms", s.frame_ms_avg); perf_cell(tr("max %.1f ms"), s.frame_ms_max);
         ImGui::EndTable();
+        {   // the last 4 seconds or so of frame times, up to 33 ms
+            static float hist[240];
+            static int at;
+            hist[at++ % 240] = io.DeltaTime * 1000;
+            ImGui::PlotLines("##frames", hist, 240, at % 240, NULL, 0, 33.3f, ImVec2(ImGui::GetContentRegionAvail().x, 48 * scale));
+        }
     }
     float top = s.frame_ms_max > 50 ? s.frame_ms_max : 50;
     ImGui::PlotLines("##ft", s.frame_ms, PERF_HISTORY, 0, NULL, 0, top, ImVec2(330 * scale, 48 * scale));

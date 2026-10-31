@@ -36,6 +36,8 @@ Settings g_settings = {
     .fast_path = true,
     .stick_cam_x = 200,
     .stick_cam_y = 200,
+    .weapon_wear = 100,
+    .save_backups = true,
     .lod_master = 10,
     .lod_distance = 200,
     .lod_grass = 250,
@@ -143,6 +145,9 @@ void settings_load(void) {
         else if (!strcmp(key, "stick_camera_x")) g_settings.stick_cam_x = atoi(val);  // (percent)
         else if (!strcmp(key, "stick_camera_y")) g_settings.stick_cam_y = atoi(val);  // (percent)
         else if (!strcmp(key, "lod_extended")) g_settings.lod_extended = atoi(val) != 0;
+        else if (!strcmp(key, "cheat_rupees")) g_settings.cheat_rupees = atoi(val) != 0;
+        else if (!strcmp(key, "weapon_wear")) g_settings.weapon_wear = atoi(val);
+        else if (!strcmp(key, "save_backups")) g_settings.save_backups = atoi(val) != 0;
         else if (!strcmp(key, "cheat_health")) g_settings.cheat_health = atoi(val) != 0;
         else if (!strcmp(key, "cheat_stamina")) g_settings.cheat_stamina = atoi(val) != 0;
         else if (!strcmp(key, "cheat_arrows")) g_settings.cheat_arrows = atoi(val) != 0;
@@ -255,6 +260,7 @@ void settings_load(void) {
     g_settings.stick_cam_x = CLAMP(g_settings.stick_cam_x, 100, 600);
     g_settings.stick_cam_y = CLAMP(g_settings.stick_cam_y, 100, 600);
     if (getenv("SAVAGEWIND_BENCHMARK")) g_settings.vsync = VSYNC_OFF;  // (its own copy of the settings: runtime/benchmark.c)
+    g_settings.weapon_wear = CLAMP(g_settings.weapon_wear, 10, 300);
     g_settings.lod_master = CLAMP(g_settings.lod_master, 0, 100);
     g_settings.lod_distance = CLAMP(g_settings.lod_distance, 100, 1000);
     g_settings.lod_grass = CLAMP(g_settings.lod_grass, 100, 1500);
@@ -333,6 +339,7 @@ void settings_save(void) {
     fprintf(f, "lod_extended = %d\n", g_settings.lod_extended);
     fprintf(f, "cheat_health = %d\ncheat_stamina = %d\ncheat_arrows = %d\ncheat_weapons = %d\n", g_settings.cheat_health,
             g_settings.cheat_stamina, g_settings.cheat_arrows, g_settings.cheat_weapons);
+    fprintf(f, "cheat_rupees = %d\nweapon_wear = %d\nsave_backups = %d\n", g_settings.cheat_rupees, g_settings.weapon_wear, g_settings.save_backups);
     fprintf(f, "lod_master = %d\n", g_settings.lod_master);
     fprintf(f, "lod_distance = %d\n", g_settings.lod_distance);
     fprintf(f, "lod_grass = %d\n", g_settings.lod_grass);

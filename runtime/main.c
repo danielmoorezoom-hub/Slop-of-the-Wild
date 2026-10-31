@@ -376,6 +376,7 @@ int main(int argc, char **argv) {
         const char *save_env = getenv("SAVAGEWIND_SAVE_DIR");
         if (sc_lock_take(save_env && *save_env ? save_env : "save", &save_lock) == SC_LOCK_BUSY)
             fprintf(stderr, "[saves] another Savage Wind is running with this save folder; saving from both can overwrite saves\n");
+        { extern void save_backup_now(void); save_backup_now(); }
         boot(root);
         int kind = ui_run();  // window and input on the main thread; returns when a reboot is requested
         teardown();

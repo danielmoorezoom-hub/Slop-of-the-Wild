@@ -22,8 +22,10 @@
 #include "game_sites.h"
 #include "kernel.h"
 #include "rt.h"
+#include "settings.h"
 
 #define LIVE_POLL_MS 5000  // (at 500 a frame took 20 ms every half a second: no one needs a notice sooner than this)
+#define RUPEE_HASH 0x23149bf8u  // crc32("CurrentRupee")
 #define BOOL_HASH 0xfe4d1501u  // crc32("IsGet_PlayerStole2")
 #define S32_HASH 0x2906f327u   // crc32("MaxHartValue")
 
@@ -107,6 +109,10 @@ static void *live_thread(void *arg) {
                 memset(img, 0, 0xC);
                 for (int i = 0; i < n_flags; i++) {
                     const LiveFlag *f = &flags[i];
+                    if (f->s32 && f->hash == RUPEE_HASH && g_settings.cheat_rupees && rd32(f->obj + 0x18) < 9999) {  // (Cheats > Infinite rupees)
+                        *(volatile uint32_t *)(uintptr_t)(f->obj + 0x18) = 9999;
+                        LOG("[cheats] infinite rupees: set\n");
+                    }
                     uint32_t v = f->s32 ? rd32(f->obj + 0x18) : (*(volatile uint8_t *)(uintptr_t)(f->obj + 0xb) & 1), old;
                     memcpy(&old, img + 0xC + 8 * i + 4, 4);
                     if (same && old != v) LOG("[flags] %08x: %d -> %d\n", f->hash, (int)old, (int)v);
