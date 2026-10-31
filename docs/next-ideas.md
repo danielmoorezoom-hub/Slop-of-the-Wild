@@ -11,7 +11,7 @@ Checked against the code on 2026-10-31.
 
 - **Mouse sensitivity** (#288, #289): up to 1000%, a separate vertical speed, and invert.
 - **Key mapping shown in the HUD** (#304): Button icons has a Keyboard choice and follows the device in use, and all keys can be rebound.
-- **Real controller gyro**: works, with its own sensitivity and invert. Only #235 and #272 are left.
+- **Real controller gyro**: works, with its own sensitivity and invert.
 
 Partly here:
 
@@ -30,14 +30,13 @@ An estimate from the size of each pull request and what is already here, before 
 | # | Idea | Where | Why it sits here |
 |---|---|---|---|
 | 1 | Wii U and Cemu save import | `6cf491e` | Finished on their side. Three files conflict with ours (Makefile, README, menus). Needs a real Wii U or Cemu save to test |
-| 2 | Virtual gyro, dual-stick gyro | #235, #272 | Real controller gyro already works here. About 900 lines each and they touch the same code, so one after the other. #281 (DSU) is a Linux Steam Deck fallback: skip it on Windows |
-| 3 | Menu pointer, mouse in menus | #234, #183 | One piece of work: #234 is the fix for #183. 1,600 lines over 21 files, in menus we have changed |
-| 4 | Teleport bookmarks | roadmap | No code to take. Our warp only works while a save loads, so either restart to warp or find the game's own warp call |
-| 5 | Achievements | #236 | The biggest pull request: 3,900 lines over 39 files, and many triggers to test |
-| 6 | FSR 4 | #308 | 1,600 lines, but we removed FSR and they build on it. Needs AMD's SDK. May help shimmer, worth comparing with TAA |
-| 7 | Native controller support, more customization | #143, #180 | No code to take and a broad request: settle what is missing first, since rebinding already exists |
-| 8 | Free camera and photo mode | roadmap | No code to take. Needs control of the game's camera while the world is paused, and the HUD hidden |
-| 9 | How shadows look | #300 | Open-ended, the cause isn't known. The first try at shadow distance changed nothing visible |
+| 2 | Menu pointer, mouse in menus | #234, #183 | One piece of work: #234 is the fix for #183. 1,600 lines over 21 files, in menus we have changed |
+| 3 | Teleport bookmarks | roadmap | No code to take. Our warp only works while a save loads, so either restart to warp or find the game's own warp call |
+| 4 | Achievements | #236 | The biggest pull request: 3,900 lines over 39 files, and many triggers to test |
+| 5 | FSR 4 | #308 | 1,600 lines, but we removed FSR and they build on it. Needs AMD's SDK. May help shimmer, worth comparing with TAA |
+| 6 | Native controller support, more customization | #143, #180 | No code to take and a broad request: settle what is missing first, since rebinding already exists |
+| 7 | Free camera and photo mode | roadmap | No code to take. Needs control of the game's camera while the world is paused, and the HUD hidden |
+| 8 | How shadows look | #300 | Open-ended, the cause isn't known. The first try at shadow distance changed nothing visible |
 
 ## Savage Wind: work in progress
 
@@ -51,7 +50,6 @@ An estimate from the size of each pull request and what is already here, before 
 | Unbreakable weapons | #296 | Belongs with accessibility and assists |
 | Achievements | #236 | |
 | Control commands | #284-286 | Buttons that run actions |
-| Gyro: virtual, DSU, dual stick | #235, #281, #272 | |
 | NaN-aware min/max in shaders | #153 | May fix some rendering glitches: read before the next graphics bug hunt |
 | Sparse heap | #197 | Memory |
 | Hebrew | #273 | |
