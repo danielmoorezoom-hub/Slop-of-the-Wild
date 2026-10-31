@@ -1717,6 +1717,11 @@ static void present_locked(NvnTexture *t) {
                 if (*wnext == ',') wnext++;
             }
         }
+        extern char g_window_shot_request[256];  // (test hooks, runtime/hle/input.c: "shot")
+        if (g_window_shot_request[0] && !shot && !wpath[0]) {
+            snprintf(wpath, sizeof wpath, "%.255s", g_window_shot_request);
+            g_window_shot_request[0] = 0;
+        }
         // Slop of the Wild: the start screen's backgrounds come from the player's own game. With no splash picture yet,
         // the title screen's key art (it changes every ten seconds or so) is saved as splash.jpg, splash2.jpg, ...:
         // the left three quarters (the logo and the menu are on the right), when it has held still and differs from

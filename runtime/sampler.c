@@ -1,6 +1,7 @@
-// (profiling) Sampling profiler for Windows. SAVAGEWIND_SAMPLE=<start s>:<seconds>[:<interval us>] suspends every
-// guest thread each interval (default 1000 us) from <start> seconds after boot, for <seconds>, and records its host
-// call stack (x64 unwind data: the game library and the runtime both have it). The samples go to
+// (profiling) Sampling profiler for Windows. SAVAGEWIND_SAMPLE=<start s>:<seconds>[:<interval us>[:<depth>]] suspends
+// every guest thread each interval (default 1000 us) from <start> seconds after boot, for <seconds>, and records its host
+// call stack (x64 unwind data: the game library and the runtime both have it), <depth> frames of it (default 48; 1: where
+// it is only, no unwinding, which can read past a stack and end the run). The samples go to
 // build/samples.txt; tools/profile_samples.py turns them into self / inclusive time per function, recompiled game
 // functions as f_<guest address>. A thread waiting in the kernel shows its wait; filter with the tool.
 // Each round of samples starts with "R <ns> <presented frame>", so a stretch of frames can be looked at alone.
@@ -18,8 +19,10 @@
 
 static void *sampler_main(void *arg) {
     double start = 0, secs = 0, us = 1000;
-    sscanf((const char *)arg, "%lf:%lf:%lf", &start, &secs, &us);
+    int depth = MAX_DEPTH;
+    sscanf((const char *)arg, "%lf:%lf:%lf:%d", &start, &secs, &us, &depth);
     if (secs <= 0) return NULL;
+    if (depth < 1 || depth > MAX_DEPTH) depth = MAX_DEPTH;
     plat_sleep_until_ns(plat_now_ns() + (uint64_t)(start * 1e9));
     size_t cap = 12u << 20, used = 0;  // words (96 MB), allocated up front: nothing may allocate while a thread is suspended
     uint64_t *buf = malloc(cap * sizeof *buf);
@@ -49,8 +52,9 @@ static void *sampler_main(void *arg) {
                 buf[used++] = handle[i];
                 buf[used++] = 0;  // depth, filled below
                 int d = 0;
-                for (; d < MAX_DEPTH && ctx.Rip; d++) {
+                for (; d < depth && ctx.Rip; d++) {
                     buf[used++] = ctx.Rip;
+                    if (d + 1 == depth) { d++; break; }
                     DWORD64 base = 0;
                     PRUNTIME_FUNCTION f = RtlLookupFunctionEntry(ctx.Rip, &base, NULL);
                     if (!f) {  // a leaf without unwind data: the return address is on top of the stack

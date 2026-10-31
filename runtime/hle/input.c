@@ -489,13 +489,17 @@ static void test_push(uint64_t frame, unsigned long start, unsigned long len, co
     }
 }
 
+const char *test_route_start(void);  // (hle/test_route.c)
+void test_route_frame(int32_t *lx, int32_t *ly, int32_t *rx, int32_t *ry, uint32_t *pad, const char **shot);
+
 static void host_test_frame(uint64_t frame) {
-    static const char *hspec, *bspec;
+    static const char *hspec, *bspec, *route;
     static int init;
     if (!init) {
         init = 1;
         hspec = getenv("SAVAGEWIND_HOST_INPUT");
         bspec = getenv("SAVAGEWIND_BIND_TEST");
+        route = test_route_start();
         host_test = hspec;
         test_mouse = hspec && strstr(hspec, ":mouse:");
     }
@@ -529,6 +533,11 @@ static void host_test_frame(uint64_t frame) {
             else if (!strcmp(dev, "lstick")) sscanf(name, "%d/%d", &sx, &sy);
             else if (!strcmp(dev, "rstick")) sscanf(name, "%d/%d", &srx, &sry);
             else { int h = bind_pad_from_name(name); if (h >= 0) padm |= 1u << h; }
+        }
+        if (route) {  // (hle/test_route.c: worked out from where Link is and where the camera looks)
+            const char *shot = NULL;
+            test_route_frame(&sx, &sy, &srx, &sry, &padm, &shot);
+            if (shot) test_push(frame, frame, 1, "shot", shot);
         }
         bool kch = memcmp(keys, test_keys, sizeof keys) != 0;
         bool pch = padm != test_pad || sx != test_lx || sy != test_ly || srx != test_rx || sry != test_ry;

@@ -5714,6 +5714,20 @@ static void wait_built(_Atomic int *state) {  // (0 building: until built or fai
     stat_build_waits++;
 }
 
+// (test only: hle/test_route.c) The world camera, from the draws into the 3D scene's depth. They read a constant buffer
+// of floats: the view (0-11, 3x4 rows), view-projection (12-27), projection (28-43, OpenGL style), the camera's own matrix
+// (44-55: right, up, back, position in its columns) and near / far (56, 57). The world camera's has a perspective
+// projection (row 3 = 0 0 -1 0) and its far plane over 10000 (25000; the HUD's layers and the menus' are 10000).
+extern volatile int g_test_route_on;
+void test_route_camera(const float *f);
+static void route_camera(void) {
+    if (!st.rt.depth || vk_texture_scale_group(st.rt.depth) != RS_SCENE) return;
+    Range u = st.ubuf[0][0];
+    const float *f = (const float *)(uintptr_t)u.addr;
+    if (u.addr && u.size >= 58 * 4 && f[40] == 0 && f[41] == 0 && f[42] == -1 && f[43] == 0 && f[57] > 10001 && f[56] > 0)
+        test_route_camera(f);
+}
+
 static void draw_(CmdRec *r, bool indexed) {
     if (profd) prof_tp_ = SDL_GetTicksNS();
     if (!st.program) { stat_skipped++; return; }
@@ -5874,6 +5888,7 @@ static void draw_(CmdRec *r, bool indexed) {
     resolve_feedback(pr);
     det_draw = 0;
     scene_post(pr, r);
+    if (g_test_route_on) route_camera();
     snap_reason = "draw-depthwrite";
     if (st.rt.depth && st.ds[0] && st.ds[1]) snapshots_invalidate(st.rt.depth);
     snap_reason = "draw-colorwrite";

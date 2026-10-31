@@ -438,11 +438,13 @@ static void thread_start(KThread *t) {
     pthread_attr_destroy(&attr);
 }
 
+static KThread *g_main_kthread;  // (SAVAGEWIND_SLOW_WAITS: svc_entry)
 KThread *kernel_create_main_thread(uint64_t entry, uint64_t stack_size, int prio) {
     uint64_t stack = STACK_BASE + STACK_SIZE - ((stack_size + 0xFFFF) & ~0xFFFFull);
     region_add(stack, stack_size, 0xB, 3);
     KThread *t = thread_new(entry, 0, stack + stack_size, prio, 0);
     t->handle = kernel_new_handle(&t->obj);
+    g_main_kthread = t;
     return t;
 }
 
@@ -825,6 +827,21 @@ void rt_svc(Cpu *c, uint32_t imm, uint64_t pc) {
 }
 
 static void svc_entry(Cpu *c, uint32_t imm, uint64_t pc) {
+    // (profiling) SAVAGEWIND_SLOW_WAITS=<ms>: the game's main thread in a syscall that long: what it waited for, who asked
+    static int slow_waits = -1;
+    if (slow_waits < 0) slow_waits = ENV("SAVAGEWIND_SLOW_WAITS") ? atoi(ENV("SAVAGEWIND_SLOW_WAITS")) : 0;
+    if (slow_waits && t_cur == g_main_kthread) {
+        uint64_t a0 = c->x[0], a1 = c->x[1], a2 = c->x[2], a3 = c->x[3], lr = c->x[30], t0 = plat_now_ns();
+        svc_impl(c, imm, pc);
+        uint64_t dt = plat_now_ns() - t0;
+        if (dt >= (uint64_t)slow_waits * 1000000) {
+            extern uint64_t renderer_present_count(void);
+            LOG("[wait] frame %llu: main thread %.1f ms in svc %02x (%llx, %llx, %llx, %llx), called from %llx\n",
+                (unsigned long long)renderer_present_count(), dt / 1e6, imm, (unsigned long long)a0, (unsigned long long)a1,
+                (unsigned long long)a2, (unsigned long long)a3, (unsigned long long)lr);
+        }
+        return;
+    }
     if (prof_svc < 0) prof_svc = ENV("SAVAGEWIND_PROF_SVC") != NULL;
     if (prof_svc && imm < 0x80) {
         uint64_t a0 = c->x[0], a1 = c->x[1], a2 = c->x[2], a3 = c->x[3], lr = c->x[30];
