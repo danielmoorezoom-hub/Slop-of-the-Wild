@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "gamelib.h"
+#include "achievements.h"
 #include "paths.h"
 #include "nvn/maxwell/shader.h"
 #include "nvn/shader_archive.h"
@@ -352,6 +353,7 @@ int main(int argc, char **argv) {
 #else
     (void)precompile;
 #endif
+    ach_start();  // achievements: watches the save folder (runtime/achievements.h)
     // A plain start goes straight into the game once the game files are set up and the game code built from them
     // matches this build; the start screen only when there is something to set up, or when asked for.
     (void)skip_launcher;  // (--play: as a plain start now)

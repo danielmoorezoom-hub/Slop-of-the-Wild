@@ -42,6 +42,7 @@ void input_pc_escape(bool down);
 void controls_bindings_draw(float scale);  // controls_ui.mm
 #include "../input_bind.h"
 #include "../perfmon.h"
+#include "achievements_ui.h"  // (the Achievements page and the unlock toasts)
 #include "../paths.h"
 #include "../pc_cursor.h"
 }
@@ -444,9 +445,21 @@ static void load_fonts(void) {
         g_menu_font = add(med, 29, cfg);
         g_menu_font_big = add(semi, 53.5f, cfg);
     }
+    // the achievement toasts' title: a book serif in bold (Palatino, Georgia, DejaVu Serif), else Fira's SemiBold
+    ImFont *toast_title = NULL;
+    const char *serif[] = {"C:/Windows/Fonts/palab.ttf", "C:/Windows/Fonts/georgiab.ttf",
+                           "/System/Library/Fonts/Supplemental/Palatino.ttc",
+                           "/System/Library/Fonts/Supplemental/Georgia Bold.ttf",
+                           "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", "/usr/share/fonts/TTF/DejaVuSerif-Bold.ttf"};
+    for (const char *p : serif) {
+        if (FILE *f = fopen(p, "rb")) fclose(f);
+        else continue;
+        if ((toast_title = add(p, 56, cfg))) break;
+    }
     if (!g_font) g_font = io.Fonts->AddFontDefault();
     if (!g_font_big) g_font_big = g_font;
     if (!g_menu_font || !g_menu_font_big) g_menu_font = g_font, g_menu_font_big = g_font_big;
+    ach_ui_fonts(toast_title ? toast_title : g_menu_font_big, g_menu_font);
 }
 
 // Before a frame: another menu language may need other glyphs - the fonts and their texture are made again
@@ -1247,9 +1260,9 @@ static void tabs_body(float scale, bool in_game, void (*prelaunch)(float)) {
     Tab tabs[11];
     int ntabs = 0;
     if (prelaunch) tabs[ntabs++] = {"Prelaunch", -1, true};
-    // (ids 6-7 were Link's Awakening tabs; the ids stay: test hooks)
-    static const char *names[] = {"Video", "Audio", "Language", "Draw Distance", "Cheats", "Saves", "", "", "Controls", "Quit"};
-    static const int order[] = {8, 0, 3, 1, 2, 5, 4, 9};  // Controls, Video, Draw Distance, Audio, Language, Saves, Cheats, Quit
+    // (ids 7 was Link's Awakening's; the ids stay: test hooks)
+    static const char *names[] = {"Video", "Audio", "Language", "Draw Distance", "Cheats", "Saves", "Achievements", "", "Controls", "Quit"};
+    static const int order[] = {8, 0, 3, 1, 2, 5, 6, 4, 9};  // Controls, Video, Draw Distance, Audio, Language, Saves, Achievements, Cheats, Quit
     for (int i : order) {  // (Quit: in game only - the start screen has its own QUIT; Saves: on the start screen only
         if (i == 9 && prelaunch) continue;  //  the game must not be running while its saves change)
         if (i == 5 && !prelaunch) continue;
@@ -1335,6 +1348,7 @@ static void tabs_body(float scale, bool in_game, void (*prelaunch)(float)) {
                 case 4: tab_cheats(); break;
                 case 2: tab_language(in_game); break;
                 case 5: saves_tab_draw(); break;
+                case 6: ach_ui_tab(); break;
                 case 8: tab_about(); break;
                 case 9: tab_quit(scale, in_game); break;
                 }
@@ -1381,7 +1395,7 @@ void menu_render(void *cmd, uint32_t target_w, uint32_t target_h) {
     if (!title && title_a > 0.004f) title = true;  // (fading out)
     float pointer_box[4];
     bool pointer_hover = pc_cursor_hover_box(pointer_box);
-    if (!open && !kbd && !sizes && !title && !pointer_hover && g_settings.perf_overlay == PERF_OFF) {
+    if (!open && !kbd && !sizes && !title && !pointer_hover && g_settings.perf_overlay == PERF_OFF && !ach_ui_active()) {
         if (g_inited) { pthread_mutex_lock(&q_lock); q_events.clear(); pthread_mutex_unlock(&q_lock); }
         return;
     }
@@ -1452,6 +1466,7 @@ void menu_render(void *cmd, uint32_t target_w, uint32_t target_h) {
         dl->AddText(f2, fh * 0.8f, ImVec2(xr - s2.x + o, y2 + o), IM_COL32(0, 0, 0, sh), l2);
         dl->AddText(f2, fh * 0.8f, ImVec2(xr - s2.x, y2), IM_COL32(190, 226, 84, a), l2);
     }
+    ach_ui_toasts(io.DisplaySize.x, io.DisplaySize.y, scale);
 
     if (open) {
         // dim the game behind the menu
