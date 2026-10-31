@@ -4,7 +4,8 @@
 // are worked out from where Link is (uking::act::PlayerInfo +0x88) and where the world camera looks (vulkan/exec.c
 // route_camera), not fixed values on a timer, so a route doesn't depend on the way he happened to load in facing.
 //
-//   play                      press A through the title screen, until Link can move (the load and any event over)
+//   play [1]                  press A through the title screen, until Link can move (the load and any event over), and B
+//                             at the DLC screen that opens over it; with 1 (a game with DLC), no A until that has opened
 //   goto <x> <z> [m] [spin]   run to world x, z, within m meters (default 4), with the camera behind him, or orbiting
 //                             him at spin (-1..1 of full tilt, the left stick still towards the point). A point he
 //                             makes no headway to is given up after a jump and a few seconds (logged).
@@ -145,6 +146,22 @@ void test_route_frame(int32_t *lx, int32_t *ly, int32_t *rx, int32_t *ry, uint32
             p[2], have_cam ? "on" : "off", have_cam ? atan2(f[0], f[1]) * 180 / PI : 0.0, have_cam ? camera_pitch() : 0.0,
             framepace_in_event() ? " (event)" : "");
     }
+    {   // the game's screens, when they change
+        extern int framepace_screens(uint32_t *ids, int max);
+        static uint32_t last[64];
+        static int nlast;
+        uint32_t ids[64];
+        int n = framepace_screens(ids, 64);
+        if (n != nlast || memcmp(ids, last, n * sizeof ids[0])) {
+            char line[512];
+            int o = 0;
+            for (int i = 0; i < n && o < 480; i++) o += snprintf(line + o, sizeof line - o, " %x", ids[i]);
+            line[o] = 0;
+            LOG("[route] screens:%s\n", line);
+            memcpy(last, ids, n * sizeof ids[0]);
+            nlast = n;
+        }
+    }
     if (!s) return;  // (the end for now: standing still until more lines come)
     if (started != cur) {
         started = cur, step_t0 = now, phase = 0, best = 1e30, best_t = now, acc = 0, pf[0] = pf[1] = 0, target[0] = target[1] = 0;
@@ -155,6 +172,7 @@ void test_route_frame(int32_t *lx, int32_t *ly, int32_t *rx, int32_t *ry, uint32
         }
     }
     bool is_play = !strcmp(s->op, "play");
+    static bool dlc_seen;
     if (!is_play) {  // an event: everything waits, its time doesn't count
         bool ev = framepace_in_event();
         if (ev != in_event) {
@@ -174,6 +192,11 @@ void test_route_frame(int32_t *lx, int32_t *ly, int32_t *rx, int32_t *ry, uint32
         if (phase == 0 && framepace_title_ui()) phase = 1, LOG("[route] the title screen is up\n");
         if (phase == 1) {
             if (!framepace_title_ui()) phase = 2, best_t = now;
+            else if (framepace_dlc_ui()) {  // (it opens by itself; only B closes it)
+                dlc_seen = true;
+                if (now % (SECONDS * 3 / 2) < SECONDS / 8) *pad |= button("south");
+            }
+            else if (s->n > 0 && !dlc_seen && t < 60) {}  // (A before it opens would be lost under it)
             else if (now % (SECONDS * 6 / 5) < SECONDS / 8) *pad |= button("east");
         }
         if (phase == 2) {

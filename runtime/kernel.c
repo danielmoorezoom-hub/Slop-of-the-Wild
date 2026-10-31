@@ -164,13 +164,22 @@ static bool core_next(Core *k, KThread *t) {
     return true;
 }
 
+// (profiling) SAVAGEWIND_SLOW_WAITS=<ms>: svc_entry; a thread that long without a core says who had it
+static int slow_waits_ms(void) {
+    static int ms = -1;
+    if (ms < 0) ms = getenv("SAVAGEWIND_SLOW_WAITS") ? atoi(getenv("SAVAGEWIND_SLOW_WAITS")) : 0;
+    return ms;
+}
+
 static void core_acquire(KThread *t) {
     if (!t || !cores_on() || t->core_held >= 0 || t->off_cores) return;
+    uint64_t probe_t0 = slow_waits_ms() ? plat_now_ns() : 0;
     static int one_core = -1;  // (debug) SAVAGEWIND_ONE_CORE=1: every thread on core 0, one guest thread at a time
     if (one_core < 0) one_core = getenv("SAVAGEWIND_ONE_CORE") != NULL;
     int idx = one_core ? 0 : t->core & 3;
     Core *k = &g_cores[idx];
     pthread_mutex_lock(&k->m);
+    KThread *probe_owner = k->owner;
     t->core_ticket = k->next_ticket++;
     if (k->nwaiting < 64) k->waiting[k->nwaiting++] = t;
     core_best_update(k);
@@ -181,6 +190,13 @@ static void core_acquire(KThread *t) {
     if (!k->owner) k->owner = t;  // (during a reboot the core may stay with another thread: run anyway)
     t->core_held = k->owner == t ? idx : -1;
     pthread_mutex_unlock(&k->m);
+    if (probe_t0) {
+        uint64_t dt = plat_now_ns() - probe_t0;
+        t->probe_core_ns += dt;
+        if (dt >= (uint64_t)slow_waits_ms() * 1000000)
+            LOG("[core] thread %x (prio %d) %.1f ms for core %d, held by %x (prio %d)\n", t->handle, t->prio, dt / 1e6, idx,
+                probe_owner ? probe_owner->handle : 0, probe_owner ? probe_owner->prio : -1);
+    }
 }
 
 static void core_release(KThread *t) {
@@ -827,18 +843,29 @@ void rt_svc(Cpu *c, uint32_t imm, uint64_t pc) {
 }
 
 static void svc_entry(Cpu *c, uint32_t imm, uint64_t pc) {
-    // (profiling) SAVAGEWIND_SLOW_WAITS=<ms>: the game's main thread in a syscall that long: what it waited for, who asked
-    static int slow_waits = -1;
-    if (slow_waits < 0) slow_waits = ENV("SAVAGEWIND_SLOW_WAITS") ? atoi(ENV("SAVAGEWIND_SLOW_WAITS")) : 0;
-    if (slow_waits && t_cur == g_main_kthread) {
+    // (profiling) SAVAGEWIND_SLOW_WAITS=<ms>: the game's main thread in a syscall that long: what it waited for, who asked,
+    // and for a lock, what its owner did meanwhile (in IPC calls, which file reads are; in other syscalls; waiting for a core)
+    int slow_waits = slow_waits_ms();
+    if (slow_waits && t_cur) {
+        KThread *me = t_cur;
         uint64_t a0 = c->x[0], a1 = c->x[1], a2 = c->x[2], a3 = c->x[3], lr = c->x[30], t0 = plat_now_ns();
+        KObject *oo = imm == 0x1A && me == g_main_kthread ? handle_get((uint32_t)a0) : NULL;
+        KThread *owner = oo && oo->type == KOBJ_THREAD ? (KThread *)oo : NULL;
+        uint64_t oi = owner ? owner->probe_ipc_ns : 0, os = owner ? owner->probe_svc_ns : 0, oc = owner ? owner->probe_core_ns : 0;
         svc_impl(c, imm, pc);
         uint64_t dt = plat_now_ns() - t0;
-        if (dt >= (uint64_t)slow_waits * 1000000) {
+        me->probe_svc_ns += dt;
+        if (imm == 0x21) me->probe_ipc_ns += dt;
+        if (me == g_main_kthread && dt >= (uint64_t)slow_waits * 1000000) {
             extern uint64_t renderer_present_count(void);
             LOG("[wait] frame %llu: main thread %.1f ms in svc %02x (%llx, %llx, %llx, %llx), called from %llx\n",
                 (unsigned long long)renderer_present_count(), dt / 1e6, imm, (unsigned long long)a0, (unsigned long long)a1,
                 (unsigned long long)a2, (unsigned long long)a3, (unsigned long long)lr);
+            if (owner)
+                LOG("[wait]   owner %x prio %d core %d entry %llx lr %llx: ipc %.1f, other syscalls %.1f (core waits in all %.1f)\n",
+                    owner->handle, owner->prio, owner->core, (unsigned long long)owner->entry, (unsigned long long)owner->cpu.x[30],
+                    (owner->probe_ipc_ns - oi) / 1e6, ((owner->probe_svc_ns - os) - (owner->probe_ipc_ns - oi)) / 1e6,
+                    (owner->probe_core_ns - oc) / 1e6);
         }
         return;
     }

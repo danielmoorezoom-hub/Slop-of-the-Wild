@@ -98,9 +98,20 @@ static bool screen_up(uint32_t id) {
 // (screens: 1 the start screen, 0x38 its load and confirmation menus)
 bool framepace_title_ui(void) { return screen_up(1) || screen_up(0x38); }
 bool framepace_title_load_ui(void) { return screen_up(0x38); }
+bool framepace_dlc_ui(void) { return screen_up(0x3f); }  // (test only: hle/test_route.c; the "Downloaded DLC" notice over the start screen)
 
 // (screen 0x55: the loading screen with its tip, up from a load's start until its fade into the game is over)
 bool framepace_loading_ui(void) { return screen_up(0x55); }
+
+// (test only: hle/test_route.c) The ids of the screens that exist
+int framepace_screens(uint32_t *ids, int max) {
+    uint64_t mgr = *(uint64_t *)(uintptr_t)g_site.screen_mgr;
+    int n = 0;
+    if (!mgr) return 0;
+    for (uint32_t i = 0; i < VF(uint32_t, mgr, 0x28) && n < max; i++)
+        if (screen_up(i)) ids[n++] = i;
+    return n;
+}
 
 // (pause state 2: the pause menu's pages and the map; 4 is the quick menus over the game)
 bool framepace_menu_ui(void) { return *(uint32_t *)(uintptr_t)PAUSE_STATE == 2; }

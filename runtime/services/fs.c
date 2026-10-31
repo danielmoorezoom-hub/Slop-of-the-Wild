@@ -951,8 +951,20 @@ static void storage(Service *s, IpcReq *req, IpcResp *resp) {
         if (!b) { resp->result = MAKE_RESULT(2, 6001); break; }
         if (size > b->size) size = b->size;
         kernel_watch_write("romfs read", b->addr, size);
+        uint64_t read_t0 = plat_now_ns();
+        // (The core goes while the disk works, as a thread waiting for a read gives it up on the console. Holding it through
+        // a first read of a file, 25 ms, kept a thread of that core from a lock the main thread was waiting for: a hitch.)
+        kernel_host_work_begin();
         ssize_t n = romfs_read(m, (uint8_t *)(uintptr_t)b->addr, size, off);
+        kernel_host_work_end();
         if (n < 0) LOG("[fs] storage read failed at %llx: %s\n", off, strerror(errno));
+        {   // (profiling) SAVAGEWIND_SLOW_WAITS: reads that take a while
+            uint64_t dt = plat_now_ns() - read_t0;
+            if (dt >= 2000000 && getenv("SAVAGEWIND_SLOW_WAITS")) {
+                const char *path = m == &images[0] ? romfs_file_at(off) : NULL;
+                LOG("[fs] read took %.1f ms: %llu KB of %s\n", dt / 1e6, (unsigned long long)(size >> 10), path ? path : "(DLC)");
+            }
+        }
         if (m != &images[0]) break;
         {
             const char *path = romfs_file_at(off);

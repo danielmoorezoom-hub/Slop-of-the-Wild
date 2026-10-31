@@ -42,6 +42,7 @@ struct KThread {
     int core_held;
     uint64_t core_ticket;
     bool off_cores;  // runs beside the cores, never holding one (kernel_thread_off_cores)
+    uint64_t probe_ipc_ns, probe_svc_ns, probe_core_ns;  // (SAVAGEWIND_SLOW_WAITS: kernel.c svc_entry)
 };
 
 typedef struct KSharedMem {
