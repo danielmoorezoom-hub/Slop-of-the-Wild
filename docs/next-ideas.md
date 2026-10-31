@@ -5,6 +5,24 @@ own ideas. Numbers are their pull requests and issues on [Revivedx/SavageWindRec
 
 Already taken from them for the current list: draw distance (#88) and the memory fixes on reloads (#237).
 
+## Already here
+
+Checked against the code on 2026-10-31.
+
+- **Mouse sensitivity** (#288, #289): up to 1000%, a separate vertical speed, and invert.
+- **Key mapping shown in the HUD** (#304): Button icons has a Keyboard choice and follows the device in use, and all keys can be rebound.
+- **Real controller gyro**: works, with its own sensitivity and invert. Only #235 and #272 are left.
+
+Partly here:
+
+- **16:10** (#303): the view is widened for taller screens, but it hasn't been run at 16:10 here.
+- **More control customization** (#180): keys, sticks, controller buttons, dead zones, camera speed and motion are all settable. Find what's still missing.
+- **Native controller** (#143): any controller through SDL, with Xbox, PlayStation and Nintendo prompts.
+- **Benchmark history**: every run is kept in `benchmark/results.txt`, but there's no comparison yet.
+- **Shader cache check**: the Game Files page says to run it again after a driver update, but nothing warns before playing.
+- **Install folder check**: the program tests whether its folder can be written to, but gives no warning.
+- **GPU readings** (roadmap): the F10 overlay reads NVIDIA on Windows and AMD on Linux, not AMD or Intel on Windows.
+
 ## Chosen next, easiest first
 
 An estimate from the size of each pull request and what is already here, before reading their code.
@@ -43,8 +61,6 @@ An estimate from the size of each pull request and what is already here, before 
 | Idea | Where |
 |---|---|
 | How shadows look | #300 |
-| Mouse sensitivity | #288, #289 |
-| Key mapping | #304 |
 | 16:10 screens | #303 |
 | Riding with the keyboard | #290 |
 | Native controller support, more control customization | #143, #180 |
