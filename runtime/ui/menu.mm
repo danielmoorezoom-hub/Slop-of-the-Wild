@@ -761,6 +761,17 @@ static void tab_display(void) {
                "FPS: the frame rate and frame time. Full: also CPU, memory and GPU load and temperatures, and a "
                "frame time graph. F10 switches between them while you play.");
 
+    opt_section("Start");
+    opt_toggle("Start at Continue", &g_settings.auto_continue, false, "Goes past the title screen by itself, into your latest save. Press any button to stop it.");
+    opt_section("Profiles");
+    for (int i = 0; i < 3; i++) {
+        char l[32];
+        snprintf(l, sizeof l, "Load profile %d", i + 1);
+        if (!settings_profile_exists(i)) opt_disable_next();
+        if (opt_action(l, settings_profile_exists(i) ? "" : tr("Empty"), tr("Every setting as you saved it."), false)) settings_profile_load(i);
+        snprintf(l, sizeof l, "Save settings as profile %d", i + 1);
+        if (opt_action(l, "", tr("Keeps all your settings under this number."), false)) settings_profile_save(i);
+    }
     opt_section("Saves");
     opt_toggle("Back up saves when the game starts", &g_settings.save_backups, true, "Keeps the last 5 copies in save-backups, if the saves have changed.");
     opt_section("Benchmark");
@@ -924,6 +935,11 @@ static void tab_cheats(void) {
     opt_toggle("Infinite stamina", &g_settings.cheat_stamina, false, "The stamina wheel doesn't go down. It still fills.");
     opt_toggle("Infinite arrows", &g_settings.cheat_arrows, false, "Shooting doesn't use up arrows.");
     opt_toggle("Unbreakable weapons", &g_settings.cheat_weapons, false, "Weapons, bows and shields lose no durability and never break.");
+    {
+        float dmg = (float)g_settings.damage_taken;
+        if (opt_slider("Damage taken", &dmg, 25, 300, 25, 100, "%g%%", "How much the hits you take hurt. 100% is the game's own."))
+            g_settings.damage_taken = (int)dmg;
+    }
     opt_toggle("Infinite rupees", &g_settings.cheat_rupees, false, "Keeps you at 9999 rupees, within about 5 seconds.");
     {
         float wear = (float)g_settings.weapon_wear;

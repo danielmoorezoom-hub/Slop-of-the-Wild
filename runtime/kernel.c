@@ -436,6 +436,13 @@ static bool g_no_reap;
 static uint64_t tls_free[1024];
 static int ntls_free;
 
+// (runtime/sampler.c holds finished threads' host handles between looks)
+void kernel_keep_threads(void) {
+    klock();
+    g_no_reap = true;
+    pthread_mutex_unlock(&g_klock);
+}
+
 static KThread *thread_unlink_if_dead(KThread *t) {
     if (!t->finished || !t->started || g_no_reap) return NULL;
     for (KThread **p = &g_threads; *p; p = &(*p)->anext)

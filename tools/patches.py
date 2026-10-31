@@ -638,8 +638,9 @@ def _lod(word, reg, fn, what):
 # `cmp w25, #0` that takes the death path a loss is undone, and healing goes through. Its one-quarter path, life - 1, stays life.
 def _cheat_damage(gen, a):
     assert _word(gen, a) == 0x7100033f, hex(_word(gen, a))  # cmp w25, #0
-    return ('{ extern int rt_cheat_keep_life(int32_t, int32_t); uint32_t o = LD32(c->x[21]); '
-            'if (rt_cheat_keep_life((int32_t)c->x[25], (int32_t)o)) { c->x[25] = o; ST32(c->sp + 0xc, o); } '
+    return ('{ extern int32_t rt_cheat_life_after(int32_t, int32_t); uint32_t o = LD32(c->x[21]); '
+            'uint32_t n = (uint32_t)rt_cheat_life_after((int32_t)c->x[25], (int32_t)o); '
+            'if (n != (uint32_t)c->x[25]) { c->x[25] = n; ST32(c->sp + 0xc, n); } '
             '(void)subs32(c, (uint32_t)c->x[25], 0); }'
             f'  /* {a:#x}: cmp w25, #0 (damage: infinite health) */')
 

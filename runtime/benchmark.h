@@ -11,6 +11,7 @@ int benchmark_count(void);
 const char *benchmark_name(int route);
 const char *benchmark_about(int route);
 const char *benchmark_last(int route);  // the last result, for showing ("" if none yet)
+int benchmark_recommended(void);        // from the latest result: GRAPHICS_PRESET_*, -1 if there is none
 bool benchmark_can_run(void);           // false: no save to start from
 void benchmark_run(int route);          // does not return: this process ends and the benchmark's starts
 

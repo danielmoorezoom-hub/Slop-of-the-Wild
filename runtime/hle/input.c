@@ -747,6 +747,26 @@ static int32_t clamp_axis(int32_t v) { return v > 32767 ? 32767 : v < -32767 ? -
 
 // NpadFullKeyState / NpadHandheldState / NpadJoy*State share this layout (0x28 bytes):
 // {int64 sampling, u64 buttons, AnalogStick L {x,y}, AnalogStick R {x,y}, u32 attributes}
+// Past the title screen by itself: Gameplay > Start at Continue, once at a start, and after a teleport (runtime/teleport.c). Any button of
+// the player's stops it.
+static bool auto_armed, auto_read;
+void input_auto_continue_arm(void) { auto_read = auto_armed = true; }
+
+static uint64_t auto_continue_buttons(uint64_t player) {
+    if (!auto_read) auto_read = true, auto_armed = g_settings.auto_continue;
+    if (!auto_armed) return 0;
+    static bool title_seen;
+    uint64_t now = plat_now_ns();
+    if (player) { auto_armed = false, title_seen = false; return 0; }
+    if (!framepace_title_ui()) {
+        if (title_seen) auto_armed = false, title_seen = false;
+        return 0;
+    }
+    title_seen = true;
+    if (framepace_dlc_ui()) return now % 1500000000ull < 125000000ull ? 1ull << BTN_B : 0;  // (it opens by itself; only B closes it)
+    return now % 1200000000ull < 125000000ull ? 1ull << BTN_A : 0;
+}
+
 static void fill_state(Cpu *c) {
     uint8_t *s = (uint8_t *)(uintptr_t)c->x[0];
     uint32_t id = *(uint32_t *)(uintptr_t)c->x[1];
@@ -767,6 +787,7 @@ static void fill_state(Cpu *c) {
     bool menu = menu_input_captured();  // the overlay menu / name entry has the controls (typing there isn't for the game)
     uint64_t bow = pc_bow_sample();
     uint64_t b = menu ? script_buttons : key_buttons | pad_buttons | escape_buttons | bow | script_buttons;
+    b |= auto_continue_buttons(b);
     b=pc_cursor_buttons(b);
     extern bool game_options_hold_a(void);  // runtime/ui/game_options.mm: the Achievements page is up
     if (game_options_hold_a()) b &= ~(1ull << BTN_A);
@@ -791,9 +812,10 @@ static void fill_state(Cpu *c) {
         if (dx || dy) lx = dx * m, ly = dy * m;
     }
     {   // photo mode (runtime/photo.c): both sticks pressed; while on, the camera has the controls
-        extern bool photo_take_input(int32_t, int32_t, int32_t, int32_t, bool, bool, bool, bool, bool);
+        extern bool photo_take_input(int32_t, int32_t, int32_t, int32_t, bool, bool, bool, bool, bool, int);
         if (!menu && photo_take_input(lx, ly, rx, ry, b >> BTN_R & 1, b >> BTN_L & 1, b >> BTN_ZR & 1,
-                                      (b >> BTN_LSTICK & 1) && (b >> BTN_RSTICK & 1), b >> BTN_B & 1))
+                                      (b >> BTN_LSTICK & 1) && (b >> BTN_RSTICK & 1), b >> BTN_B & 1,
+                                      (int)(b >> BTN_RIGHT & 1) - (int)(b >> BTN_LEFT & 1)))
             b = 0, lx = ly = rx = ry = 0;
     }
     // stick directions also appear as buttons (bits 16-23)

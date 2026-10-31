@@ -91,8 +91,8 @@ static_assert(sizeof(Entry) == 0x30);
 enum { KIND_TOGGLE = 0, KIND_CHOICE = 1, KIND_BUTTON = 2 };
 
 enum Page { P_MAIN, P_GAMEPLAY, P_VIDEO, P_COLOUR, P_AUDIO, P_CONTROLS, P_KEYS, P_STICKS, P_PAD, P_LANGUAGE, P_DISTANCE, P_CHEATS,
-            P_ACHIEVEMENTS, P_TELEPORT, P_COUNT };
-enum Action { A_NONE, A_PAGE, A_BIND_KEY, A_BIND_PAD, A_RESET_KEYS, A_RESET_PAD, A_RESTART, A_QUIT, A_SIZE_LIST, A_BENCHMARK, A_TELEPORT_MARK, A_TELEPORT_SAVE, A_TELEPORT_PLACE };
+            P_ACHIEVEMENTS, P_TELEPORT, P_PROFILES, P_COUNT };
+enum Action { A_NONE, A_PAGE, A_BIND_KEY, A_BIND_PAD, A_RESET_KEYS, A_RESET_PAD, A_RESTART, A_QUIT, A_SIZE_LIST, A_BENCHMARK, A_TELEPORT_MARK, A_TELEPORT_SAVE, A_TELEPORT_PLACE, A_PROFILE_LOAD, A_PROFILE_SAVE };
 
 struct Item {
     int page;
@@ -265,7 +265,7 @@ void build_items(void) {
     std::vector<Item> &v = g_items;
     // first page: the sections (the game's own options are on Gameplay and Controls)
     v.push_back(button(P_MAIN, "Gameplay", "Mini-map, HUD, jump button and more.", "Open", A_PAGE, P_GAMEPLAY));
-    v.push_back(button(P_GAMEPLAY, "Photo mode", "While playing: F6, or press both sticks in. The world stops and the HUD goes. Sticks fly the camera, L and R go up and down, ZR is faster, B leaves. F7 saves a picture.", "F6", A_NONE, 0));
+    v.push_back(button(P_GAMEPLAY, "Photo mode", "While playing: F6, or press both sticks in. The world stops and the HUD goes. Sticks fly the camera, L and R go up and down, ZR is faster, the d-pad changes the time of day, B leaves. F7 saves a picture.", "F6", A_NONE, 0));
     v.push_back(button(P_MAIN, "Video", "Screen, resolution and image quality.", "Open", A_PAGE, P_VIDEO));
     v.push_back(button(P_MAIN, "Draw distance", "How far grass, trees and objects reach.", "Open", A_PAGE, P_DISTANCE));
 #ifndef __APPLE__
@@ -278,6 +278,7 @@ void build_items(void) {
     v.push_back(button(P_MAIN, "Controller", "Which controller button does each button.", "Open", A_PAGE, P_PAD));
     v.push_back(button(P_MAIN, "Language", "Language of the texts and of the voices.", "Open", A_PAGE, P_LANGUAGE));
     v.push_back(button(P_MAIN, "Cheats", "Infinite health, stamina and arrows, unbreakable weapons.", "Open", A_PAGE, P_CHEATS));
+    v.push_back(button(P_MAIN, "Profiles", "Named sets of all your settings.", "Open", A_PAGE, P_PROFILES));
     v.push_back(button(P_MAIN, "Teleport", "Bookmarks and the main places. Restarts the game.", "Open", A_PAGE, P_TELEPORT));
     v.push_back(button(P_MAIN, "Quit game", "To the desktop, or back to the Savage Wind start screen.", "Quit",
                        A_QUIT, 0));
@@ -436,6 +437,19 @@ void build_items(void) {
                    (*benchmark_last(i) ? std::string(" Last: ") + benchmark_last(i) : std::string());
         v.push_back(button(P_VIDEO, names[i].c_str(), descs[i].c_str(), "Run", A_BENCHMARK, i));
     }
+    // Profiles (settings.c)
+    v.push_back(toggle(P_GAMEPLAY, "Start at Continue", "Past the title screen by itself, into your latest save. Any button stops it.",
+                       [](const Item &) { return (int)g_settings.auto_continue; },
+                       [](const Item &, int x) { g_settings.auto_continue = x; }, 0));
+    for (int i = 0; i < 3; i++) {
+        static std::string lo[3], sa[3];
+        lo[i] = "Load profile " + std::to_string(i + 1);
+        sa[i] = "Save settings as profile " + std::to_string(i + 1);
+        Item l = button(P_PROFILES, lo[i].c_str(), "Every setting as you saved it.", nullptr, A_PROFILE_LOAD, i);
+        l.label = [](const Item &it, int) { return settings_profile_exists(it.arg) ? tr("Load") : tr("Empty"); };
+        v.push_back(l);
+        v.push_back(button(P_PROFILES, sa[i].c_str(), "Keeps all your settings under this number.", "Save", A_PROFILE_SAVE, i));
+    }
     // Teleport (runtime/teleport.c)
     for (int i = 0; i < TELEPORT_BOOKMARKS; i++) {
         static std::string go[TELEPORT_BOOKMARKS], save[TELEPORT_BOOKMARKS];
@@ -449,6 +463,15 @@ void build_items(void) {
     for (int i = 0; i < teleport_place_count(); i++)
         v.push_back(button(P_TELEPORT, teleport_place_name(i), "Restarts the game: press Continue and you land there. Unsaved progress is lost.", "Go", A_TELEPORT_PLACE, i));
     // Cheats (runtime/cheats.c)
+    v.push_back(choice(P_CHEATS, "Damage taken", "How much the hits you take hurt. 100% is the game's own.",
+                       [](const Item &) { return 12; },
+                       [](const Item &, int x) {
+                           static char buf[16];
+                           snprintf(buf, sizeof buf, "%d%%", 25 + x * 25);
+                           return (const char *)buf;
+                       },
+                       [](const Item &) { return (g_settings.damage_taken - 25) / 25; },
+                       [](const Item &, int x) { g_settings.damage_taken = 25 + x * 25; }, 3));
     v.push_back(toggle(P_CHEATS, "Infinite rupees", "Keeps you at 9999 rupees, within about 5 seconds.",
                        [](const Item &) { return (int)g_settings.cheat_rupees; },
                        [](const Item &, int x) { g_settings.cheat_rupees = x; }, 0));
@@ -1120,6 +1143,14 @@ extern "C" int rt_opt_decide(uint64_t row) {
             settings_save();
             rt_request_reboot(1);
         }
+        return 2;
+    case A_PROFILE_SAVE:
+        settings_profile_save(it->arg);
+        mark_all_rows(rd64(row));
+        return 2;
+    case A_PROFILE_LOAD:
+        if (settings_profile_exists(it->arg)) settings_profile_load(it->arg);
+        mark_all_rows(rd64(row));
         return 2;
     case A_TELEPORT_MARK:
         teleport_go_bookmark(it->arg);  // (nothing if it's empty)

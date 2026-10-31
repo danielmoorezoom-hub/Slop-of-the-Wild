@@ -67,6 +67,7 @@ static void *sampler_main(void *arg) {
     uint32_t handle[MAX_THREADS];
     uint64_t entry[MAX_THREADS];
     uint64_t end = plat_now_ns() + (uint64_t)(secs * 1e9), nsamples = 0;
+    { extern void kernel_keep_threads(void); kernel_keep_threads(); }
     LOG("[sample] sampling every %.0f us for %.0f s\n", us, secs);
     for (uint64_t next = plat_now_ns(); plat_now_ns() < end; next += (uint64_t)(us * 1000)) {
         int n = kernel_running_threads(host, handle, entry, MAX_THREADS);

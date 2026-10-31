@@ -24,6 +24,16 @@ int rt_cheat_keep_life(int32_t now, int32_t old) {
     return 1;
 }
 
+// The life after a hit, with Cheats > Infinite health and Damage taken: healing as it is
+int32_t rt_cheat_life_after(int32_t now, int32_t old) {
+    if (now >= old) return now;
+    if (rt_cheat_keep_life(now, old)) return old;
+    if (g_settings.damage_taken == 100) return now;
+    int64_t v = old - ((int64_t)(old - now) * g_settings.damage_taken + 50) / 100;
+    if (v == old) v = old - 1;  // (a hit is always felt)
+    return v < 0 ? 0 : (int32_t)v;
+}
+
 // a lower stamina about to be stored (float bits): 1 keeps the old one. (A NaN isn't lower: stored as the game has it.)
 int rt_cheat_keep_stamina(uint32_t now_bits, uint32_t old_bits) {
     union { uint32_t u; float f; } now = {.u = now_bits}, old = {.u = old_bits};

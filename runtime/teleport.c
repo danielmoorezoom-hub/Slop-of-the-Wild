@@ -56,6 +56,10 @@ void teleport_to(float x, float y, float z) {
     LOG("[teleport] to %s: restarting\n", w);
     set_env("SAVAGEWIND_TEST_WARP", w);
     set_env("SAVAGEWIND_WARP_ONCE", "1");
+    {
+        extern void input_auto_continue_arm(void);  // (so one press takes you there)
+        input_auto_continue_arm();
+    }
     rt_request_reboot(1);
 }
 

@@ -8,6 +8,7 @@
 #include <string.h>
 #include <time.h>
 
+#include "game_sites.h"
 #include "hle.h"
 #include "platform.h"
 
@@ -19,7 +20,7 @@ volatile int g_photo_on;
 #define PITCH_MAX 1.45f
 
 static _Atomic int32_t s_lx, s_ly, s_rx, s_ry;
-static atomic_int s_up, s_down, s_fast;
+static atomic_int s_up, s_down, s_fast, s_time;
 static float yaw, pitch, off[3];
 static uint64_t last_ns;
 
@@ -41,7 +42,7 @@ void photo_shot(void) {
 }
 
 // (hle/input.c, each poll) both sticks pressed: on or off. While on the controls are the camera's, and the game gets none: true.
-bool photo_take_input(int32_t lx, int32_t ly, int32_t rx, int32_t ry, bool up, bool down, bool fast, bool both_sticks, bool back) {
+bool photo_take_input(int32_t lx, int32_t ly, int32_t rx, int32_t ry, bool up, bool down, bool fast, bool both_sticks, bool back, int time_dir) {
     static bool was;
     bool edge = both_sticks && !was;
     was = both_sticks;
@@ -51,7 +52,7 @@ bool photo_take_input(int32_t lx, int32_t ly, int32_t rx, int32_t ry, bool up, b
     }
     if (!g_photo_on) return false;
     s_lx = lx, s_ly = ly, s_rx = rx, s_ry = ry;
-    s_up = up, s_down = down, s_fast = fast;
+    s_up = up, s_down = down, s_fast = fast, s_time = time_dir;
     return true;
 }
 
@@ -68,6 +69,15 @@ void photo_camera(float *f) {
     float dt = last_ns && now > last_ns ? (float)((now - last_ns) / 1e9) : 0;
     if (dt > 0.1f) dt = 0.1f;
     last_ns = now;
+    if (s_time && g_site.world_mgr) {  // the d-pad: about 3 hours a second (ksys::world::Manager's TimeMgr, 0..360 = 24 h: test_warp.c)
+        uint64_t wm = *(uint64_t *)(uintptr_t)g_site.world_mgr;
+        uint64_t mgrs = wm && *(uint32_t *)(uintptr_t)(wm + 0x5c0) ? *(uint64_t *)(uintptr_t)(wm + 0x5c8) : 0, tm = mgrs ? *(uint64_t *)(uintptr_t)mgrs : 0;
+        if (tm) {
+            float *now_t = (float *)(uintptr_t)(tm + 0xb8);
+            float v = *now_t + 45.0f * dt * s_time;
+            *now_t = v >= 360 ? v - 360 : v < 0 ? v + 360 : v;
+        }
+    }
     float r[3] = {f[44], f[48], f[52]}, u[3] = {f[45], f[49], f[53]}, b[3] = {f[46], f[50], f[54]}, p[3] = {f[47], f[51], f[55]};
     yaw -= TURN_RPS * dt * s_rx / STICK;
     pitch += TURN_RPS * dt * s_ry / STICK;

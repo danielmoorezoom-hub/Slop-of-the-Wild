@@ -949,6 +949,7 @@ void reveal_folder(const std::string &dir) {
     SDL_OpenURL(url.c_str());
 }
 
+extern "C" const char *report_make(void);  // (runtime/report.c)
 static SDL_Window *g_launcher_win;
 static bool g_files_deleted;  // set here: the start screen goes back to setting the game files up
 static void prelaunch_tab(float sc) {
@@ -1000,6 +1001,18 @@ static void prelaunch_tab(float sc) {
     if (gamelib_compat()) {  // (runtime/gamelib.h: built for CPUs without AVX2 / FMA)
         ImGui::Spacing();
         ImGui::TextDisabled("%s", tr("Game code: compatible mode (this CPU has no AVX2 / FMA), slower"));
+    }
+    ImGui::Spacing();
+    ImGui::Spacing();
+    heading("Problem report");
+    {
+        static std::string made;
+        if (ImGui::Button(tr("Make a problem report"))) {
+
+            made = report_make();
+            if (!made.empty()) reveal_folder(made);
+        }
+        ImGui::TextDisabled("%s", made.empty() ? tr("A folder to attach to an issue: the log, your settings and benchmark results. No game files, no saves.") : made.c_str());
     }
     ImGui::Spacing();
     ImGui::Spacing();
@@ -1506,6 +1519,16 @@ extern "C" void launcher_run(const char *root, int mode) {
                     }
                 }
                 opt_section("Results");
+                {
+                    int rec = benchmark_recommended();
+                    if (rec >= 0) {
+                        static const char *const names[] = {"Potato", "Low", "Medium", "High"};
+                        if (opt_action("Use the recommended preset", tr(names[rec]), tr("From your latest run's 1% low: High above 100 fps, Medium above 60, Low above 40."), false)) {
+                            settings_preset_apply(rec);
+                            settings_save();
+                        }
+                    }
+                }
                 if (opt_action("Show the results file", "", "Every run is kept in benchmark/results.txt, with the settings it ran on.", false))
                     reveal_folder("benchmark");
                 opt_end();

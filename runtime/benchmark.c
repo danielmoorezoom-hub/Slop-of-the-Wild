@@ -88,6 +88,21 @@ const char *benchmark_last(int r) {
     return r >= 0 && r < ROUTES ? last[r] : "";
 }
 
+int benchmark_recommended(void) {
+    FILE *f = fopen(DIR_BENCH "/results.txt", "r");
+    char line[512];
+    int low = -1;
+    while (f && fgets(line, sizeof line, f)) {
+        char *p = strchr(line, '|');
+        p = p ? strchr(p + 1, '|') : NULL;
+        int fps, l;
+        if (p && sscanf(p + 1, "%d|%d", &fps, &l) == 2) low = l;
+    }
+    if (f) fclose(f);
+    if (low < 0) return -1;
+    return low > 100 ? GRAPHICS_PRESET_HIGH : low > 60 ? GRAPHICS_PRESET_MEDIUM : low > 40 ? GRAPHICS_PRESET_LOW : GRAPHICS_PRESET_POTATO;
+}
+
 // ------------------------------------------------------------------ starting one
 // Any save will do: the warp puts Link where the route starts.
 static SDL_EnumerationResult SDLCALL find_save(void *found, const char *dir, const char *name) {

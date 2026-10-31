@@ -56,6 +56,8 @@ typedef struct {
     bool lod_extended;   // Draw Distance > Extended draw distance: the sliders below apply (off: the game's own)
     bool cheat_health, cheat_stamina, cheat_arrows, cheat_weapons, cheat_rupees;  // Cheats (runtime/cheats.c)
     int weapon_wear;     // Cheats > Weapon wear: how fast weapons lose durability, percent of the game's: 10..300
+    bool auto_continue;  // Gameplay > Start at Continue: past the title screen by itself (hle/input.c)
+    int damage_taken;    // Cheats > Damage taken, percent of the game's: 25..300 (runtime/cheats.c)
     bool save_backups;   // a copy of the save folder before each game start (runtime/save_backup.c)
     int lod_master;      // Draw Distance > Overall distance, 0..100: moving it sets the three below (settings_lod_master_apply)
     int lod_distance;    // how far ground cover and objects draw, percent of the game's: 100..1000
@@ -120,3 +122,6 @@ void settings_fps_for_display(float hz);  // (window_size.c: no frame rate chose
 int settings_preset_current(void);
 void settings_preset_apply(int preset);
 void settings_lod_master_apply(int master);
+bool settings_profile_exists(int i);
+void settings_profile_save(int i);  // profiles/<i>.ini: a copy of the settings file
+void settings_profile_load(int i);
