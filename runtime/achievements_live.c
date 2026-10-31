@@ -14,12 +14,16 @@
 #include <string.h>
 #include <time.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include "achievements.h"
 #include "game_sites.h"
 #include "kernel.h"
 #include "rt.h"
 
-#define LIVE_POLL_MS 500
+#define LIVE_POLL_MS 5000  // (at 500 a frame took 20 ms every half a second: no one needs a notice sooner than this)
 #define BOOL_HASH 0xfe4d1501u  // crc32("IsGet_PlayerStole2")
 #define S32_HASH 0x2906f327u   // crc32("MaxHartValue")
 
@@ -79,6 +83,9 @@ static bool still_flags(void) {  // (a sample: the heap may be laid out again, a
 }
 
 static void *live_thread(void *arg) {
+#ifdef _WIN32
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_IDLE);  // (never ahead of the game's threads on their cores)
+#endif
     (void)arg;
     uint8_t *img = NULL;
     size_t cap = 0;

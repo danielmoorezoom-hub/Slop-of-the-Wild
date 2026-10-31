@@ -557,12 +557,12 @@ int ach_live_update(const AchSave *s, time_t now) {
     static uint32_t cur[MAX_ACH], target[MAX_ACH];
     int fresh = 0;
     bool dirty = false, back = false;
-    pthread_mutex_lock(&lock);
-    for (int i = 0; i < g_ach_count && i < MAX_ACH; i++) {
+    for (int i = 0; i < g_ach_count && i < MAX_ACH; i++) {  // (before the lock: it takes 20 ms, and the menus ask for it each frame)
         cur[i] = target[i] = 0;
         met[i] = live_kind(g_ach_defs[i].kind) && ach_eval(&g_ach_defs[i], s, &cur[i], &target[i]);
-        back |= g_live[i] && !met[i];
     }
+    pthread_mutex_lock(&lock);
+    for (int i = 0; i < g_ach_count && i < MAX_ACH; i++) back |= g_live[i] && !met[i];
     if (back || g_live_first) g_live_quiet = now + LIVE_SETTLE_S;  // (a load or a new game: the flags go back)
     g_live_first = false;
     bool quiet = now < g_live_quiet;
