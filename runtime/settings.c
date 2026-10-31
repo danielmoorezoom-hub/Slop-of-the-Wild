@@ -38,7 +38,7 @@ Settings g_settings = {
     .stick_cam_y = 200,
     .lod_distance = 200,
     .lod_grass = 200,
-    .lod_objects = 100,
+    .lod_objects = 130,
     .anisotropy = 4,
     .antialias = AA_SMAA,
     .clarity = 1,
@@ -239,7 +239,7 @@ void settings_load(void) {
     g_settings.stick_cam_y = CLAMP(g_settings.stick_cam_y, 100, 600);
     g_settings.lod_distance = CLAMP(g_settings.lod_distance, 100, 1000);
     g_settings.lod_grass = CLAMP(g_settings.lod_grass, 100, 1500);
-    g_settings.lod_objects = CLAMP(g_settings.lod_objects, 100, 175);
+    g_settings.lod_objects = CLAMP(g_settings.lod_objects, 100, 140);
     g_settings.color_exposure = CLAMP(g_settings.color_exposure, -20, 20);
     g_settings.color_contrast = CLAMP(g_settings.color_contrast, -50, 50);
     g_settings.color_saturation = CLAMP(g_settings.color_saturation, -100, 100);

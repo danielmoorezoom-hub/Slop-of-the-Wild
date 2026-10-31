@@ -834,13 +834,14 @@ static void tab_display(void) {
     if (g_settings.lod_extended) {
         float dist = (float)g_settings.lod_distance, grass = (float)g_settings.lod_grass;
         if (opt_slider("Draw distance (beta)", &dist, 100, 1000, 50, 200, "%g%%",
-                       "How far ground cover and objects are drawn. 100% is the game's own. Beta, may be broken."))
+                       "How far ground cover, and the distant trees, are drawn. 100% is the game's own. Beta, may be broken."))
             g_settings.lod_distance = (int)dist;
         if (opt_slider("Grass density (beta)", &grass, 100, 1500, 50, 200, "%g%%",
-                       "How much grass is drawn, and how far it reaches. 100% is the game's own. Beta, may be broken."))
+                       "How much grass is drawn, and how far it reaches (farthest at 250%). 100% is the game's own. Turning the option on "
+                       "reaches farthest after the game restarts. Beta, may be broken."))
             g_settings.lod_grass = (int)grass;
         float objects = (float)g_settings.lod_objects;
-        if (opt_slider("Object distance (beta)", &objects, 100, 175, 25, 100, "%g%%",
+        if (opt_slider("Object distance (beta)", &objects, 100, 140, 10, 130, "%g%%",
                        "How far objects and enemies are shown and kept active. 100% is the game's own. Higher: enemies can "
                        "notice you from farther away, and it costs more frame rate. Beta, may be broken."))
             g_settings.lod_objects = (int)objects;

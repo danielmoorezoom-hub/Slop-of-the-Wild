@@ -56,7 +56,7 @@ typedef struct {
     bool lod_extended;   // Video > Extended draw distance: lod_distance and lod_grass apply (off: the game's own)
     int lod_distance;    // how far ground cover and objects draw, percent of the game's: 100..1000
     int lod_grass;       // how much grass, percent of the game's: 100..1500
-    int lod_objects;     // how far objects and enemies are shown and kept active, percent of the game's: 100..175
+    int lod_objects;     // how far objects and enemies are shown and kept active, percent of the game's: 100..140 (runtime/draw_distance.c)
     int clarity;         // Cemu's Clarity in place of BOTW's tone map: 0 off, 1 Serfrost, 2 dim, 3 bright display (nvn/vulkan/clarity.c)
     bool fast_path;      // AMD / Intel on Windows: attachment feedback loops on (vulkan/device.c); about 1.6x the frame rate
     int render_scale;    // supersampling: 0 = 100% (the window's size), 1 = 125%, 2 = 150%, 3 = 200% (nvn/output_scale.c)

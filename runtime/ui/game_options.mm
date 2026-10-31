@@ -437,14 +437,14 @@ void build_items(void) {
         grass.value_off = [](const Item &, int) { return !g_settings.lod_extended; };
         v.push_back(grass);
         Item objects = choice(P_VIDEO, "Object distance (beta)", "Objects and enemies farther. They notice you sooner. Beta, may be broken.",
-                              [](const Item &) { return 4; },
+                              [](const Item &) { return 5; },
                               [](const Item &, int x) {
                                   static char buf[16];
-                                  snprintf(buf, sizeof buf, "%d%%", 100 + x * 25);
+                                  snprintf(buf, sizeof buf, "%d%%", 100 + x * 10);
                                   return (const char *)buf;
                               },
-                              [](const Item &) { return (g_settings.lod_objects - 100) / 25; },
-                              [](const Item &, int x) { g_settings.lod_objects = 100 + x * 25; }, 0);
+                              [](const Item &) { return (g_settings.lod_objects - 100) / 10; },
+                              [](const Item &, int x) { g_settings.lod_objects = 100 + x * 10; }, 3);
         objects.value_off = [](const Item &, int) { return !g_settings.lod_extended; };
         v.push_back(objects);
     }

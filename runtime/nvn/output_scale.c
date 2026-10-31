@@ -343,9 +343,6 @@ static uint32_t float_bits(float f) {
 uint32_t rt_lod_distance(void) {
     return float_bits(g_settings.lod_extended ? 10.0f * g_settings.lod_distance : 1000.0f);
 }
-uint32_t rt_lod_objects(void) {  // (past 175% the game runs short of memory for them: a missing tower at 2x, a crash at 4x)
-    return float_bits(g_settings.lod_extended ? g_settings.lod_objects / 100.0f : 1.0f);
-}
 uint32_t rt_lod_grass(void) {
     return float_bits(g_settings.lod_extended ? 100000.0f / g_settings.lod_grass : 1000.0f);
 }
