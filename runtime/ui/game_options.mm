@@ -404,6 +404,40 @@ void build_items(void) {
     v.push_back(toggle(P_VIDEO, "Asynchronous shaders", "On: no stutter, but some effects appear late.",
                        [](const Item &) { return (int)g_settings.async_shaders; },
                        [](const Item &, int x) { g_settings.async_shaders = x; }, 1));
+    // Extended draw distance (runtime/nvn/output_scale.c rt_lod_*): off by default, in steps of 50%
+    v.push_back(toggle(P_VIDEO, "Extended draw distance", "Grass and objects farther away. Off: as on the console.",
+                       [](const Item &) { return (int)g_settings.lod_extended; },
+                       [](const Item &, int x) { g_settings.lod_extended = x; }, 0));
+    {
+        auto pct = [](const Item &, int x) {
+            static char buf[16];
+            snprintf(buf, sizeof buf, "%d%%", 100 + x * 50);
+            return (const char *)buf;
+        };
+        Item dist = choice(P_VIDEO, "Draw distance", "How far ground cover and objects draw. 100%: the game's own.",
+                           [](const Item &) { return 19; }, pct,
+                           [](const Item &) { return (g_settings.lod_distance - 100) / 50; },
+                           [](const Item &, int x) { g_settings.lod_distance = 100 + x * 50; }, 2);
+        dist.value_off = [](const Item &, int) { return !g_settings.lod_extended; };
+        v.push_back(dist);
+        Item grass = choice(P_VIDEO, "Grass density", "How much grass, and how far it reaches. 100%: the game's own.",
+                            [](const Item &) { return 29; }, pct,
+                            [](const Item &) { return (g_settings.lod_grass - 100) / 50; },
+                            [](const Item &, int x) { g_settings.lod_grass = 100 + x * 50; }, 2);
+        grass.value_off = [](const Item &, int) { return !g_settings.lod_extended; };
+        v.push_back(grass);
+        Item objects = choice(P_VIDEO, "Object distance", "Objects and enemies farther away. Enemies can notice you sooner.",
+                              [](const Item &) { return 4; },
+                              [](const Item &, int x) {
+                                  static char buf[16];
+                                  snprintf(buf, sizeof buf, "%d%%", 100 + x * 25);
+                                  return (const char *)buf;
+                              },
+                              [](const Item &) { return (g_settings.lod_objects - 100) / 25; },
+                              [](const Item &, int x) { g_settings.lod_objects = 100 + x * 25; }, 0);
+        objects.value_off = [](const Item &, int) { return !g_settings.lod_extended; };
+        v.push_back(objects);
+    }
     // shadow resolution (its own block)
     v.push_back(choice(P_VIDEO, "Shadow resolution", "Sharper sun shadows. Higher costs more GPU time.",
                        [](const Item &) { return N(k_shadow); }, [](const Item &, int x) { return tr(k_shadow[x]); },
@@ -514,6 +548,29 @@ void build_items(void) {
                            s ? [](const Item &, int x) { g_settings.stick_deadzone[1] = k_deadzone[x] / 100.0f; }
                              : [](const Item &, int x) { g_settings.stick_deadzone[0] = k_deadzone[x] / 100.0f; },
                            DEADZONE_DEFAULT));
+    // Controller camera speed (runtime/hle/input.c rt_cam_stick_end): off by default, in steps of 25%
+    v.push_back(toggle(P_CONTROLS, "Controller camera speed", "A faster right stick camera. Off: the game's own speed.",
+                       [](const Item &) { return (int)g_settings.stick_cam_on; },
+                       [](const Item &, int x) { g_settings.stick_cam_on = x; }, 0));
+    {
+        auto cam_pct = [](const Item &, int x) {
+            static char buf[16];
+            snprintf(buf, sizeof buf, "%d%%", 100 + x * 25);
+            return (const char *)buf;
+        };
+        Item cx = choice(P_CONTROLS, "Left and right speed", "100%: the game's own speed.",
+                         [](const Item &) { return 21; }, cam_pct,
+                         [](const Item &) { return (g_settings.stick_cam_x - 100) / 25; },
+                         [](const Item &, int x) { g_settings.stick_cam_x = 100 + x * 25; }, 4);
+        cx.value_off = [](const Item &, int) { return !g_settings.stick_cam_on; };
+        v.push_back(cx);
+        Item cy = choice(P_CONTROLS, "Up and down speed", "100%: the game's own speed.",
+                         [](const Item &) { return 21; }, cam_pct,
+                         [](const Item &) { return (g_settings.stick_cam_y - 100) / 25; },
+                         [](const Item &, int x) { g_settings.stick_cam_y = 100 + x * 25; }, 4);
+        cy.value_off = [](const Item &, int) { return !g_settings.stick_cam_on; };
+        v.push_back(cy);
+    }
     v.push_back(toggle(P_CONTROLS, "Mouse camera", "The mouse turns the camera. Esc frees the cursor.",
                        [](const Item &) { return (int)g_settings.mouse_camera; },
                        [](const Item &, int x) { g_settings.mouse_camera = x; }, 1));

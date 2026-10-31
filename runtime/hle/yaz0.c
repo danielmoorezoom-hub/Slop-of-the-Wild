@@ -144,7 +144,12 @@ int rt_yaz0(Cpu *c) {
     uint64_t d; memcpy(&d, s, 8);
     if (mode != 2) {
         bool stored;
+        // (The core goes while this runs: host code has no preemption point, and a big file held a better thread of that
+        // core, with a lock the main thread wanted, for 57 ms.)
+        extern void kernel_host_work_begin(void), kernel_host_work_end(void);
+        kernel_host_work_begin();
         c->x[0] = yaz0_run(s, (uint8_t *)(uintptr_t)d, src, len, &stored);
+        kernel_host_work_end();
         return 1;
     }
     // check mode: on a copy of the state and of the output (and the 4 KB before it, which copies read)

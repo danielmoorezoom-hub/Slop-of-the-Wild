@@ -34,6 +34,11 @@ void settings_fps_for_display(float hz) {
 Settings g_settings = {
     .fullscreen = true,  // (window size default: the display's native size)
     .fast_path = true,
+    .stick_cam_x = 200,
+    .stick_cam_y = 200,
+    .lod_distance = 200,
+    .lod_grass = 200,
+    .lod_objects = 100,
     .anisotropy = 4,
     .antialias = AA_SMAA,
     .clarity = 1,
@@ -124,6 +129,13 @@ void settings_load(void) {
         else if (!strcmp(key, "clarity"))  // (off, serfrost, serfrost_dim, serfrost_bright)
             g_settings.clarity = !strcmp(val, "serfrost") ? 1 : !strcmp(val, "serfrost_dim") ? 2 : !strcmp(val, "serfrost_bright") ? 3 : 0;
         else if (!strcmp(key, "fast_path")) g_settings.fast_path = atoi(val) != 0;
+        else if (!strcmp(key, "stick_camera_speed")) g_settings.stick_cam_on = atoi(val) != 0;
+        else if (!strcmp(key, "stick_camera_x")) g_settings.stick_cam_x = atoi(val);  // (percent)
+        else if (!strcmp(key, "stick_camera_y")) g_settings.stick_cam_y = atoi(val);  // (percent)
+        else if (!strcmp(key, "lod_extended")) g_settings.lod_extended = atoi(val) != 0;
+        else if (!strcmp(key, "lod_distance")) g_settings.lod_distance = atoi(val);  // (percent)
+        else if (!strcmp(key, "lod_grass")) g_settings.lod_grass = atoi(val);  // (percent)
+        else if (!strcmp(key, "lod_objects")) g_settings.lod_objects = atoi(val);  // (percent)
         else if (!strcmp(key, "render_scale")) {  // (percent: 100, 125, 150, 200)
             int p = atoi(val);
             g_settings.render_scale = p >= 200 ? 3 : p >= 150 ? 2 : p >= 125 ? 1 : 0;
@@ -223,6 +235,11 @@ void settings_load(void) {
     if (!(g_settings.motion_sens >= 0.1f && g_settings.motion_sens <= 10.0f)) g_settings.motion_sens = 1.0f;
     if (g_settings.fov < 50 || g_settings.fov > 200) g_settings.fov = 100;
 #define CLAMP(v, lo, hi) ((v) < (lo) ? (lo) : (v) > (hi) ? (hi) : (v))
+    g_settings.stick_cam_x = CLAMP(g_settings.stick_cam_x, 100, 600);
+    g_settings.stick_cam_y = CLAMP(g_settings.stick_cam_y, 100, 600);
+    g_settings.lod_distance = CLAMP(g_settings.lod_distance, 100, 1000);
+    g_settings.lod_grass = CLAMP(g_settings.lod_grass, 100, 1500);
+    g_settings.lod_objects = CLAMP(g_settings.lod_objects, 100, 175);
     g_settings.color_exposure = CLAMP(g_settings.color_exposure, -20, 20);
     g_settings.color_contrast = CLAMP(g_settings.color_contrast, -50, 50);
     g_settings.color_saturation = CLAMP(g_settings.color_saturation, -100, 100);
@@ -288,6 +305,13 @@ void settings_save(void) {
                                                 g_settings.button_icons : ICONS_AUTO]);
     fprintf(f, "async_shaders = %d\n", g_settings.async_shaders);
     fprintf(f, "fast_path = %d\n", g_settings.fast_path);
+    fprintf(f, "stick_camera_speed = %d\n", g_settings.stick_cam_on);
+    fprintf(f, "stick_camera_x = %d\n", g_settings.stick_cam_x);
+    fprintf(f, "stick_camera_y = %d\n", g_settings.stick_cam_y);
+    fprintf(f, "lod_extended = %d\n", g_settings.lod_extended);
+    fprintf(f, "lod_distance = %d\n", g_settings.lod_distance);
+    fprintf(f, "lod_grass = %d\n", g_settings.lod_grass);
+    fprintf(f, "lod_objects = %d\n", g_settings.lod_objects);
     fprintf(f, "precompile_shaders = %d\n", g_settings.precompile_shaders);
     static const char *const shadow[SHADOW_COUNT] = {"console", "high", "ultra", "extreme"};
     int sr = g_settings.shadow_res;

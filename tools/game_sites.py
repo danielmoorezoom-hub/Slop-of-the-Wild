@@ -105,6 +105,14 @@ SITES = [
     Site('title_version_format', 'ref', '90000001/9f00001f 91000021/ffc003ff d103c3a0 94000000/fc000000 '
          'f9400294/ffffffdf b940da88 35000008/ff00001f 90000001/9f00001f', 1),
     # BOTW's streaming Yaz0 decoder: its entry and its return (tools/patches.py; runtime/hle/yaz0.c)
+    # Draw distance (tools/patches.py _lod; runtime/nvn/output_scale.c rt_lod_*): the 1000.0 of the ground cover and object
+    # distance checks and of the grass (Cemu's Draw Distance pack has the grass value at 0x1030A774 on the Wii U)
+    # (Object::getDispDistance's multiplier where the game has no ActorDebug, as in a release: 1.0. tools/patches.py _lod_objects)
+    Site('lod_objects', 'code', 'bd431101 52a85908 1e202008 1e270102 1e22cc00 1e210800 a8c17bfd 17ffffef 1e2e1001 17fffff8', 8),
+    Site('lod_distance_a', 'code', 'bd41f3e4 1e2f1003 52a88f4a bd41f7e5 1e2329c3 bd41fbe6', 2),
+    Site('lod_distance_b', 'code', '1e2042b7 1e204395 1e20405c 52a88f4a 9b2c35cb 1e233843', 3),
+    Site('lod_grass_a', 'code', '528005e0 39406129 52a88f43 528e7d02 72a00062 11003021', 2),
+    Site('lod_grass_b', 'code', 'b94067ed 528005e0 52a88f43 a9433bf0 528e7d02', 2),
     Site('yaz0_stream', 'code', 'a9bd7bfd f9000bf5 a9024ff4 910003fd 39406808 2a0203f4 aa0103f5 aa0003f3', 0),
     Site('yaz0_stream_ret', 'code', 'd65f03c0 7100869f 54000003/ff00001f b9400e68 35000008/ff00001f 12800000 '
          '14000000/fc000000 12800020', 0),
@@ -163,6 +171,8 @@ SITES = [
     Site('cam_pitch_wakeboard', 'code', '1e208803 1e202008 bd433260 1e23cc2f bd433661 1e212000 54000001/ff00001f '
          '2f00e400', 0),
     # CameraAiming (the bow, its zoom, the scope): the load of its latStickScale for the vertical part
+    # (the end of the camera's stick input, with the stick's value written: tools/patches.py _cam_stick_end)
+    Site('cam_stick_end', 'code', 'f9409408 910023e0 f90007e8 94000000/fc000000 360000c0 fd400be8 f94017f3', 5),
     Site('cam_pitch_aim', 'code', 'f9400268/ffc003ff 1e200923 910083e0 910063a1 bd400101 1e210860 bd4057e1 1e210809',
          4),
     # ... and CameraAiming2's (the camera for a held item)
@@ -186,8 +196,11 @@ SITES = [
 OPTIONAL_GROUPS = [
     ('quick_menu_capture_alpha',),
     ('yaz0_stream', 'yaz0_stream_ret'),
+    ('lod_distance_a', 'lod_distance_b', 'lod_grass_a', 'lod_grass_b'),
+    ('lod_objects',),
     ('cam_stick', 'cam_pitch_chase', 'cam_pitch_surf', 'cam_pitch_wakeboard', 'cam_pitch_aim', 'cam_pitch_item'),
     ('cam_reverse_x', 'cam_reverse_y'),
+    ('cam_stick_end',),
 ]
 OPTIONAL = {n for g in OPTIONAL_GROUPS for n in g}
 

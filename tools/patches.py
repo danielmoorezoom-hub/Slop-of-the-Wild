@@ -375,11 +375,19 @@ def _cam_stick(gen, a):
             f'  /* {a:#x}: sub sp, sp, #0x30 (camera stick input) */')
 
 
+# Its way out, for every path through it: x19 is where the stick's value went. The game keeps that within the stick's
+# circle, so Controls > Controller camera speed scales it here (runtime/hle/input.c rt_cam_stick_end), past full tilt.
+def _cam_stick_end(gen, a):
+    assert _word(gen, a) == 0xfd400be8, hex(_word(gen, a))  # ldr d8, [sp, #0x10]
+    return ('{ extern void rt_cam_stick_end(uint64_t); rt_cam_stick_end(c->x[19]); c->v[8] = LD64(c->sp + 0x10); }'
+            f'  /* {a:#x}: ldr d8, [sp, #0x10] (camera stick input: its end) */')
+
+
 def _cam_pitch(gen, a):
     # fmul s1, s0, s0 just above, fnmul s3, s0, s0 here: the vertical part kept its sign squared, s1 or s3 by s0's sign
     assert _word(gen, a) == 0x1e208803 and _word(gen, a - 4) == 0x1e200801, hex(_word(gen, a))
     return ('{ extern int rt_cam_pitch(float *); union { uint32_t u; float f; } y = { .u = (uint32_t)c->v[0] }; '
-            'if (rt_cam_pitch(&y.f)) c->v[1] = y.u; else y.f = -(y.f * y.f); c->v[3] = y.u; }'
+            'if (rt_cam_pitch(&y.f)) c->v[1] = y.u; else { y.f = y.f * y.f; c->v[1] = y.u; y.f = -y.f; } c->v[3] = y.u; }'
             f'  /* {a:#x}: fnmul s3, s0, s0 (camera: the vertical stick part squared) */')
 
 
@@ -426,7 +434,29 @@ def _yaz0_stream_ret(gen, a):
     return '{ extern void rt_yaz0_done(Cpu *); rt_yaz0_done(c); return; }' + f'  /* {a:#x}: ret (Yaz0 stream decoder) */'
 
 
+# Draw distance (Video > Extended draw distance): these load 1000.0 for the distance checks of ground cover and objects,
+# and for the grass, where a smaller value is more of it. The runtime gives the value (runtime/nvn/output_scale.c).
+def _lod(word, reg, fn, what):
+    def patch(gen, a):
+        assert _word(gen, a) == word, hex(_word(gen, a))  # mov w<reg>, #0x447a0000
+        return (f'{{ extern uint32_t {fn}(void); c->x[{reg}] = {fn}(); }}'
+                f'  /* {a:#x}: mov w{reg}, #1000.0 ({what}) */')
+    return patch
+
+
+# How far objects and enemies are shown and kept active, a multiplier of their own distances (Video > Object distance).
+def _lod_objects(gen, a):
+    assert _word(gen, a) == 0x1e2e1001, hex(_word(gen, a))  # fmov s1, #1.0
+    return ('{ extern uint32_t rt_lod_objects(void); c->v[1] = rt_lod_objects(); }'
+            f'  /* {a:#x}: fmov s1, #1.0 (object display distance multiplier) */')
+
+
 PATCHES = {
+    'lod_objects': _lod_objects,
+    'lod_distance_a': _lod(0x52a88f4a, 10, 'rt_lod_distance', 'draw distance'),
+    'lod_distance_b': _lod(0x52a88f4a, 10, 'rt_lod_distance', 'draw distance'),
+    'lod_grass_a': _lod(0x52a88f43, 3, 'rt_lod_grass', 'grass density'),
+    'lod_grass_b': _lod(0x52a88f43, 3, 'rt_lod_grass', 'grass density'),
     'pause_options_update': _pause_option_state,
     'opt_create_rows': _opt_rows,
     'opt_row_init_flag_type': _opt_flag_type,
@@ -461,6 +491,7 @@ PATCHES = {
     'frustum_tb0': _frustum_load(0x2d540800, (0, 2), 'tb'),
     'frustum_tb1': _frustum_load(0x2d540c02, (2, 3), 'tb'),
     'cam_stick': _cam_stick,
+    'cam_stick_end': _cam_stick_end,
     'cam_pitch_chase': _cam_pitch,
     'cam_pitch_surf': _cam_pitch,
     'cam_pitch_wakeboard': _cam_pitch,

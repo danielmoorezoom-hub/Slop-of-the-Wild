@@ -17,6 +17,11 @@
 //                             lshoulder, ltrigger...); default a tenth of a second
 //   fight <seconds>           lock on (left trigger), walk in, attack (west) twice a second
 //   hold <seconds>            stand still
+//   shadow <0-3>              Video > Shadow resolution, now
+//   camspeed <0|1> <x %> <y %>   Controls > Controller camera speed and its sliders, now
+//   lod <0|1> <distance %> <grass %> [objects %]   Video > Extended draw distance and its sliders, now
+//   poke <address> <float>    a float of the game's, now (to find what a value does; the log has what it was)
+//   pokep <address> <offset> <float>   the same, at an offset from the pointer stored at address
 //   shot <name>               the window to build/<name>.png
 //   log <text>                a mark in the log
 //   quit                      end the run
@@ -34,6 +39,10 @@
 #include "../hle.h"
 #include "../input_bind.h"
 #include "../platform.h"
+#include "../settings.h"
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #define PI 3.14159265358979323846
 #define MAX_STEPS 1024
@@ -273,6 +282,42 @@ void test_route_frame(int32_t *lx, int32_t *ly, int32_t *rx, int32_t *ry, uint32
         if (t >= s->v[0]) NEXT();
         return;
     }
+    if (!strcmp(s->op, "shadow")) {
+        g_settings.shadow_res = (int)s->v[0];
+        LOG("[route] shadow resolution %d\n", g_settings.shadow_res);
+        NEXT();
+    }
+    if (!strcmp(s->op, "camspeed")) {
+        g_settings.stick_cam_on = s->v[0] != 0, g_settings.stick_cam_x = (int)s->v[1], g_settings.stick_cam_y = (int)s->v[2];
+        LOG("[route] controller camera speed %d: %d%%, %d%%\n", g_settings.stick_cam_on, g_settings.stick_cam_x, g_settings.stick_cam_y);
+        NEXT();
+    }
+    if (!strcmp(s->op, "lod")) {
+        g_settings.lod_extended = s->v[0] != 0, g_settings.lod_distance = (int)s->v[1], g_settings.lod_grass = (int)s->v[2];
+        if (s->n > 3) g_settings.lod_objects = (int)s->v[3];
+        LOG("[route] extended draw distance %d: distance %d%%, grass %d%%\n", g_settings.lod_extended, g_settings.lod_distance, g_settings.lod_grass);
+        NEXT();
+    }
+    if (!strcmp(s->op, "pokep")) {
+        uint64_t base = *(uint64_t *)(uintptr_t)(uint64_t)s->v[0];
+        float *a = (float *)(uintptr_t)(base + (uint64_t)s->v[1]);
+        LOG("[route] pokep %llx -> %llx: %g -> %g\n", (unsigned long long)(uint64_t)s->v[0], (unsigned long long)base, base ? *a : 0.0f, s->v[2]);
+        if (base) *a = (float)s->v[2];
+        NEXT();
+    }
+    if (!strcmp(s->op, "poke")) {
+        float *a = (float *)(uintptr_t)(uint64_t)s->v[0], v = (float)s->v[1];
+#ifdef _WIN32
+        DWORD old;
+        VirtualProtect(a, sizeof v, PAGE_READWRITE, &old);
+#endif
+        LOG("[route] poke %llx: %g -> %g\n", (unsigned long long)(uintptr_t)a, *a, v);
+        *a = v;
+#ifdef _WIN32
+        VirtualProtect(a, sizeof v, old, &old);
+#endif
+        NEXT();
+    }
     if (!strcmp(s->op, "hold")) {
         if (t >= s->v[0]) NEXT();
         return;
@@ -282,7 +327,7 @@ void test_route_frame(int32_t *lx, int32_t *ly, int32_t *rx, int32_t *ry, uint32
         NEXT();
     }
     if (!strcmp(s->op, "log")) {
-        LOG("[route] %s\n", s->name);
+        LOG("[route] %s (heading %.1f pitch %.1f)\n", s->name, have_cam ? atan2(f[0], f[1]) * 180 / PI : 0.0, have_cam ? camera_pitch() : 0.0);
         NEXT();
     }
     if (!strcmp(s->op, "quit")) {
