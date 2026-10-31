@@ -339,7 +339,7 @@ void settings_save(void) {
 static const struct { int antialias, anisotropy, render_scale, shadow_res; } graphics_presets[GRAPHICS_PRESET_COUNT] = {
     [GRAPHICS_PRESET_POTATO] = {AA_OFF, 0, 0, SHADOW_CONSOLE},
     [GRAPHICS_PRESET_LOW] = {AA_SMAA, 2, 0, SHADOW_CONSOLE},
-    [GRAPHICS_PRESET_MEDIUM] = {AA_SMAA, 4, 0, SHADOW_HIGH},
+    [GRAPHICS_PRESET_MEDIUM] = {AA_TAA, 4, 0, SHADOW_HIGH},  // (TAA: SMAA leaves far grass and flowers stippled)
     [GRAPHICS_PRESET_HIGH] = {AA_TAA, 4, 1, SHADOW_ULTRA},
 };
 
