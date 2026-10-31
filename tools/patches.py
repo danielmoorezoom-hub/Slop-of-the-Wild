@@ -549,6 +549,26 @@ def _tree_ranges(gen, a):
             f'  /* {a:#x}: adrp x8, {page:#x} (distant trees: their ranges) */')
 
 
+def _pc_button_group(gen, a):
+    assert _word(gen, a) == _sub_sp(0x60), hex(_word(gen, a))
+    return ('{ extern void rt_pc_button_group(Cpu *); rt_pc_button_group(c); c->sp -= 0x60; }'
+            f' /* {a:#x}: native mouse pointer arguments */')
+
+def _pc_cursor_manager(gen, a):
+    assert _word(gen, a) == _sub_sp(0x50), hex(_word(gen, a))
+    return ('{ extern void rt_pc_cursor_manager(Cpu *, uint64_t, uint64_t); '
+            f'rt_pc_cursor_manager(c, {gen.sites["pc_cursor_activate"]:#x}ull, {gen.sites["pc_pane_bounds"]:#x}ull); '
+            'c->sp -= 0x50; }')
+
+def _pc_map_focus(position):
+    def patch(gen, a):
+        expected = _sub_sp(0x30) if position else 0xa9be7bfd
+        assert _word(gen, a) == expected, hex(_word(gen, a))
+        prologue = 'c->sp -= 0x30;' if position else 'c->sp -= 0x20; ST64(c->sp, c->x[29]); ST64(c->sp + 8, c->x[30]);'
+        return ('{ extern int rt_pc_map_focus(Cpu *, int); '
+                f'if (rt_pc_map_focus(c, {int(position)})) return; {prologue} }}')
+    return patch
+
 # tools/game_sites.py site -> its patch
 # BOTW's streaming Yaz0 decoder (1.9.0 0x700131d674; x0 its state, x1/w2 the input chunk): in native code
 # (runtime/hle/yaz0.c rt_yaz0, which declines the first call of a stream, the one that reads its header). Its return
@@ -654,6 +674,11 @@ PATCHES = {
     'lod_distance_b': _lod(0x52a88f4a, 10, 'rt_lod_distance', 'draw distance'),
     'lod_grass_a': _lod(0x52a88f43, 3, 'rt_lod_grass', 'grass density'),
     'lod_grass_b': _lod(0x52a88f43, 3, 'rt_lod_grass', 'grass density'),
+    'pc_map_focus': _pc_map_focus(False),
+    'pc_map_focus_target': _pc_map_focus(True),
+    'pc_map_focus_now': _pc_map_focus(True),
+    'pc_button_group': _pc_button_group,
+    'pc_cursor_manager': _pc_cursor_manager,
     'pause_options_update': _pause_option_state,
     'opt_create_rows': _opt_rows,
     'opt_row_init_flag_type': _opt_flag_type,

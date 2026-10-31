@@ -73,6 +73,8 @@ typedef struct {
     bool mouse_camera;   // the mouse turns the camera (right stick); the cursor is held in the window while playing
     bool stick_cam_on;   // Controls > Controller camera speed: stick_cam_x and stick_cam_y apply (off: the game's own)
     int stick_cam_x, stick_cam_y;  // the right stick's camera speed, left and right / up and down, percent of the game's
+    bool pc_cursor;      // mouse pointer in menus, inventory, quick selectors and the map
+    bool pc_bow;         // right mouse holds bow aim; left mouse fires while aiming
     float mouse_sens;    // mouse camera speed, 1 = 100% (default MOUSE_SENS_DEFAULT)
     float mouse_sens_y;  // vertical mouse camera speed, a fraction of mouse_sens (1: the same as horizontal)
     bool mouse_invert_y; // mouse up looks down

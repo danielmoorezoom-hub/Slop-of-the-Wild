@@ -57,6 +57,7 @@ extern "C" {
 #include "settings.h"
 #include "benchmark.h"
 #include "color_grade.h"
+#include "pc_cursor.h"
 #include "input_bind.h"
 #ifndef __APPLE__
 #include "nvn/precompile.h"
@@ -787,8 +788,9 @@ static bool menu_tip(float s) {
         ImGui::PushTextWrapPos(0);
         ImGui::TextUnformatted(tr("Savage Wind's video, audio and controls settings are in the game's own Options."));
         ImGui::Spacing();
-        ImGui::TextUnformatted(tr("Open them from the title screen, or pause the game and choose System > Options. "
-                                  "Esc frees the mouse cursor."));
+        ImGui::TextUnformatted(tr(pc_cursor_enabled()
+            ? "Open them from the title screen, or pause the game and choose System > Options. Esc opens pause or goes back. F2 frees the mouse cursor."
+            : "Open them from the title screen, or pause the game and choose System > Options. Esc frees the mouse cursor."));
         ImGui::PopTextWrapPos();
         ImGui::Dummy(ImVec2(0, 14 * s));
         ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 180 * s) * 0.5f);
