@@ -313,6 +313,7 @@ static int dump_romfs(const char *root, const char *out_path) {
 // Settings, the game files, Quit ("Savage Wind Configuration", --config; Quit to Start Screen comes back to it).
 enum { LAUNCHER_SETUP, LAUNCHER_CONFIG, LAUNCHER_NONE };
 void launcher_run(const char *root, int mode);
+void launcher_boot_picture(void);  // (a start straight into the game: the picture on screen while it boots)
 bool launcher_game_ready(const char *root);
 bool launcher_config_key_held(void);  // (macOS: Option held while the app opens)
 
@@ -351,15 +352,17 @@ int main(int argc, char **argv) {
 #endif
     // A plain start goes straight into the game once the game files are set up and the game code built from them
     // matches this build; the start screen only when there is something to set up, or when asked for.
-    // Slop of the Wild: the start screen every time (Play, Settings); --play goes straight in
-    bool ready = launcher_game_ready(root);
-    int mode = config ? LAUNCHER_CONFIG : skip_launcher && ready ? LAUNCHER_NONE : ready ? LAUNCHER_CONFIG : LAUNCHER_SETUP;
+    (void)skip_launcher;  // (--play: as a plain start now)
+    int mode = config ? LAUNCHER_CONFIG : launcher_game_ready(root) ? LAUNCHER_NONE : LAUNCHER_SETUP;
     // (tests of the start screen - screenshots, setup and delete runs - show it: the configuration screen, or
     // SAVAGEWIND_LAUNCHER_MODE=setup / config)
     const char *test_mode = getenv("SAVAGEWIND_LAUNCHER_MODE");
     if (test_mode || getenv("SAVAGEWIND_LAUNCHER_SHOT") || getenv("SAVAGEWIND_LAUNCHER_EXTRACT") ||
         getenv("SAVAGEWIND_LAUNCHER_SETUP") || getenv("SAVAGEWIND_LAUNCHER_DELETE"))
         mode = test_mode && !strcmp(test_mode, "setup") ? LAUNCHER_SETUP : LAUNCHER_CONFIG;
+#ifndef __APPLE__
+    if (mode == LAUNCHER_NONE) launcher_boot_picture();
+#endif
     for (;;) {
         if (mode != LAUNCHER_NONE) launcher_run(root, mode);
         boot(root);

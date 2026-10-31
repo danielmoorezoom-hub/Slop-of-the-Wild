@@ -5,6 +5,7 @@
 #include <math.h>
 #include <stdarg.h>
 #include <pthread.h>
+#include <sched.h>
 #include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5712,7 +5713,12 @@ static bool one_shot_target(void) {
 static void wait_built(_Atomic int *state) {  // (0 building: until built or failed, 5 s at most)
     if (atomic_load(state) != 0 || sync_shaders()) return;
     uint64_t t0 = SDL_GetTicksNS();
-    while (atomic_load(state) == 0 && SDL_GetTicksNS() - t0 < 5000000000ull) SDL_Delay(1);
+    // (Slop of the Wild: yielding at first. Pipeline libraries link in far less than the 1 ms a sleep takes at least, and
+    // entering an area has hundreds of these waits, in one frame)
+    for (uint64_t t = t0; atomic_load(state) == 0 && t - t0 < 5000000000ull; t = SDL_GetTicksNS()) {
+        if (t - t0 < 2000000ull) sched_yield();
+        else SDL_Delay(1);
+    }
     stat_build_waits++;
 }
 
@@ -7972,7 +7978,7 @@ static TexBackend *fsr3_scene(VkCommandBuffer cb, TexBackend *b, uint32_t ow, ui
         .motion_scale = {-0.5f * (float)w, 0.5f * (float)h},
         .dt_ms = last_ns && ns > last_ns ? (float)((ns - last_ns) / 1e6) : 16.7f,
         .near_ = nr, .far_ = fr, .fov_y = fov,
-        .sharpness = g_settings.sharpening / 10.0f,
+        .sharpness = g_settings.fsr_sharpness / 100.0f,  // (Video > FSR sharpening)
         .reset = last == ~0ull || last + 1 != frame,
     };
     last_ns = ns;

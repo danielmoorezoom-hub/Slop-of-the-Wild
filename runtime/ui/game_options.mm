@@ -128,8 +128,10 @@ const char *const k_perf[] = {"Off", "FPS", "Full"};
 // the page opens again. So are the upscaler's modes until the game renders below the window's size (output_scale.c).
 #ifdef __APPLE__
 const int k_ups_value[] = {UPSCALE_OFF, UPSCALE_METALFX};
+const char *const k_ups_desc = "Off: full resolution. AMD FSR 1: renders smaller, then upscales.";
 #else
-const int k_ups_value[] = {UPSCALE_OFF, UPSCALE_FSR1};  // (FSR 3 / DLSS: not implemented, not listed)
+const int k_ups_value[] = {UPSCALE_OFF, UPSCALE_FSR3};  // (Slop of the Wild: no FSR 1; DLSS: not implemented, not listed)
+const char *const k_ups_desc = "Off: full resolution. AMD FSR 3: renders smaller, then rebuilds detail from past frames.";
 #endif
 #ifdef __APPLE__
 const int UPS_DEFAULT = 1;  // (UPSCALE_DEFAULT: MetalFX)
@@ -138,7 +140,8 @@ const int UPS_DEFAULT = 0;  // (UPSCALE_DEFAULT: Off, the window's resolution)
 #endif
 std::vector<int> g_shown;   // per item: the value shown instead of get(), one that can't be picked yet (-1: none)
 const char16_t GREY = 3;    // (the game's message colour for greyed values)
-const char *const k_modes[] = {"Ultra Quality", "Quality", "Balanced", "Performance", "Ultra Performance"};
+const char *const k_modes[] = {"Native", "Ultra Quality", "Quality"};  // (settings.c: softer modes removed)
+const int k_mode_value[] = {UPQ_COUNT, UPQ_ULTRA, UPQ_QUALITY};       // (UPQ_COUNT: no smaller, output_scale.c)
 #ifdef __APPLE__
 const char *const k_aa[] = {"Off", "SMAA"};
 #else
@@ -339,8 +342,7 @@ void build_items(void) {
                        [](const Item &) { return N(k_perf); }, [](const Item &, int x) { return tr(k_perf[x]); },
                        [](const Item &) { return g_settings.perf_overlay; },
                        [](const Item &, int x) { g_settings.perf_overlay = x; }, PERF_OFF));
-#ifdef __APPLE__
-    v.push_back(choice(P_VIDEO, "Upscaler", "Off: full resolution. AMD FSR 1: renders smaller, then upscales.",
+    v.push_back(choice(P_VIDEO, "Upscaler", k_ups_desc,
                        [](const Item &) { return N(k_ups_value); }, ups_label,
                        [](const Item &) {
                            for (int i = 0; i < N(k_ups_value); i++)
@@ -349,10 +351,7 @@ void build_items(void) {
                        },
                        [](const Item &, int x) { g_settings.upscaler = k_ups_value[x]; }, UPS_DEFAULT));
     v.back().value_off = [](const Item &, int x) { return !upscaler_available(k_ups_value[x]); };
-    v.back().desc_fn = [](const Item &) {  // (one line)
-        return g_settings.upscaler == UPSCALE_FSR3 ? tr("AMD FSR 3: renders smaller, then rebuilds detail from past frames.")
-                                                   : tr("Off: full resolution. AMD FSR 1: renders smaller, then upscales.");
-    };
+    v.back().desc_fn = [](const Item &) { return tr(k_ups_desc); };  // (one line)
     // With Upscaler Off no mode applies: the row has the one value Off, greyed, so its arrows go nowhere (rt_opt_read
     // gives the row its range at each redraw, and a change of the Upscaler row redraws the page); the mode chosen
     // before stays stored and comes back with an upscaler.
@@ -363,20 +362,42 @@ void build_items(void) {
                                   : upscale_modes_available()        ? tr(k_modes[x])
                                                                      : soon(k_modes[x]);
                        },
-                       [](const Item &) { return g_settings.upscaler == UPSCALE_OFF ? 0 : g_settings.upscale_quality; },
-                       [](const Item &, int x) {
-                           if (g_settings.upscaler != UPSCALE_OFF) g_settings.upscale_quality = x;
+                       [](const Item &) {
+                           if (g_settings.upscaler != UPSCALE_OFF)
+                               for (int i = 0; i < N(k_modes); i++)
+                                   if (k_mode_value[i] == g_settings.upscale_quality) return i;
+                           return g_settings.upscaler == UPSCALE_OFF ? 0 : N(k_modes) - 1;
                        },
-                       UPQ_QUALITY);
+                       [](const Item &, int x) {
+                           if (g_settings.upscaler != UPSCALE_OFF) g_settings.upscale_quality = k_mode_value[x];
+                       },
+                       N(k_modes) - 1);
     mode.value_off = [](const Item &, int) { return !upscale_modes_available() || g_settings.upscaler == UPSCALE_OFF; };
     mode.reset = [](const Item &) { g_settings.upscale_quality = UPQ_QUALITY; };  // (also while Off)
     mode.desc_fn = [](const Item &) {
         // (one line: the game's description pane is one English line wide)
         return !upscale_modes_available()           ? tr("Renders smaller, then upscales. Coming in a later version.")
                : g_settings.upscaler == UPSCALE_OFF ? tr("Only with an upscaler: choose one above first.")
-                                                    : tr("Ultra Quality is the sharpest, Ultra Performance the fastest.");
+                                                    : tr("Native is the sharpest, Quality the fastest.");
     };
     v.push_back(mode);
+#ifndef __APPLE__
+    Item sharp = choice(P_VIDEO, "FSR sharpening", "How much FSR 3 sharpens the image it builds.",
+                        [](const Item &) { return g_settings.upscaler == UPSCALE_OFF ? 1 : 11; },
+                        [](const Item &, int x) {
+                            static char b[8];
+                            if (g_settings.upscaler == UPSCALE_OFF || !x) return tr("Off");
+                            snprintf(b, sizeof b, "%d%%", x * 10);
+                            return (const char *)b;
+                        },
+                        [](const Item &) { return g_settings.upscaler == UPSCALE_OFF ? 0 : g_settings.fsr_sharpness / 10; },
+                        [](const Item &, int x) {
+                            if (g_settings.upscaler != UPSCALE_OFF) g_settings.fsr_sharpness = x * 10;
+                        },
+                        5);
+    sharp.value_off = [](const Item &, int) { return g_settings.upscaler == UPSCALE_OFF; };
+    sharp.reset = [](const Item &) { g_settings.fsr_sharpness = 50; };  // (also while Off)
+    v.push_back(sharp);
 #endif
     v.push_back(choice(P_VIDEO, "Anti-aliasing", "Smooths jagged edges.",
                        [](const Item &) { return N(k_aa); }, [](const Item &, int x) { return tr(k_aa[x]); },
@@ -402,10 +423,6 @@ void build_items(void) {
     v.push_back(toggle(P_VIDEO, "AMD fast path", "About 1.6x the frame rate on Radeon. Next start.",
                        [](const Item &) { return (int)g_settings.fast_path; },
                        [](const Item &, int x) { g_settings.fast_path = x; }, 1));
-    // AMD FSR 3 frame generation (vulkan/framegen.cpp)
-    v.push_back(toggle(P_VIDEO, "Frame generation (AMD FSR 3)", "Twice the frames on screen. Adds a little delay.",
-                       [](const Item &) { return (int)g_settings.frame_gen; },
-                       [](const Item &, int x) { g_settings.frame_gen = x; }, 0));
 #endif
     v.push_back(toggle(P_VIDEO, "Asynchronous shaders", "On: no stutter, but some effects appear late.",
                        [](const Item &) { return (int)g_settings.async_shaders; },

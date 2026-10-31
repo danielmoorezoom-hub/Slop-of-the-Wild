@@ -1706,6 +1706,43 @@ static bool fg_wanted(void) {
     return !framepace_title_ui() && !framepace_menu_ui() && !framepace_paused() && !menu_is_open();
 }
 
+// Slop of the Wild: the game's first frames are about 1.7 s of plain black, which came out of nowhere after the start
+// screen's picture had held still through the boot. They aren't presented: the picture stays up until the title's
+// screen starts to fade in, 0.7 s after it is up (at most 6 s, for whatever boots without it). (backend_reset: again
+// after a reboot)
+static bool boot_hold = true;
+static uint64_t boot_hold_since, boot_title_at;
+static bool boot_held(void) {
+    if (!boot_hold) return false;
+    uint64_t now = SDL_GetTicksNS();
+    if (!boot_hold_since) boot_hold_since = now;
+    if (!boot_title_at && framepace_title_ui()) boot_title_at = now;
+    if ((boot_title_at && now - boot_title_at > 700000000ull) || now - boot_hold_since > 6000000000ull) {
+        LOG("[vk] first picture at frame %llu, %.2f s after the game's first frame\n", (unsigned long long)total_frames,
+            (now - boot_hold_since) / 1e9);
+        boot_hold = false;
+    }
+    return boot_hold;
+}
+
+// Render scale + placement in the window: runtime/nvn/output_scale.c (Video page "Upscaler"). A window that isn't 16:9
+// shows more of the world (Video > Fill wide screens: the game's views widened, output_scale.c rt_persp), else the
+// game's 16:9 image fitted into it with bars.
+static void window_scale(OutScale *os) {
+    double dw = g_vk.sc_extent.width, dh = g_vk.sc_extent.height;
+    // Fullscreen on a size the display has no mode for (runtime/window_size.c): that size, scaled to the screen.
+    int iw, ih;
+    if (winsize_virtual(&iw, &ih) && (iw != (int)dw || ih != (int)dh)) {
+        output_scale(iw, ih, g_settings.wide_view, os);
+        output_scale_screen(dw, dh, iw, ih, os);
+    } else {
+        output_scale(dw, dh, g_settings.wide_view, os);
+    }
+    renderer_set_scale((float)os->sx, (float)os->sy);
+    renderer_set_scene_scale((float)os->scene_sx, (float)os->scene_sy);
+    renderer_set_shadow_size(shadow_map_size(total_frames + 1));
+}
+
 static void present_locked(NvnTexture *t) {
     g_last_presented = t;
     TexBackend *b = vk_tex(t, true);
@@ -1714,8 +1751,9 @@ static void present_locked(NvnTexture *t) {
     vk_end_pass();
     g_present_split[1] += SDL_GetTicksNS() - t0;
     t0 += pso_wait();  // (not the acquire's time)
+    bool held = boot_held();
     // Frame generation: the frame between the last one and this (exec.c vk_fg_generate), presented first
-    TexBackend *gen = vk_fg_generate(t, b);
+    TexBackend *gen = held ? NULL : vk_fg_generate(t, b);
     {   // (measuring) SAVAGEWIND_FG_TEST=1: the frame made, not presented
         static int test = -1;
         if (test < 0) test = getenv("SAVAGEWIND_FG_TEST") ? atoi(getenv("SAVAGEWIND_FG_TEST")) : 0;
@@ -1723,31 +1761,17 @@ static void present_locked(NvnTexture *t) {
     }
     g_fg_active = gen != NULL;
     static const float black[4] = {0, 0, 0, 1};
-    bool have = vk_frame_begin(black);
+    bool have = !held && vk_frame_begin(black);
     uint64_t nd = SDL_GetTicksNS() - t0;
     if (nd > 30000000) {
         static int warned;
         if (warned++ < 20) LOG("[vk] acquire blocked %llums\n", (unsigned long long)(nd / 1000000));
     }
     if (have) {
-        double dw = g_vk.sc_extent.width, dh = g_vk.sc_extent.height;
-        // render scale + placement in the window: runtime/nvn/output_scale.c (Video page "Upscaler"). A window that
-        // isn't 16:9 shows more of the world (Video > Fill wide screens: the game's views widened, output_scale.c
-        // rt_persp), else the game's 16:9 image fitted into it with bars.
-        // Fullscreen on a size the display has no mode for (runtime/window_size.c): that size, scaled to the screen.
         OutScale os;
-        int iw, ih;
-        if (winsize_virtual(&iw, &ih) && (iw != (int)dw || ih != (int)dh)) {
-            output_scale(iw, ih, g_settings.wide_view, &os);
-            output_scale_screen(dw, dh, iw, ih, &os);
-        } else {
-            output_scale(dw, dh, g_settings.wide_view, &os);
-        }
-        double sx = os.sx, sy = os.sy, vx = os.vx, vy = os.vy, vw = os.vw, vh = os.vh;
+        window_scale(&os);
+        double vx = os.vx, vy = os.vy, vw = os.vw, vh = os.vh;
         float crop[4] = {(float)os.crop[0], (float)os.crop[1], (float)os.crop[2], (float)os.crop[3]};  // (uv origin, size)
-        renderer_set_scale((float)sx, (float)sy);
-        renderer_set_scene_scale((float)os.scene_sx, (float)os.scene_sy);
-        renderer_set_shadow_size(shadow_map_size(total_frames + 1));
         VkCommandBuffer cb = vk_cmd();
         float pv[8] = {renderer_origin_lower_left() ? 1.0f : 0.0f, 0, 0, 0, crop[0], crop[1], crop[2], crop[3]};
         memcpy(g_shot_crop, crop, sizeof crop);
@@ -1824,9 +1848,10 @@ static void present_locked(NvnTexture *t) {
             art_n = rt_user_splash(p, sizeof p) || getenv("SAVAGEWIND_NO_ART_CAPTURE") ? 99 : 0;
         }
         extern bool menu_title_visible(void);
-        if (art_n < 4 && !shot && !wpath[0] && !fg_real_shot[0] && menu_title_visible()) {
+        if (art_n < 4 && !shot && !wpath[0] && !fg_real_shot[0] && menu_title_visible() && !framepace_title_load_ui()) {
             art_seen++;
-            if (art_seen % 160 == 120 || art_seen % 160 == 150) art = true;  // (two looks 30 frames apart: still?)
+            // (two looks 240 frames apart: still? Closer, a slow blur-in passed for it at 120 frames a second)
+            if (art_seen % 400 == 120 || art_seen % 400 == 360) art = true;
         }
         vk_frame_end(shot ? "build/window.png" : wpath[0] ? wpath : fg_real_shot[0] ? fg_real_shot : art ? "cache/art_tmp.raw" : NULL);
         fg_real_shot[0] = 0;
@@ -1897,6 +1922,7 @@ static void present_locked(NvnTexture *t) {
         }
         if (shot && getenv("SAVAGEWIND_EXIT_AFTER_SHOT")) { fflush(stderr); _exit(0); }
     } else {
+        if (held) { OutScale os; window_scale(&os); }  // (the game sizes its render targets by these from the start)
         renderer_submit();
     }
 presented:
@@ -2130,7 +2156,8 @@ void ui_window_init(void) {
     int win_w = (int)lroundf(ws.w / density), win_h = (int)lroundf(ws.h / density);
     if (getenv("SAVAGEWIND_WINDOW")) sscanf(getenv("SAVAGEWIND_WINDOW"), "%dx%d", &win_w, &win_h);
     SDL_WindowFlags wflags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
-    if (getenv("SAVAGEWIND_HIDDEN")) wflags |= SDL_WINDOW_HIDDEN;
+    // (Slop of the Wild: hidden until there is a picture for it, ui_window_show: no half a second of black at the start)
+    wflags |= SDL_WINDOW_HIDDEN;
     window = SDL_CreateWindow("Slop of the Wild", win_w, win_h, wflags);
     if (!window) FATAL("SDL_CreateWindow: %s\n", SDL_GetError());
     rt_window_icon(window);
@@ -2146,6 +2173,12 @@ void ui_window_init(void) {
 }
 
 SDL_Window *ui_window(void) { return window; }
+
+void ui_window_show(void) {  // (SAVAGEWIND_HIDDEN: tests that stay out of sight)
+    static bool shown;
+    if (!shown && !getenv("SAVAGEWIND_HIDDEN")) SDL_ShowWindow(window);
+    shown = true;
+}
 
 void vk_wait_ready(void) {  // (a guest thread: the window and device are the main thread's, ui_run)
     while (!atomic_load(&ui_ready)) SDL_Delay(1);
@@ -2167,6 +2200,7 @@ void backend_reset(void) {
     vk_textures_reset();
     vk_exec_reset();
     g_last_presented = NULL;
+    boot_hold = true, boot_hold_since = boot_title_at = 0;
 }
 void backend_guest_memory_reset(void) {}  // (exec.c: the next SetHeapSize maps the heap again, or it is imported on first use)
 void backend_clear_window(void) {
@@ -2194,6 +2228,7 @@ static void window_event_log(const SDL_Event *e) {
 
 int ui_run(void) {
     ui_window_init();
+    ui_window_show();  // (no start screen before this)
     atomic_store(&ui_ready, true);
     for (;;) {
         if (rt_reboot_requested()) return rt_reboot_requested();  // (runtime/main.c tears the game down)

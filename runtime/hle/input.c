@@ -37,6 +37,7 @@ static _Atomic int64_t sampling;
 static uint8_t test_keys[SDL_SCANCODE_COUNT];
 static _Atomic uint32_t test_pad;
 static _Atomic int32_t test_lx, test_ly;  // (a resting stick's drift: "lstick" in SAVAGEWIND_HOST_INPUT)
+static _Atomic int32_t test_rx, test_ry;  // ("rstick": the camera turned as a controller turns it, smoothly)
 static bool host_test;  // (then a real controller is left out: the player's own pad must not spoil the test)
 static _Atomic int last_device;  // DEVICE_*: what the player used last
 static bool tilt_held;  // the tilt key: the mouse tilts the controller instead of turning the camera
@@ -87,7 +88,7 @@ static void recompute_pad(void) {
     for (int i = 0; i < BIND_PAD_COUNT; i++)
         if (g_bind_pad[i] >= 0 && g_bind_pad[i] < PADB_HOST_COUNT && (host >> g_bind_pad[i] & 1)) b |= 1ull << i;
     pad_buttons = b;
-    if (!pad || host_test) { pad_lx = test_lx, pad_ly = test_ly, pad_rx = pad_ry = 0; return; }
+    if (!pad || host_test) { pad_lx = test_lx, pad_ly = test_ly, pad_rx = test_rx, pad_ry = test_ry; return; }
     dead_zone(&pad_lx, &pad_ly, SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_LEFTX),
               -SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_LEFTY), g_settings.stick_deadzone[0]);
     dead_zone(&pad_rx, &pad_ry, SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_RIGHTX),
@@ -422,7 +423,8 @@ static _Atomic int32_t script_lx, script_ly, script_rx, script_ry;
 // Tests of the bindings, through them like a real player:
 // SAVAGEWIND_HOST_INPUT="frame:key:<SDL key name>:frames,frame:pad:<button>:frames,..." holds a host key / controller
 //   button (names as in savagewind.ini's bind_* lines: "Z", "Keypad 0", "south", "ltrigger"...);
-//   "frame:lstick:<x>/<y>:frames" holds the controller's left stick there (raw SDL units, y up: a drifting stick).
+//   "frame:lstick:<x>/<y>:frames" holds the controller's left stick there (raw SDL units, y up: a drifting stick),
+//   "frame:rstick:<x>/<y>:frames" the right one (the way to turn the camera in a test: "mouse" comes in steps).
 //   "frame:mouse:<dx>/<dy>:frames" moves the mouse by that many counts each frame (the mouse is then taken as held
 //   in the window throughout: the mouse camera).
 // "frame:type:<text>" types <text> as real key events (down, text, up per character), through the overlay menu / name
@@ -502,7 +504,7 @@ static void host_test_frame(uint64_t frame) {
     if (hspec) {
         uint8_t keys[SDL_SCANCODE_COUNT] = {0};
         uint32_t padm = 0;
-        int32_t sx = 0, sy = 0;
+        int32_t sx = 0, sy = 0, srx = 0, sry = 0;
         snprintf(buf, sizeof buf, "%s", hspec);
         char *save = NULL;
         for (char *tok = strtok_r(buf, ",", &save); tok; tok = strtok_r(NULL, ",", &save)) {
@@ -525,12 +527,15 @@ static void host_test_frame(uint64_t frame) {
             if (frame < start || frame >= start + len) continue;
             if (!strcmp(dev, "key")) { SDL_Scancode sc = SDL_GetScancodeFromName(name); if (sc) keys[sc] = 1; }
             else if (!strcmp(dev, "lstick")) sscanf(name, "%d/%d", &sx, &sy);
+            else if (!strcmp(dev, "rstick")) sscanf(name, "%d/%d", &srx, &sry);
             else { int h = bind_pad_from_name(name); if (h >= 0) padm |= 1u << h; }
         }
-        bool kch = memcmp(keys, test_keys, sizeof keys) != 0, pch = padm != test_pad || sx != test_lx || sy != test_ly;
+        bool kch = memcmp(keys, test_keys, sizeof keys) != 0;
+        bool pch = padm != test_pad || sx != test_lx || sy != test_ly || srx != test_rx || sry != test_ry;
         memcpy(test_keys, keys, sizeof keys);
         test_pad = padm;
         test_lx = sx, test_ly = sy;
+        test_rx = srx, test_ry = sry;
         if (kch) recompute_keyboard();
         if (pch) recompute_pad();
         if (frame > mouse_done) mouse_done = frame;

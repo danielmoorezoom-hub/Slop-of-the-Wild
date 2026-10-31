@@ -61,6 +61,9 @@ extern "C" {
 void controls_bindings_draw(float scale);  // ui/controls_ui.mm
 void ui_window_init(void);
 SDL_Window *ui_window(void);
+#ifndef __APPLE__
+void ui_window_show(void);  // (vulkan/device.c: hidden until the first frame below is drawn)
+#endif
 #ifdef __APPLE__
 void *ui_metal_layer(void);
 void *ui_metal_device(void);
@@ -1065,6 +1068,61 @@ static void launcher_fonts_follow_language(void) {
 // mode (runtime/main.c): 0 setup - the game files page alone, the game starts once they're ready; 1 configuration.
 // Returns when the game is to start; QUIT (and closing the setup page) exits.
 static bool g_setup_only;
+// A shadow banner fading in from the left behind the menu, and one from the right behind the version
+static void splash_banner(ImDrawList *bg, ImVec2 ds) {
+    const float stops[][2] = {{0.0f, 225}, {0.3f, 215}, {0.44f, 165}, {0.55f, 95}, {0.64f, 35}, {0.74f, 0}};
+    for (int i = 0; i + 1 < (int)(sizeof stops / sizeof stops[0]); i++) {
+        ImU32 a = IM_COL32(3, 10, 18, (int)stops[i][1]), b = IM_COL32(3, 10, 18, (int)stops[i + 1][1]);
+        bg->AddRectFilledMultiColor(ImVec2(ds.x * stops[i][0], 0), ImVec2(ds.x * stops[i + 1][0], ds.y), a, b, b, a);
+    }
+}
+
+#ifndef __APPLE__
+// A start straight into the game: a splash screen, the start screen's picture and the title, stays on screen while the
+// game boots (the window is hidden until then; vulkan/device.c boot_held keeps it up through the game's own black first
+// frames).
+extern "C" void launcher_boot_picture(void) {
+    ui_window_init();
+    ImGuiContext *ctx = ImGui::CreateContext();
+    ImGui::SetCurrentContext(ctx);
+    ImGuiIO &io = ImGui::GetIO();
+    io.IniFilename = NULL;
+    launcher_fonts();
+    ImGui_ImplSDL3_InitForVulkan(ui_window());
+    vk_imgui_backend_init();
+    splash_load();
+    // (three: the one presented while the window is still hidden isn't shown)
+    for (int i = 0; i < 3; i++) {
+        static const float clear_col[4] = {0.04f, 0.05f, 0.06f, 1};
+        if (!vk_frame_begin(clear_col)) { SDL_Delay(16); continue; }
+        rec_drain();
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplSDL3_NewFrame();
+        ImGui::NewFrame();
+        ImVec2 ds = io.DisplaySize;
+        float s = ds.y / 720.0f;
+        io.FontGlobalScale = s * 0.5f;
+        ImDrawList *bg = ImGui::GetBackgroundDrawList();
+        splash_draw(bg, ds, 0);
+        splash_banner(bg, ds);
+        ImGui::PushFont(g_font_title);
+        const char *t = "Slop of the Wild";
+        text_fx(bg, ImGui::GetFont(), ImGui::GetFontSize(), ImVec2(90 * s, 120 * s), IM_COL32(250, 253, 255, 255),
+                IM_COL32(110, 226, 240, 255), t, 3 * s);
+        ImGui::PopFont();
+        ImGui::Render();
+        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), (VkCommandBuffer)vk_frame_cmd());
+        vk_frame_end(NULL);
+        ui_window_show();
+        SDL_PumpEvents();
+    }
+    splash_unload();
+    vk_imgui_backend_shutdown();
+    ImGui_ImplSDL3_Shutdown();
+    ImGui::DestroyContext(ctx);
+}
+#endif
+
 extern "C" void launcher_run(const char *root, int mode) {
     g_root = root;
     g_setup_only = mode == 0;
@@ -1231,13 +1289,7 @@ extern "C" void launcher_run(const char *root, int mode) {
             ImGui::GetIO().FontGlobalScale = s * 0.5f;
             ImDrawList *bg = ImGui::GetBackgroundDrawList();
             splash_draw(bg, ds, (float)ImGui::GetTime());  // (the player's picture, or Savage Wind's own art)
-            {  // a shadow banner fading in from the left behind the menu, and one from the right behind the version
-                const float stops[][2] = {{0.0f, 225}, {0.3f, 215}, {0.44f, 165}, {0.55f, 95}, {0.64f, 35}, {0.74f, 0}};
-                for (int i = 0; i + 1 < (int)(sizeof stops / sizeof stops[0]); i++) {
-                    ImU32 a = IM_COL32(3, 10, 18, (int)stops[i][1]), b = IM_COL32(3, 10, 18, (int)stops[i + 1][1]);
-                    bg->AddRectFilledMultiColor(ImVec2(ds.x * stops[i][0], 0), ImVec2(ds.x * stops[i + 1][0], ds.y), a, b, b, a);
-                }
-            }
+            splash_banner(bg, ds);
 
             ImGui::SetNextWindowPos(ImVec2(0, 0));
             ImGui::SetNextWindowSize(ds);
@@ -1755,6 +1807,9 @@ extern "C" void launcher_run(const char *root, int mode) {
             if (next > now) plat_sleep_until_ns(next);
             next = (next > now ? next : now) + period;
         }
+#ifndef __APPLE__
+        ui_window_show();
+#endif
     }
     settings_save();
     SDL_SetWindowTitle(win, "Slop of the Wild");

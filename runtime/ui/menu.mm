@@ -730,14 +730,10 @@ static void tab_display(void) {
                "frame time graph. F10 switches between them while you play.");
 
     opt_section("Rendering");
-#ifdef __APPLE__  // (Slop of the Wild: render scale supersamples instead; settings.c keeps the upscaler off elsewhere)
-    {   // Upscaler: Off, this OS's spatial upscaler (its modes on the row below), and the temporal ones still to come.
-        // Values that can't be picked yet are shown greyed ("coming soon"); stepping onto them keeps the one in use.
+    {   // Upscaler: Off, and this OS's upscaler (its modes on the row below; Slop of the Wild: AMD FSR 3, no FSR 1).
+        // Values that can't be picked yet are shown greyed; stepping onto them keeps the one in use.
         // The modes wait for render-target scaling (upscale_modes_available): until then the upscaler brings the
         // game's own 1920 x 1080 image to a bigger window.
-        std::string fsr3 = upscaler_available(UPSCALE_FSR3) ? std::string(tr("AMD FSR 3"))
-                                                            : std::string(tr("FSR 3")) + " " + tr("(coming soon)");
-        std::string dlss = std::string(tr("DLSS")) + " " + tr(renderer_gpu_rtx() ? "(coming soon)" : "(NVIDIA RTX only)");
 #ifdef __APPLE__
         const char *ups[] = {"Off", "MetalFX"};
         static const int ups_value[] = {UPSCALE_OFF, UPSCALE_METALFX};
@@ -745,20 +741,13 @@ static void tab_display(void) {
                          "scaling. MetalFX: Apple's upscaler, sharper.\n\nRendering below the window's size (the modes "
                          "below) is coming in a later version.";
 #else
-        const char *ups[] = {"Off", "AMD FSR 1", fsr3.c_str(), dlss.c_str()};
-        static const int ups_value[] = {UPSCALE_OFF, UPSCALE_FSR1, UPSCALE_FSR3, UPSCALE_DLSS};
-        // (the FSR 3 paragraph on its own: the first one keeps its translations)
-        static std::string uds;
-        uds = std::string(tr("Off: the 3D image renders at the window's resolution. AMD FSR 1: it renders smaller (the mode "
-                             "below), then FSR 1's edge-aware upscaling and sharpening bring it to the window. The HUD and "
-                             "menus always render at the window's resolution.")) + "\n\n" +
-              (upscaler_available(UPSCALE_FSR3)
-                   ? tr("AMD FSR 3: it renders smaller and builds the full-resolution image from the frames before, "
-                        "following the game's motion: sharper and steadier than FSR 1, and anti-aliased (Anti-aliasing "
-                        "has no effect with it). Sharpening sets its own sharpening. NVIDIA DLSS (NVIDIA RTX graphics "
-                        "cards) is coming in a later version.")
-                   : tr("AMD FSR 3 and NVIDIA DLSS (NVIDIA RTX graphics cards) are coming in a later version."));
-        const char *ud = uds.c_str();
+        const char *ups[] = {"Off", "AMD FSR 3"};
+        static const int ups_value[] = {UPSCALE_OFF, UPSCALE_FSR3};
+        const char *ud = "Off: the 3D image renders at the window's resolution. AMD FSR 3: it renders smaller (the mode "
+                         "below) and builds the full-resolution image from the frames before, following the game's motion, "
+                         "anti-aliased (Anti-aliasing has no effect with it). The HUD and menus always render at the "
+                         "window's resolution.\n\nOften softer and slower than Off: where the processor limits the frame "
+                         "rate, as it does on a fast graphics card, rendering smaller gains nothing.";
 #endif
         enum { NU = sizeof ups_value / sizeof ups_value[0] };
         bool avail[NU];
@@ -772,32 +761,41 @@ static void tab_display(void) {
         for (int i = 0; i < NU; i++) if (ups_value[i] == UPSCALE_DEFAULT) udef = i;
         if (opt_choice_avail("Upscaler", &ui, &shown, ups, avail, NU, udef, ud)) g_settings.upscaler = ups_value[ui];
         // its mode (AMD's scale factors), one step in; greyed when the upscaler is off
-        const char *const *modes = k_upscale_modes;
+        // (Slop of the Wild: Native, UPQ_COUNT: no smaller, the upscaler only anti-aliases; settings.c: softer modes removed)
+        static const int mode_value[] = {UPQ_COUNT, UPQ_ULTRA, UPQ_QUALITY};
+        static const char *const modes[] = {"Native", "Ultra Quality", "Quality"};
+        enum { NM = sizeof mode_value / sizeof mode_value[0] };
         bool modes_ok = upscale_modes_available();
-        std::string mode_names[UPQ_COUNT];
-        const char *mn[UPQ_COUNT];
-        bool mavail[UPQ_COUNT];
-        for (int i = 0; i < UPQ_COUNT; i++) {
+        std::string mode_names[NM];
+        const char *mn[NM];
+        bool mavail[NM];
+        int mi = NM - 1;
+        for (int i = 0; i < NM; i++) {
             mode_names[i] = modes_ok ? tr(modes[i]) : std::string(tr(modes[i])) + " " + tr("(coming soon)");
             mn[i] = mode_names[i].c_str();
             mavail[i] = modes_ok;
+            if (mode_value[i] == g_settings.upscale_quality) mi = i;
         }
         float sx, sy;  // the 3D scene's size (BOTW docked: 1600 x 900 times its scale)
         renderer_get_scene_scale(&sx, &sy);
         char rendering[100];
         snprintf(rendering, sizeof rendering, tr("Rendering at %.0f x %.0f."), 1600.0 * sx, 900.0 * sy);
         std::string md = std::string(tr("How much smaller the game renders before the upscaler brings it to the window, "
-                                        "on each side: Ultra Quality 1.3x, Quality 1.5x, Balanced 1.7x, Performance "
-                                        "2x, Ultra Performance 3x. Smaller is faster and softer.")) +
+                                        "on each side: Native not at all (the sharpest: the upscaler only smooths edges), "
+                                        "Ultra Quality 1.3x, Quality 1.5x.")) +
                          "\n\n" + (modes_ok ? rendering : tr("Coming in a later version."));
         opt_indent(1);
         if (g_settings.upscaler == UPSCALE_OFF) opt_disable_next();
         static int mshown = -1;
-        opt_choice_avail("Upscaler mode", &g_settings.upscale_quality, &mshown, mn, mavail, UPQ_QUALITY + 1, UPQ_QUALITY,
-                         md.c_str());
+        if (opt_choice_avail("Upscaler mode", &mi, &mshown, mn, mavail, NM, NM - 1, md.c_str()))
+            g_settings.upscale_quality = mode_value[mi];
+#ifndef __APPLE__
+        if (g_settings.upscaler == UPSCALE_OFF) opt_disable_next();
+        opt_int("FSR sharpening", &g_settings.fsr_sharpness, 0, 100, 10, 50, "%d%%",
+                "How much FSR 3 sharpens the image it builds (AMD RCAS). Too high and edges get halos.", "Off");
+#endif
         opt_indent(-1);
     }
-#endif
 #ifdef __APPLE__
     static const char *aa[] = {"Off", "SMAA"};
     opt_choice("Anti-aliasing", &g_settings.antialias, aa, 2, AA_SMAA,
@@ -835,12 +833,6 @@ static void tab_display(void) {
                    "Lets the game read and write the same image in one pass (Vulkan attachment feedback loops) instead "
                    "of copying it first. About 1.6x the frame rate on AMD Radeon. Off only to rule it out if something "
                    "draws wrong. Takes effect the next time the game starts.");
-        // AMD FSR 3 frame generation (vulkan/framegen.cpp; the frame rate counts the presented frames: framepace.c)
-        opt_toggle("Frame generation (AMD FSR 3)", &g_settings.frame_gen, false,
-                   "AMD FSR 3 makes a frame between each two the game draws: about twice the frames on screen. The "
-                   "frame rate above counts them all, so the game itself draws half of it (60 with 120) and the "
-                   "controls answer as at that rate, a little later. In play only: the menus and the map show the "
-                   "game's own frames. Fast moves can leave faint smears around Link and what moves on its own.");
     }
 #endif
     opt_toggle("Asynchronous shaders", &g_settings.async_shaders, true,

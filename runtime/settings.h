@@ -48,14 +48,15 @@ typedef struct {
     bool fullscreen;
     int window_w, window_h;  // Video > Window size, pixels (0: not chosen; runtime/window_size.c)
     int upscaler;        // UPSCALE_*: Off (render at the window's size), or render smaller and scale up
-    int upscale_quality; // UPQ_*: the upscaler's mode (how much smaller it renders)
+    int upscale_quality; // UPQ_*: the upscaler's mode (how much smaller it renders; UPQ_COUNT: native, not at all)
+    int fsr_sharpness;   // FSR 3's sharpening (AMD RCAS), percent, 0 (off) .. 100 in steps of 10 (vulkan/exec.c)
     int antialias;       // AA_*: anti-aliasing of the game image before it is scaled to the window
     int anisotropy;      // texture filtering: 0 the game's own, 1..4 = 2x, 4x, 8x, 16x (vulkan/textures.c)
     int sharpening;      // AMD CAS sharpening of the 3D image, 0 (off) .. 10 (100%) (vulkan/exec.c scene_post)
     int clarity;         // Cemu's Clarity in place of BOTW's tone map: 0 off, 1 Serfrost, 2 dim, 3 bright display (nvn/vulkan/clarity.c)
     bool fast_path;      // AMD / Intel on Windows: attachment feedback loops on (vulkan/device.c); about 1.6x the frame rate
     int render_scale;    // supersampling: 0 = 100% (the window's size), 1 = 125%, 2 = 150%, 3 = 200% (nvn/output_scale.c)
-    bool frame_gen;      // AMD FSR 3 frame generation: a frame made between each two the game draws (vulkan/framegen.cpp)
+    bool frame_gen;      // AMD FSR 3 frame generation (vulkan/framegen.cpp). Slop of the Wild: not offered, always off
     float volume;        // master volume, 1 = 100%
     bool reverb;         // room reverb effect
     bool movie_audio;
