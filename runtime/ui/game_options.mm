@@ -84,7 +84,7 @@ struct Entry {           // the game's option entry (0x30)
 static_assert(sizeof(Entry) == 0x30);
 enum { KIND_TOGGLE = 0, KIND_CHOICE = 1, KIND_BUTTON = 2 };
 
-enum Page { P_MAIN, P_GAMEPLAY, P_VIDEO, P_COLOUR, P_AUDIO, P_CONTROLS, P_KEYS, P_STICKS, P_PAD, P_LANGUAGE, P_DISTANCE, P_COUNT };
+enum Page { P_MAIN, P_GAMEPLAY, P_VIDEO, P_COLOUR, P_AUDIO, P_CONTROLS, P_KEYS, P_STICKS, P_PAD, P_LANGUAGE, P_DISTANCE, P_CHEATS, P_COUNT };
 enum Action { A_NONE, A_PAGE, A_BIND_KEY, A_BIND_PAD, A_RESET_KEYS, A_RESET_PAD, A_RESTART, A_QUIT, A_SIZE_LIST, A_BENCHMARK };
 
 struct Item {
@@ -267,6 +267,7 @@ void build_items(void) {
     v.push_back(button(P_MAIN, "Keyboard (sticks)", "Keys for the sticks and for walking.", "Open", A_PAGE, P_STICKS));
     v.push_back(button(P_MAIN, "Controller", "Which controller button does each button.", "Open", A_PAGE, P_PAD));
     v.push_back(button(P_MAIN, "Language", "Language of the texts and of the voices.", "Open", A_PAGE, P_LANGUAGE));
+    v.push_back(button(P_MAIN, "Cheats", "Infinite health, stamina and arrows, unbreakable weapons.", "Open", A_PAGE, P_CHEATS));
     v.push_back(button(P_MAIN, "Quit game", "To the desktop, or back to the Savage Wind start screen.", "Quit",
                        A_QUIT, 0));
 
@@ -424,6 +425,19 @@ void build_items(void) {
                    (*benchmark_last(i) ? std::string(" Last: ") + benchmark_last(i) : std::string());
         v.push_back(button(P_VIDEO, names[i].c_str(), descs[i].c_str(), "Run", A_BENCHMARK, i));
     }
+    // Cheats (runtime/cheats.c)
+    v.push_back(toggle(P_CHEATS, "Infinite health", "You lose no hearts and can't die. Healing still works.",
+                       [](const Item &) { return (int)g_settings.cheat_health; },
+                       [](const Item &, int x) { g_settings.cheat_health = x; }, 0));
+    v.push_back(toggle(P_CHEATS, "Infinite stamina", "The stamina wheel doesn't go down. It still fills.",
+                       [](const Item &) { return (int)g_settings.cheat_stamina; },
+                       [](const Item &, int x) { g_settings.cheat_stamina = x; }, 0));
+    v.push_back(toggle(P_CHEATS, "Infinite arrows", "Shooting doesn't use up arrows.",
+                       [](const Item &) { return (int)g_settings.cheat_arrows; },
+                       [](const Item &, int x) { g_settings.cheat_arrows = x; }, 0));
+    v.push_back(toggle(P_CHEATS, "Unbreakable weapons", "Weapons, bows and shields lose no durability and never break.",
+                       [](const Item &) { return (int)g_settings.cheat_weapons; },
+                       [](const Item &, int x) { g_settings.cheat_weapons = x; }, 0));
     // Extended draw distance (runtime/draw_distance.c, nvn/output_scale.c): off by default. Overall distance sets the three under it.
     v.push_back(toggle(P_DISTANCE, "Extended draw distance (beta)", "Grass, trees and objects farther away. Costs frame rate. Beta, may be broken.",
                        [](const Item &) { return (int)g_settings.lod_extended; },

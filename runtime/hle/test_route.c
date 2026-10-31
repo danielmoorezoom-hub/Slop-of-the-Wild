@@ -17,6 +17,7 @@
 //                             lshoulder, ltrigger...); default a tenth of a second
 //   fight <seconds>           lock on (left trigger), walk in, attack (west) twice a second
 //   hold <seconds>            stand still
+//   sprint <seconds>          run ahead, holding the sprint button
 //   shadow <0-3>              Video > Shadow resolution, now
 //   camspeed <0|1> <x %> <y %>   Controls > Controller camera speed and its sliders, now
 //   lod <0|1> <distance %> <grass %> [objects %]   Video > Extended draw distance and its sliders, now
@@ -275,6 +276,12 @@ void test_route_frame(int32_t *lx, int32_t *ly, int32_t *rx, int32_t *ry, uint32
     if (!strcmp(s->op, "press")) {
         *pad |= button(s->name);
         if (t >= (s->n > 0 ? s->v[0] : 0.1)) NEXT();
+        return;
+    }
+    if (!strcmp(s->op, "sprint")) {
+        *ly = axis(1);
+        *pad |= button("south");
+        if (t >= s->v[0]) NEXT();
         return;
     }
     if (!strcmp(s->op, "fight")) {

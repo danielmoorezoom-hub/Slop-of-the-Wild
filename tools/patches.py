@@ -575,7 +575,81 @@ def _lod(word, reg, fn, what):
     return patch
 
 
+# Cheats (runtime/cheats.c). Damage to Link: w25 is the life after the hit, [x21] the life now, [sp, #0xc] a copy of w25; before the
+# `cmp w25, #0` that takes the death path a loss is undone, and healing goes through. Its one-quarter path, life - 1, stays life.
+def _cheat_damage(gen, a):
+    assert _word(gen, a) == 0x7100033f, hex(_word(gen, a))  # cmp w25, #0
+    return ('{ extern int rt_cheat_keep_life(int32_t, int32_t); uint32_t o = LD32(c->x[21]); '
+            'if (rt_cheat_keep_life((int32_t)c->x[25], (int32_t)o)) { c->x[25] = o; ST32(c->sp + 0xc, o); } '
+            '(void)subs32(c, (uint32_t)c->x[25], 0); }'
+            f'  /* {a:#x}: cmp w25, #0 (damage: infinite health) */')
+
+
+def _cheat_quarter(gen, a):
+    assert _word(gen, a) == 0x51000509, hex(_word(gen, a))  # sub w9, w8, #1
+    return ('{ extern int rt_cheat_health(void); '
+            'c->x[9] = (uint32_t)((uint32_t)c->x[8] - (rt_cheat_health() ? 0u : 1u)); }'
+            f'  /* {a:#x}: sub w9, w8, #1 (a quarter heart: infinite health) */')
+
+
+# ... the life's setter (x0: the life, w19: the new one), stamina's (a float at +0xa4)
+def _cheat_life_store(gen, a):
+    assert _word(gen, a) == 0xb9000013, hex(_word(gen, a))  # str w19, [x0]
+    return ('{ extern int rt_cheat_keep_life(int32_t, int32_t); '
+            'if (!rt_cheat_keep_life((int32_t)c->x[19], (int32_t)LD32(c->x[0]))) ST32(c->x[0], c->x[19]); }'
+            f'  /* {a:#x}: str w19, [x0] (life: infinite health) */')
+
+
+def _cheat_stamina(gen, a):
+    assert _word(gen, a) == 0xbd00a668, hex(_word(gen, a))  # str s8, [x19, #0xa4]
+    return ('{ extern int rt_cheat_keep_stamina(uint32_t, uint32_t); '
+            'if (!rt_cheat_keep_stamina((uint32_t)c->v[8], LD32(c->x[19] + 0xa4))) ST32(c->x[19] + 0xa4, (uint32_t)c->v[8]); }'
+            f'  /* {a:#x}: str s8, [x19, #0xa4] (stamina: infinite) */')
+
+
+# ... arrows shot: a stack keeps its count, or isn't emptied
+def _cheat_arrow_sub(gen, a):
+    assert _word(gen, a) == 0x4b160128, hex(_word(gen, a))  # sub w8, w9, w22
+    return ('{ extern int rt_cheat_arrows(void); '
+            'c->x[8] = (uint32_t)((uint32_t)c->x[9] - (rt_cheat_arrows() ? 0u : (uint32_t)c->x[22])); }'
+            f'  /* {a:#x}: sub w8, w9, w22 (arrows: infinite) */')
+
+
+def _cheat_arrow_zero(gen, a):
+    assert _word(gen, a) == 0xb900239f, hex(_word(gen, a))  # str wzr, [x28, #0x20]
+    return ('{ extern int rt_cheat_arrows(void); if (!rt_cheat_arrows()) ST32(c->x[28] + 0x20, 0); }'
+            f'  /* {a:#x}: str wzr, [x28, #0x20] (arrows: infinite) */')
+
+
+# Unbreakable weapons. The pouch's setter for an equipped item's value (type w22: 0 weapon, 1 bow, 2 arrows, 3 shield; new value w20; the
+# item x11, value at +0x20) is where a hit's wear lands, in hundredths. The old value stays when the new one is lower.
+def _no_wear(gen, a):
+    assert _word(gen, a) == 0xb9002174, hex(_word(gen, a))  # str w20, [x11, #0x20]
+    return ('{ extern int rt_keep_wear(uint32_t, int32_t, int32_t); '
+            'if (!rt_keep_wear((uint32_t)c->x[22], (int32_t)c->x[20], (int32_t)LD32(c->x[11] + 0x20))) '
+            'ST32(c->x[11] + 0x20, c->x[20]); }'
+            f'  /* {a:#x}: str w20, [x11, #0x20] (equipped item value: no wear) */')
+
+
+# The weapon actor keeps its own copy of the durability and is what breaks: a hit takes its cost w9 off it. That method takes every life
+# off (Link's hearts, the enemies'), and only the call from the weapon's update (no_wear_ret) is wear: the return address at sp + 0x28.
+def _no_wear_hit(gen, a):
+    assert _word(gen, a) == 0x4b090108, hex(_word(gen, a))  # sub w8, w8, w9
+    ret = gen.sites['no_wear_ret']
+    return ('{ extern int rt_no_wear(void); '
+            f'c->x[8] = (uint32_t)((uint32_t)c->x[8] - (LD64(c->sp + 0x28) == {ret:#x}ull && rt_no_wear() ? 0u : (uint32_t)c->x[9])); }}'
+            f'  /* {a:#x}: sub w8, w8, w9 (weapon hit: no wear) */')
+
+
 PATCHES = {
+    'cheat_damage': _cheat_damage,
+    'cheat_quarter': _cheat_quarter,
+    'cheat_life_store': _cheat_life_store,
+    'cheat_stamina': _cheat_stamina,
+    'cheat_arrow_sub': _cheat_arrow_sub,
+    'cheat_arrow_zero': _cheat_arrow_zero,
+    'no_wear_store': _no_wear,
+    'no_wear_hit': _no_wear_hit,
     'lod_distance_a': _lod(0x52a88f4a, 10, 'rt_lod_distance', 'draw distance'),
     'lod_distance_b': _lod(0x52a88f4a, 10, 'rt_lod_distance', 'draw distance'),
     'lod_grass_a': _lod(0x52a88f43, 3, 'rt_lod_grass', 'grass density'),

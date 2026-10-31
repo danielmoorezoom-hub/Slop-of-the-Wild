@@ -54,6 +54,7 @@ typedef struct {
     int anisotropy;      // texture filtering: 0 the game's own, 1..4 = 2x, 4x, 8x, 16x (vulkan/textures.c)
     int sharpening;      // AMD CAS sharpening of the 3D image, 0 (off) .. 10 (100%) (vulkan/exec.c scene_post)
     bool lod_extended;   // Draw Distance > Extended draw distance: the sliders below apply (off: the game's own)
+    bool cheat_health, cheat_stamina, cheat_arrows, cheat_weapons;  // Cheats (runtime/cheats.c)
     int lod_master;      // Draw Distance > Overall distance, 0..100: moving it sets the three below (settings_lod_master_apply)
     int lod_distance;    // how far ground cover and objects draw, percent of the game's: 100..1000
     int lod_grass;       // how much grass, percent of the game's: 100..1500

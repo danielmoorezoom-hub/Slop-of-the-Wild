@@ -877,6 +877,16 @@ static void tab_distance(void) {
     opt_end();
 }
 
+static void tab_cheats(void) {
+    opt_begin("##cheats", ImGui::GetFontSize() / 34);
+    opt_section("Cheats");
+    opt_toggle("Infinite health", &g_settings.cheat_health, false, "You lose no hearts and can't die. Healing still works.");
+    opt_toggle("Infinite stamina", &g_settings.cheat_stamina, false, "The stamina wheel doesn't go down. It still fills.");
+    opt_toggle("Infinite arrows", &g_settings.cheat_arrows, false, "Shooting doesn't use up arrows.");
+    opt_toggle("Unbreakable weapons", &g_settings.cheat_weapons, false, "Weapons, bows and shields lose no durability and never break.");
+    opt_end();
+}
+
 static void tab_audio(void) {
     opt_begin("##audio", ImGui::GetFontSize() / 34);
     opt_section("Sound");
@@ -1219,9 +1229,9 @@ static void tabs_body(float scale, bool in_game, void (*prelaunch)(float)) {
     Tab tabs[11];
     int ntabs = 0;
     if (prelaunch) tabs[ntabs++] = {"Prelaunch", -1, true};
-    // (ids 4-7 were Link's Awakening tabs; the ids stay: test hooks)
-    static const char *names[] = {"Video", "Audio", "Language", "Draw Distance", "", "", "", "", "Controls", "Quit"};
-    static const int order[] = {8, 0, 3, 1, 2, 9};  // Controls, Video, Draw Distance, Audio, Language, Quit
+    // (ids 5-7 were Link's Awakening tabs; the ids stay: test hooks)
+    static const char *names[] = {"Video", "Audio", "Language", "Draw Distance", "Cheats", "", "", "", "Controls", "Quit"};
+    static const int order[] = {8, 0, 3, 1, 2, 4, 9};  // Controls, Video, Draw Distance, Audio, Language, Cheats, Quit
     for (int i : order)  // (Quit: in game only - the start screen has its own QUIT)
         if (i != 9 || !prelaunch) tabs[ntabs++] = {names[i], i, true};
     int cur = 0;  // g_tab / g_tab_request hold ids
@@ -1301,6 +1311,7 @@ static void tabs_body(float scale, bool in_game, void (*prelaunch)(float)) {
                 case 0: tab_display(); break;
                 case 1: tab_audio(); break;
                 case 3: tab_distance(); break;
+                case 4: tab_cheats(); break;
                 case 2: tab_language(in_game); break;
                 case 8: tab_about(); break;
                 case 9: tab_quit(scale, in_game); break;
