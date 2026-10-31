@@ -841,7 +841,7 @@ static void rom_index(void) {
         const char *v = rt_version(), *dot = strchr(v, '.');
         int n = dot ? (int)strcspn(dot + 1, ".-") + (int)(dot - v) + 1 : (int)strlen(v);  // (up to the second '.')
         (void)n;
-        // Slop of the Wild: the line is left blank and the overlay draws "Slop of the Wild 0.0" and "a fork of Savage
+        // Slop of the Wild: the line is left blank and the overlay draws "Slop of the Wild 0.1" and "a fork of Savage
         // Wind" in its place (runtime/ui/menu.mm title_brand; the text box holds only 15 characters)
         snprintf(text, sizeof text, " ");
         meta_copy(fmeta, foff, fsz);

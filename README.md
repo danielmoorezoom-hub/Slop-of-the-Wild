@@ -1,166 +1,177 @@
 # Slop of the Wild
 
-**A fork of [Savage Wind Recomp](https://github.com/Revivedx/SavageWindRecomp)** (the static recompilation of
-*The Legend of Zelda: Breath of the Wild*, Switch version 1.9.0, into a native Windows program), aimed at the look,
+**A fork of [Savage Wind Recomp](https://github.com/Revivedx/SavageWindRecomp)**, the static recompilation of
+*The Legend of Zelda: Breath of the Wild* (Switch version 1.9.0) into a native Windows program. It aims for the look,
 smoothness and polish of the [TotK PC recomp](https://github.com/valentderah/totk-pc-recomp).
 
 > [!IMPORTANT]
-> **Everything in this fork was made with Claude.** Every line of code, every test, every measurement and this page
-> were written by Claude (Anthropic's AI model, working through Claude Code), in one long session on 2026-10-29/30.
-> A human ([devall96](https://github.com/devall96)) directed it: set the goals, played the game, judged how it looked
-> and felt, reported what was wrong, and made the calls. No human wrote or reviewed the code line by line. Savage Wind
-> itself is also made almost entirely with AI (see [its README](docs/SAVAGE-WIND-README.md)). If you don't trust code
-> written by AI, don't run this. As with anything on the internet, you run it at your own risk.
+> **Everything in this fork was made with Claude.** Every line of code, every test, every measurement and this page were
+> written by Claude (Anthropic's AI model, working through Claude Code). A human ([devall96](https://github.com/devall96))
+> directed it: set the goals, played the game, judged how it looked and felt, reported what was wrong, and made the
+> calls. No human wrote or reviewed the code line by line. Savage Wind itself is also made almost entirely with AI (see
+> [its README](docs/SAVAGE-WIND-README.md)). If you don't trust code written by AI, don't run this. As with anything on
+> the internet, you run it at your own risk.
 
 > [!CAUTION]
-> **No game files are included, and none ever will be, anywhere on this repository**: not in the code, the
-> releases, the issues or the wiki. Releases contain only the program built from this source. Please don't post game
-> files, dumps, keys, an installed copy, or anything extracted or captured from the game (screenshots of bugs are fine).
+> **No game files are included, and none ever will be, anywhere on this repository**: not in the code, the releases, the
+> issues or the wiki. Please don't post game files, dumps, keys, an installed copy, or anything extracted from the game
+> (screenshots of bugs are fine).
 
 > [!NOTE]
-> **Bring your own game.** Like Savage Wind, Slop of the Wild needs your own copy of
-> the game, version 1.9.0 with the update merged, dumped from your own Switch. Even the launcher's background art is
-> not shipped: the game saves it from your own copy's title screen the first time you play.
+> **Bring your own game.** You need your own copy, version 1.9.0 with the update merged, dumped from your own Switch. The
+> DLC is optional, dumped the same way.
 
 ## Download and install
 
-1. Download **Savage Wind 0.3.1-alpha.3** for Windows from
-   [Savage Wind's releases](https://github.com/Revivedx/SavageWindRecomp/releases/tag/v0.3.1-alpha.3) and extract it
-   to a folder you can write to (not Program Files).
-2. Download **`SlopOfTheWild-0.0-windows.zip`** from [this fork's releases](../../releases) and extract it *into
-   that same folder*, replacing the files it asks about (`savagewind.exe` and the README).
-3. Start `savagewind.exe`. Set up your game files from your own dump (version 1.9.0 with the update merged), then
-   press Play.
+1. Download **`SlopOfTheWild-0.1-Setup.exe`** from [the releases](../../releases). It's a single file: the program and
+   the tools it needs, with no game files and no pictures from the game.
+2. Run it. It installs to `C:\Slop of the Wild` by default, and you can choose another folder. Don't pick Program Files:
+   saves, settings and game files are kept next to the program.
+3. Start the game and choose the folder with your dump. If you have the DLC, keep it in that same folder. Setup takes
+   about five minutes, because it builds the game code on your PC.
 
-Slop of the Wild 0.0 ships as a drop-in update rather than a full package. Savage Wind's release already has the
-parts that don't change (the game code builder, the bundled compiler, the DLLs, the fonts), so they aren't uploaded
-again. Already have Savage Wind 0.3.1-alpha.3 set up? Just do step 2: your game files, saves and settings are kept,
-and the 14 GB `romfs.bin` is replaced by a small index the first time the start screen opens.
+**Needs:** Windows 10 or newer, 64-bit; a Vulkan 1.3 graphics driver; about 16 GB of free disk space. Tested on one kind
+of PC only: AMD Radeon RX 9070 XT (driver 26.10.1), 2560 x 1440, 12 CPU threads.
 
-Version **0.0**, built on Savage Wind **0.3.1-alpha.3**. Tested on one PC: Windows, AMD Radeon RX 9070 XT
-(driver 26.10.1), 2560 x 1440 at 280 Hz, 12 CPU threads.
+**Coming from 0.0?** Install to a new folder, or over the old one. The game code has changed, so setup has to run again,
+and your copy of the game has to be on hand for it. **Setup removes any DLC already installed if the folder you choose
+doesn't contain it**, so choose a folder that has your DLC too. To carry your saves over, copy the `save` folder.
 
----
+## What's new in 0.1
 
-## What changed, and why
+0.1 was rebuilt from 0.0 with Savage Wind's later work brought in, then a round of its own work on stutter, frame rate and
+options.
 
-### Picture quality
-
-| Change | Why |
-| --- | --- |
-| **Fixed the dark "crust" outlining Link and edges** (`vulkan/textures.c`, `exec.c`) | Savage Wind forced 16x anisotropic filtering on *every* sampler, including ones reading render targets that have a single mip level. BOTW's FXAA pass samples the scene with a sampler whose LOD range is 0..14, so the override smeared its taps and left a dark speckled outline on edges. Found by dumping the FXAA pass's input and output and re-running the shader on the CPU. Anisotropy now applies only to textures with more than one mip level. Measured: speckled edge pixels went from 2.86 % to 0.17 % of the frame. |
-| **Clarity** (`vulkan/clarity.c`, new) | A port of Cemu's well-known BOTW "Clarity" graphic pack (CC0; shader by Jamie, Kiri and Crementif, presets by Serfrost). It replaces BOTW's tone-mapping pass (found by its shader constants) with Clarity's: less haze and bloom, deeper blacks, richer color. Presets: Serfrost, Serfrost (dim display), Serfrost (bright display). |
-| **Render scale** 100 / 125 / 150 / 200 % (`nvn/output_scale.c`) | Supersampling: the cleanest anti-aliasing there is, and the TotK port's main quality lever. 150 % at 1440p is 4K internally, and it held 120 fps on the test PC. |
-| **Removed the upscaler, upscaler mode and CAS sharpening options** | FSR 1 only helps when rendering *below* the window size, and with render scale nobody needs that. Its "Performance" mode and CAS above 50 % made the picture visibly worse. "FSR 3" and "DLSS" were placeholders that did nothing. |
-| **No FSR 3, FSR 4 or frame generation** | The AMD FidelityFX SDK, its upscaler and frame generation are out of the build. The game is limited by the CPU here, so upscaling only cost frames (209 fps off, 159 with FSR 3). TAA stays: our own shaders, no AMD SDK. |
-| **Better defaults**: fullscreen at the display's native size, 16x anisotropic, SMAA, Clarity on, asynchronous shaders on, the frame rate matched to the display | A fresh install should look its best without a trip to the settings. |
-
-### Performance
+### New in this fork
 
 | Change | Why |
 | --- | --- |
-| **"AMD fast path" setting, on by default** (`vulkan/device.c`) | Savage Wind turns Vulkan *attachment feedback loops* off on AMD and Intel on Windows, after a black-screen bug in 0.3.0. On the test PC, turning them back on took the game from about 72 to 120 fps with no visible problem. It's now a toggle (Video > AMD fast path), so anyone who hits trouble can switch it off. |
-| **No more 14 GB second copy of the game data** (`romfs_build.c`, `services/fs.c`, `nvn/shader_archive.c`) | Setup used to copy the game files (as hard links, so that cost nothing) and then write *all of them again* into a 14 GB `romfs.bin` image. Now it writes `romfs.idx`, a 2.6 MB index of the image's header and tables, and the game reads each file's bytes straight from the `romfs` folder. Verified byte for byte against the old image (a full read plus 20,000 random reads). Existing installs switch over automatically at the start screen, after the same check, which frees 14 GB. The TotK port does the same thing (`romfs-index.bin`). |
-| **Frame rate choices 144 / 165 / 240**, and a default that follows the display | The test monitor is 280 Hz. With no frame rate chosen yet, the game picks the highest choice the display can show. |
-| **VSync changes settle for 0.4 s before they apply** | Stepping through VSync values in the menu rebuilt the swapchain several times a second, and that hard-crashed the AMD driver during play testing. |
+| **First visits no longer hitch on file loading** | A thread reading a file for the first time kept its emulated CPU core while the disk worked. That could stop another thread holding a lock the main thread needed, which made a 25 to 60 ms hitch. Reading and unpacking files now give the core up, as a thread waiting on a read does on the console. On one test route with the file cache dropped, hitches over 15 ms went from 8 to 12 down to 4. A later first-visit run on another route, with the draw distance sliders at their top, had none. |
+| **Faster shader waits on first load** | Waiting for a shader now yields at first instead of sleeping. The first-load stall went from 665 ms to about 120 ms with the driver cache warm. |
+| **A little more frame rate** | The render thread wakes the recorder thread far less often, and indirect calls no longer save registers on their usual path. Hateno went from 208 to 215 fps in one run each. |
+| **Controller camera speed** (Controls, off by default, beta) | The game's top camera speed is 85 degrees a second, over four seconds for a full turn. This goes past it with separate left/right and up/down sliders, up to 600%, measured at exactly 2x and 4x. |
+| **Extended draw distance** (Video, off by default, beta) | Sliders for Draw distance (to 1000%), Grass density (to 1500%) and Object distance (to 175%). They change live. See [Known issues](#known-issues). |
+| **Home button menu** | The settings overlay opens from a controller's Home button, or Back + Start. Esc frees the mouse. The game's own pause menu has the options too. |
+| **Straight into the game** | Once set up, starting the game goes to the title with a splash, not a launcher and not a black screen. `Slop of the Wild Configuration.exe` opens the settings. |
+| **A single installer** | One exe, in place of 0.0's drop-in zip that needed Savage Wind's release first. |
 
-Measured afterwards: with no frame rate limit at 150 % render scale, the open world ran at about 115 to 150 fps with
-the GPU about 70 % busy, so the game's own CPU work is now the limit. The stutters that remain are first-time shader
-and pipeline compiles.
-
-### Launcher and menus
+### Tried and removed
 
 | Change | Why |
 | --- | --- |
-| **New look** for the launcher and the in-game settings (`ui/option_rows.mm`, `menu.mm`, `launcher.mm`) | The old one "looked and felt rushed". The new one is a Sheikah-slate style: deep blue glass, a cyan accent, animated on/off switches, value bars with notches, eased highlights, and amber for any value you changed from its default. |
-| **The settings overlay opens from a controller's Home button** (PlayStation, Xbox; or Back + Start). The keyboard uses the game's own Options; Esc frees the mouse | Savage Wind had turned its overlay menu off, so nothing came up when you pressed Esc or F1. It's back, restyled. |
-| **The game pauses while the menu is open** | During testing the game kept running behind the menu and Link died while settings were being changed. Opening the menu now presses the game's own pause (Plus), and closing it unpauses. This is skipped on the title screen and during cutscenes. |
-| **Real BOTW art behind the launcher** (`ui/splash.mm`, `vulkan/device.c`) | The title screen's own key art (plateau, Epona, cliff, Guardian) cycles behind the launcher with a slow crossfade and pan. It can't be shipped, since it's Nintendo's, so the game captures it from your own title screen the first time you play and saves it as `splash.jpg`, `splash2.jpg` and so on next to the program. |
-| **Straight into the game once set up** (`main.c`, `ui/launcher.mm`) | The launcher opens for setup and from `Slop of the Wild Configuration.exe`. A normal start shows your title art while the game boots, with no black screen, then the title screen. |
-| **Setup lands on the launcher when it finishes**, with a live file counter and a "clearing the earlier copy" step | Setup used to go straight into the game, and it looked frozen while it checked about 41,000 files. |
-| **Game Files page no longer freezes** | It added up the size of all 41,000 files before drawing anything. That now happens on a background thread. |
-| **Text keeps numbers together** (`third_party/imgui/imgui_draw.cpp`) | Wrapped text used to break version numbers in two ("1." on one line, "8.2" on the next). |
-| **Renamed**: title screen "Slop of the Wild 0.0 / a fork of Savage Wind", window titles, menus, error dialogs | The title screen's version text box only holds 15 characters, so the game's line is left blank and the overlay draws ours in its place. The program and settings files keep their names (`savagewind.exe`, `savagewind.ini`) so existing shortcuts and settings keep working. |
+| **No FSR 3, FSR 4 or frame generation** | The game is limited by the CPU, so upscaling only cost frames here: 209 fps off, 159 with FSR 3, and it looked blurrier. TAA stays, using our own shaders. |
+| **Game code stays at `-O1`** | `-O2` gave about 6% more frames for about 30 seconds more setup. It was tested and left out for now. |
 
-### Not done / known issues
+### From Savage Wind, brought in for 0.1
 
-- **Graphics pipeline libraries still crash on AMD** (a GPU page fault at the same address every run). The TotK port uses the same Vulkan feature on the same GPU without trouble, so this is a bug in Savage Wind's code, not the driver. Disabling the guest-memory import and disabling feedback loops each ruled out one cause. Finding the rest needs the Vulkan validation layers. Pipeline libraries stay off on AMD, as in Savage Wind.
-- The program icon is still Savage Wind's.
-- A full fresh-install-to-play test was started on the final build and then postponed. Earlier builds passed the same test: setup in about 6 to 7 minutes, then booting and playing.
-- Ideas taken from the TotK port but not built yet: a video-memory mirror of game memory on discrete GPUs, GPU work submitted in parts, smarter skipping of draws whose pipeline is still compiling, and shipped shader seeds. See [SLOP-TODO.md](SLOP-TODO.md).
+The DLC (The Master Trials and The Champions' Ballad), colour grading with LUTs, HDR10 output, TAA, a recorder thread for
+the driver's work, native 1:1 mouse look, game data served from the romfs folder with no second 15 GB copy, gyro fixes,
+button icons, NPC speech bubbles, a window size list, and many rendering and bug fixes from Savage Wind's contributors. See
+[its README](docs/SAVAGE-WIND-README.md) for what they did. Nearly everything here is their work.
+
+### Still here from 0.0
+
+- **The dark "crust" around Link and edges is fixed.** Savage Wind forced 16x anisotropic filtering on every sampler,
+  including render targets with one mip level. That smeared the game's FXAA and left a dark speckled outline: 2.86% of
+  the frame's edge pixels, down to 0.17%.
+- **Clarity**, a port of Cemu's BOTW graphic pack (less haze and bloom, deeper blacks, richer color), with presets.
+- **Render scale** 100 / 125 / 150 / 200%.
+- **"AMD fast path"**, a toggle that took the test PC from about 72 to 120 fps at the time.
+- **Frame rate choices** up to 240 and a default that follows the display.
+- **A new look** for the settings, and art from your own title screen behind the launcher. It's captured from your copy
+  the first time you play, and never shipped.
+
+## How the beta options perform
+
+Uncapped on the test PC, on a two-minute walk through Hateno Village, SMAA at 100% render scale. One run each, split
+between two identical PCs, so treat gaps of a couple of percent as noise.
+
+| Object distance | fps | 1% low | 0.1% low | Draws per frame |
+| --- | --- | --- | --- | --- |
+| 100% | 210 | 156 | 126 | 3,289 |
+| 125% | 207 | 153 | 115 | 3,452 |
+| 150% | 202 | 141 | 105 | 3,595 |
+| 175% | 191 | 143 | 107 | 3,700 |
+
+With Draw distance at 1000% and Grass density at 1500% (Object distance at 100%), the same walk went from 220 to 183 fps.
+Graphics card time barely changes, because the cost is on the CPU. Results on other PCs will differ.
+
+## Known issues
+
+**The seven new options are marked beta for a reason. They may be broken.**
+
+- **Grass shows its edges.** The game chooses which grass gets full detail from the camera's view. At stock distances that's
+  well hidden, but Extended draw distance pulls those edges out to where you can see them moving as the camera turns.
+- **Flowers near Link, far tree billboards and texture detail don't change** with these options. Those values haven't been
+  found, so raising "everything" isn't done.
+- **Object distance can change how the game plays.** Enemies are active from farther away, so they can notice you sooner.
+  175% is only lightly tested, with no crash in short runs. Beyond it the game ran short of memory for objects: at 200%
+  a tower went missing and enemies floated, and at 400% it crashed, which is why the slider stops there.
+- **Extended draw distance only applies to game version 1.9.0.**
+- **Link's model glitches very briefly at random**, like a tiny flicker. Not investigated yet.
+- **Distant detail shimmers.** Flowers and far detail can look jagged. More draw distance may make it worse.
+- **Shadows stay crunchy at a distance.** Raising Video > Shadow resolution helps up close, for under 1 ms a frame at the
+  highest setting. How far the sharp shadows reach hasn't changed.
+- **Setup can delete DLC**, as above, if the folder you choose doesn't have it.
+- **The first play after setup can be rougher**, while Windows and the driver cache things.
+- **The icon is still Savage Wind's.**
+
+## What we're hoping to do
+
+**These are hopes, not promises.** There's no schedule, and any of it may change, turn out to be impossible, or never happen.
+
+- Raise the level of detail on everything: flowers, trees, actors, objects and texture detail, and fix the grass edges
+- A friendlier installer and launcher: new art, a choice to add the DLC or not, plain explanations of which files go where,
+  simple enough for anyone
+- Benchmarks built into the menus, using the routes these tests were run on
+- High, Medium, Low and Potato presets on the graphics page
+- Fix or upgrade textures that don't scale with the resolution, like the menu UI
+- Fix Link's model glitch
+- Fix jaggies and shimmer on distant detail
+- Port Cemu's shadow draw distance and reflection packs
 
 ---
 
 ## Who did what
 
-**From devall96 (the human):**
-- The project and its goal: make Breath of the Wild on PC as good as the TotK PC recomp, by fixing Savage Wind rather than starting over.
-- The name, "Slop of the Wild", and the title-screen wording.
-- Spotting the dark crust around Link and the washed-out color, and insisting it was real when the first measurements missed it ("it's very obvious even in your crops").
-- The order of work: filtering and broken toggles, then a clarity filter, then the launcher rewrite, then optimization.
-- Asking for Cemu's BOTW clarity filter specifically, and for options that make the picture worse to be removed.
-- The launcher brief: smooth and unique, default to fullscreen at native resolution, useless options gone, toggles for every fix, real BOTW art in the background, no slow start or hang.
-- Asking that the AMD fast path be a real setting, and that the launcher open every time.
-- Reporting that Esc and F1 did nothing, the hard crash while changing options, and that setup was slow and looked stuck.
-- The frame-rate default (highest native, with options), asking for a test from a fresh install, and pointing Claude at the TotK install to learn from.
-- Lending the PC: running the test and build agents, the PS5 controller, the game dump, and play testing.
+**From devall96, the human:** the project, its goal and name; playing every build and judging how it looked and felt;
+spotting problems the numbers missed, like the crust, the moving grass edges and the file-loading stutter on first visits;
+deciding what to keep, cut or default; and lending the PCs, the controller and the game dump.
 
-**From Claude:**
-- All the code, the scripts and this page.
-- The test rig: a job agent on the PC that runs the game with scripted controller input, screenshots and logs; a build agent that builds from a patch with MSYS2; and frame dumps, shader dumps and CPU emulation of single shader passes.
-- Root-causing the crust to the anisotropy override, and measuring the fix.
-- Porting Clarity, finding which shader to replace, and adding render scale.
-- The romfs index design, its byte-for-byte check, and the automatic switch for existing installs.
-- The launcher and menu design, art capture from the title screen, the pause-under-menu fix, VSync debouncing, and the frame-rate default logic.
-- The benchmarks, the GPL investigation, and reading the TotK port's headers for ideas.
-
-**Together:**
-- The crust hunt: devall96's eye said it was there, Claude's frame dumps showed why.
-- The look of the picture: Claude proposed and measured, devall96 judged ("wooow that looked amazing").
-- The launcher: devall96's brief and feedback through several rounds, Claude's design.
-- Setup speed: devall96 reported it, Claude found the 14 GB rewrite and replaced it.
-- What to keep, cut or default, decided option by option.
+**From Claude:** all the code, scripts and this page; the test rig, including scripted routes that steer from Link's real
+position; finding causes from frame dumps, profiles and logs; and the measurements above.
 
 ---
 
 ## Build it yourself
 
-Slop of the Wild is a set of changes on top of Savage Wind's source at the tag `v0.3.1-alpha.3`. To build it on
-Windows (from [Savage Wind's build notes](docs/BUILD-windows.md); this is what the build agent ran):
+On Windows, with [MSYS2](https://www.msys2.org) at `C:\msys64`, in the **UCRT64** shell ([more detail](docs/BUILD-windows.md)):
 
-1. Install [MSYS2](https://www.msys2.org) (`C:\msys64`), open the **UCRT64** shell, then update twice and install the tools:
-   ```sh
-   pacman -Syuu    # twice, as MSYS2 asks
-   pacman -S --needed git make mingw-w64-ucrt-x86_64-clang mingw-w64-ucrt-x86_64-lld mingw-w64-ucrt-x86_64-sdl3 \
-     mingw-w64-ucrt-x86_64-ffmpeg mingw-w64-ucrt-x86_64-vulkan-headers mingw-w64-ucrt-x86_64-vulkan-loader \
-     mingw-w64-ucrt-x86_64-shaderc mingw-w64-ucrt-x86_64-spirv-tools mingw-w64-ucrt-x86_64-pkgconf \
-     mingw-w64-ucrt-x86_64-vulkan-memory-allocator mingw-w64-ucrt-x86_64-nasm
-   ```
-2. Get this fork, or Savage Wind at `v0.3.1-alpha.3` with this fork's changes applied:
-   ```sh
-   git -c core.autocrlf=false clone <this fork's URL> slop && cd slop
-   # or: git clone https://github.com/Revivedx/SavageWindRecomp slop && cd slop &&
-   #     git checkout v0.3.1-alpha.3 && git apply slop.patch   (git diff v0.3.1-alpha.3..HEAD from this fork)
-   ```
-3. Build:
-   ```sh
-   make -j RELEASE=1 build/savagewind.exe
-   ```
-4. Put `build/savagewind.exe` in a Savage Wind 0.3.1-alpha.3 release folder, in place of its exe (the release has the
-   DLLs, fonts, the code generator and the bundled compiler that setup needs). Start it, set up your game files from
-   your own dump, and play.
+```sh
+pacman -Syuu    # twice, as MSYS2 asks
+pacman -S --needed git make mingw-w64-ucrt-x86_64-clang mingw-w64-ucrt-x86_64-lld mingw-w64-ucrt-x86_64-sdl3 \
+  mingw-w64-ucrt-x86_64-ffmpeg mingw-w64-ucrt-x86_64-vulkan-headers mingw-w64-ucrt-x86_64-vulkan-loader \
+  mingw-w64-ucrt-x86_64-shaderc mingw-w64-ucrt-x86_64-spirv-tools mingw-w64-ucrt-x86_64-pkgconf \
+  mingw-w64-ucrt-x86_64-vulkan-memory-allocator mingw-w64-ucrt-x86_64-nasm mingw-w64-ucrt-x86_64-nsis
+git -c core.autocrlf=false clone https://github.com/devall96/Slop-of-the-Wild slop && cd slop
+make deps-windows             # FFmpeg, LGPL build
+tools/fetch_zig.sh            # the compiler that setup bundles
+make gen-helper GEN_PY=python # the game code generator (needs Python 3.12)
+make -j dist GEN_PY=python    # build/dist/Slop of the Wild
+make installer                # build/dist/SlopOfTheWild-<version>-Setup.exe
+```
 
-**To recreate the work rather than just the build:** each change above is its own commit with a message that says
-what and why, and the code comments carry the reasoning and measurements. The order matches the sections above. The
-test numbers came from scripted runs: the game was started with `SAVAGEWIND_*` environment variables (scripted input
-`SAVAGEWIND_HOST_INPUT`, screenshots `SAVAGEWIND_SCREENSHOT_EVERY` and `SAVAGEWIND_WINDOW_SHOT_AT`, the profiler
-`SAVAGEWIND_VK_PROF=2`, `SAVAGEWIND_DATA_ROOT` for a clean test install), and the logs were compared.
+Each change has its own commit saying what and why, and the code comments carry the reasoning and measurements.
 
 ---
 
 ## Credits
 
-- **[Savage Wind Recomp](https://github.com/Revivedx/SavageWindRecomp)** by Revivedx and contributors, and **[LAS Recomp](https://github.com/peiikai/LASRecomp)** by Peiikai, which it builds on: nearly everything here is theirs. MIT License (see [LICENSE](LICENSE)).
-- **Clarity** from the [Cemu graphic packs](https://github.com/cemu-project/cemu_graphic_packs) (CC0): Jamie, Kiri and Crementif; presets by Serfrost.
-- **[TotK PC recomp](https://github.com/valentderah/totk-pc-recomp)** by valentderah: the bar this aims for, and the source of several ideas.
+- **[Savage Wind Recomp](https://github.com/Revivedx/SavageWindRecomp)** by Revivedx and contributors, and
+  **[LAS Recomp](https://github.com/peiikai/LASRecomp)** by Peiikai, which it builds on: nearly everything here is theirs.
+  MIT License (see [LICENSE](LICENSE)).
+- **Clarity** from the [Cemu graphic packs](https://github.com/cemu-project/cemu_graphic_packs) (CC0): Jamie, Kiri and
+  Crementif; presets by Serfrost. The same packs are where the draw distance values' meanings came from (Crementif).
+- **[The Legend of Zelda decompilation project](https://github.com/zeldaret/botw)**, whose function names helped find them.
+- **[TotK PC recomp](https://github.com/valentderah/totk-pc-recomp)** by valentderah: the bar this aims for.
 - *The Legend of Zelda: Breath of the Wild* is Nintendo's. This project is not affiliated with or endorsed by Nintendo.

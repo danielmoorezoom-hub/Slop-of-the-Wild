@@ -72,7 +72,7 @@ static void push(const QEvent &e) {
 }
 
 bool menu_is_open(void) { return g_open.load(); }
-#define SLOP_VERSION "0.0"
+#define SLOP_VERSION "0.1"
 static std::atomic<uint64_t> g_title_tick{0};  // SDL_GetTicks() of the title menu's last update (game thread)
 extern "C" void menu_title_tick(void) { g_title_tick.store(SDL_GetTicks()); }
 extern "C" bool menu_title_visible(void) {  // (vulkan/device.c: the title art capture)

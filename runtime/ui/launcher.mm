@@ -1588,23 +1588,6 @@ extern "C" void launcher_run(const char *root, int mode) {
                                        "files page of Savage Wind Configuration."))
                             settings_save();
                     }
-                    {   // Savage Wind's own colour look (runtime/color_grade.h): on at the first setup unless the player
-                        // chose a LUT before; Options > Colour changes it later
-                        if (!ready && !g_settings.color_lut_set) {
-                            snprintf(g_settings.color_lut, sizeof g_settings.color_lut, "%s", COLOR_LUT_RECOMMENDED);
-                            g_settings.color_lut_strength = COLOR_LUT_RECOMMENDED_STRENGTH;
-                            g_settings.color_lut_set = true;
-                        }
-                        bool look = !strcmp(g_settings.color_lut, COLOR_LUT_RECOMMENDED);
-                        if (busy) opt_disable_next();
-                        if (opt_toggle("Savage Wind colour look", &look, true,
-                                       "Recommended. The game's picture with Savage Wind's own colour look. Change it or turn it off any time in the game's Options > "
-                                       "Colour (LUT).")) {
-                            snprintf(g_settings.color_lut, sizeof g_settings.color_lut, "%s", look ? COLOR_LUT_RECOMMENDED : "");
-                            g_settings.color_lut_strength = look ? COLOR_LUT_RECOMMENDED_STRENGTH : 100;
-                            settings_save();
-                        }
-                    }
 #endif
                     if (busy || (src.empty() && !check_copied_files(g_root).empty())) opt_disable_next();
                     if (opt_action("Set up game files", busy ? tr("Working...") : "", ready ? again_d.c_str() : ex_d.c_str(),
@@ -1755,7 +1738,7 @@ extern "C" void launcher_run(const char *root, int mode) {
                 ImFont *font = ImGui::GetFont();
                 float fs = ImGui::GetFontSize(), right = ImGui::GetWindowPos().x + ds.x - 60 * s;
                 char ver[64];
-                snprintf(ver, sizeof ver, "Slop of the Wild 0.0  \xc2\xb7  Savage Wind %s", SAVAGEWIND_VERSION);
+                snprintf(ver, sizeof ver, "Slop of the Wild 0.1  \xc2\xb7  Savage Wind %s", SAVAGEWIND_VERSION);
                 float vs = fs * 1.0f, y = ImGui::GetWindowPos().y + 40 * s;
                 ImVec2 vsz = font->CalcTextSizeA(vs, FLT_MAX, 0, ver);
                 ImVec2 p(right - vsz.x, y);

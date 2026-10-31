@@ -253,7 +253,7 @@ $(B)/savagewind-config.exe: $(B)/rt/platform/windows_config.o $(B)/rt/platform/w
 	$(CC) -o $@ $^ -fuse-ld=lld -Wl,--subsystem,windows
 
 # Slop of the Wild's own version (VERSION stays Savage Wind's: the game code's id uses it)
-SLOP_VERSION := 0.0
+SLOP_VERSION := 0.1
 VERSION  := $(shell sed -n 's/^\#define SAVAGEWIND_VERSION "\(.*\)"/\1/p' runtime/ui/launcher.mm)
 
 # macOS: build/Savage Wind.app, runs on macOS $(APP_MIN)+: the game rebuilt for that in build/mac15 against build/deps
@@ -317,6 +317,11 @@ dist:
 	cd build/dist && if command -v zip >/dev/null; then zip -qr "SlopOfTheWild-$(SLOP_VERSION)-windows.zip" "Slop of the Wild"; \
 	    else /c/Windows/System32/tar.exe -a -cf "SlopOfTheWild-$(SLOP_VERSION)-windows.zip" "Slop of the Wild"; fi
 	@echo "build/dist/SlopOfTheWild-$(SLOP_VERSION)-windows.zip"
+
+# The single installer, from the folder `make dist` made: the program and its tools, no game files (tools/installer.nsi)
+installer:
+	@[ -f "$(DIST)/savagewind.exe" ] || { echo "make dist first"; exit 1; }
+	makensis -V2 -DVERSION=$(SLOP_VERSION) tools/installer.nsi
 
 # The game code generator as a standalone helper, so players need no Python: build/helper/swgen/ (swgen[.exe] +
 # _internal/), frozen by PyInstaller from tools/swgen.spec in its own venv (build/gen-venv). Shipped as swgen/ next to
