@@ -1333,7 +1333,9 @@ static bool format_depth_compare(VkFormat f) {
     VkFormatProperties2 p2 = {.sType = VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2, .pNext = &p3};
     vkGetPhysicalDeviceFormatProperties2(g_vk.phys, f, &p2);
     bool r = (p3.optimalTilingFeatures & VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_DEPTH_COMPARISON_BIT) != 0;
-    if (getenv("SAVAGEWIND_DEPTH_TWIN_ALL")) r = false;
+    static int twin_all = -1;
+    if (twin_all < 0) twin_all = getenv("SAVAGEWIND_DEPTH_TWIN_ALL") != NULL;
+    if (twin_all) r = false;
     if (n < 16) known[n] = f, ok[n++] = r;
     LOG("[shadow] format %d under a shadow sampler: depth comparison %s\n", f, r ? "supported" : "not supported");
     return r;

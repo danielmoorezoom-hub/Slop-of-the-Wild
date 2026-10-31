@@ -254,12 +254,17 @@ void benchmark_finish(void) {
     if (g_route < 0) return;
     write_result(false);
     fflush(stderr);
-    if (getenv("SAVAGEWIND_HIDDEN")) _exit(0);  // (a test run, no one to show it to)
+    const char *back_shot = getenv("SAVAGEWIND_BENCHMARK_RETURN_SHOT");  // (test: the way back, and a picture of the page it lands on)
+    if (getenv("SAVAGEWIND_HIDDEN") && !back_shot) _exit(0);  // (a test run, no one to show it to)
     static const char *const vars[] = {"SAVAGEWIND_BENCHMARK", "SAVAGEWIND_SAVE_DIR", "SAVAGEWIND_SETTINGS", "SAVAGEWIND_TEST_ROUTE",
                                        "SAVAGEWIND_HOST_INPUT", "SAVAGEWIND_TEST_WARP", "SAVAGEWIND_TEST_TIME",
                                        "SAVAGEWIND_TEST_WEATHER", "SAVAGEWIND_FPS", "SAVAGEWIND_LAUNCHER_AUTOPLAY"};
     for (size_t i = 0; i < sizeof vars / sizeof vars[0]; i++) set_env(vars[i], NULL);
     set_env("SAVAGEWIND_LAUNCHER_PAGE", "benchmark");
+    if (back_shot) {
+        set_env("SAVAGEWIND_SHOT_PATH", back_shot);
+        set_env("SAVAGEWIND_LAUNCHER_SHOT", "20");
+    }
     start_self("--config");
     _exit(0);
 }

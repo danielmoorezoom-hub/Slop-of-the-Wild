@@ -1174,7 +1174,7 @@ extern "C" void launcher_boot_picture(void) {
         wordmark(bg, ImVec2(44 * s, 56 * s), s);
         ImGui::Render();
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), (VkCommandBuffer)vk_frame_cmd());
-        vk_frame_end(NULL);
+        vk_frame_end(i == 2 ? getenv("SAVAGEWIND_BOOT_SHOT") : NULL);  // (test)
         ui_window_show();
         SDL_PumpEvents();
     }

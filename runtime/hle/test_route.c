@@ -19,6 +19,9 @@
 //   hold <seconds>            stand still
 //   sprint <seconds>          run ahead, holding the sprint button
 //   photo                     photo mode on or off (runtime/photo.c)
+//   photoshot                 what F7 does
+//   mark <n>, gomark <n>      save a teleport bookmark here, go to one (runtime/teleport.c; then `play` again)
+//   confirm <0|1>             Controller > Confirm button: right, bottom
 //   teleport <x> <y> <z>      as the Teleport page does: the game restarts (runtime/teleport.c); then `play` again
 //   shadow <0-3>              Video > Shadow resolution, now
 //   camspeed <0|1> <x %> <y %>   Controls > Controller camera speed and its sliders, now
@@ -137,9 +140,15 @@ static int32_t yaw_stick(double err) {
     return axis(v);
 }
 
-static uint32_t button(const char *name) {
-    int h = bind_pad_from_name(name);
-    return h >= 0 ? 1u << h : 0;
+static uint32_t button(const char *name) {  // (a+b: both)
+    uint32_t m = 0;
+    char n[64];
+    snprintf(n, sizeof n, "%s", name);
+    for (char *p = strtok(n, "+"); p; p = strtok(NULL, "+")) {
+        int h = bind_pad_from_name(p);
+        if (h >= 0) m |= 1u << h;
+    }
+    return m;
 }
 
 void test_route_frame(int32_t *lx, int32_t *ly, int32_t *rx, int32_t *ry, uint32_t *pad, const char **shot) {
@@ -285,6 +294,26 @@ void test_route_frame(int32_t *lx, int32_t *ly, int32_t *rx, int32_t *ry, uint32
         cur++;
         teleport_to((float)s->v[0], (float)s->v[1], (float)s->v[2]);
         return;
+    }
+    if (!strcmp(s->op, "photoshot")) {
+        extern void photo_shot(void);
+        photo_shot();
+        NEXT();
+    }
+    if (!strcmp(s->op, "mark")) {
+        extern bool teleport_save_here(int);
+        LOG("[route] bookmark saved: %d\n", teleport_save_here((int)s->v[0]));
+        NEXT();
+    }
+    if (!strcmp(s->op, "gomark")) {
+        extern void teleport_go_bookmark(int);
+        cur++;
+        teleport_go_bookmark((int)s->v[0]);
+        return;
+    }
+    if (!strcmp(s->op, "confirm")) {
+        bind_set_confirm_bottom(s->v[0] != 0);
+        NEXT();
     }
     if (!strcmp(s->op, "photo")) {
         extern void photo_toggle(void);

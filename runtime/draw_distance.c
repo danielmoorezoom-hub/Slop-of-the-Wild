@@ -140,7 +140,9 @@ static float tree_far_factor(void) {
 static void blades_factor(uint64_t mgr) {
     float target = grass_target(0);
     if (target == 1.0f) { g_blades = 1.0f; return; }  // (Original)
-    if (getenv("SAVAGEWIND_GRASS_NOGUARD")) { g_blades = target; return; }  // (tests: the target, list or not)
+    static int noguard = -1;
+    if (noguard < 0) noguard = getenv("SAVAGEWIND_GRASS_NOGUARD") != NULL;
+    if (noguard) { g_blades = target; return; }  // (tests: the target, list or not)
     uint32_t listed = *(const uint32_t *)(uintptr_t)(mgr + 0x878);  // (last frame's: the update clears it later)
     float f = g_blades < 1.0f ? 1.0f : g_blades;
     if (listed == 0) f = 1.0f;
@@ -195,7 +197,9 @@ int rt_grass_range(uint64_t cam, uint32_t cell_bits, uint32_t *s0, uint32_t *a, 
         union { uint32_t u; float f; } x = {.u = *s0}, p = {.u = *a}, q = {.u = *b};
         float tn = *(float *)(uintptr_t)(cam + 0x134), asp = *(float *)(uintptr_t)(cam + 0x12c);
         float tt = tn > x.f ? tn : x.f;
-        g_cone = f > 1.0f && g_blade_slots > 0x100 && !getenv("SAVAGEWIND_GRASS_NOCONE");
+        static int nocone = -1;
+        if (nocone < 0) nocone = getenv("SAVAGEWIND_GRASS_NOCONE") != NULL;
+        g_cone = f > 1.0f && g_blade_slots > 0x100 && !nocone;
         g_cone_from = 1 / (tt * p.f) - 1 / (tt * q.f);  // (the game's near distance this frame)
         g_cone_k = tn * (asp > 0 ? asp : 1.0f) * CONE_WIDEN;
     }
