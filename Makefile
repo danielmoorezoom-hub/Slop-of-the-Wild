@@ -306,6 +306,8 @@ dist:
 	cp docs/art/launcher-art.png "$(DIST)/"  # (the start screen's picture: replace the file to change it)
 	cp third_party/fonts/FiraSans/FiraSans-SemiBold.ttf third_party/fonts/FiraSans/FiraSans-Medium.ttf "$(DIST)/"  # (menus, OFL)
 	cp third_party/fonts/FiraSans/OFL.txt "$(DIST)/FiraSans-OFL.txt"
+	cp third_party/fonts/CinzelDecorative/CinzelDecorative-Bold.ttf "$(DIST)/"  # (the name on the start screen)
+	cp third_party/fonts/CinzelDecorative/OFL.txt "$(DIST)/CinzelDecorative-OFL.txt"
 	cp third_party/fonts/NotoSansThai/NotoSansThai-Medium.ttf "$(DIST)/"  # (Thai menus, OFL)
 	cp third_party/fonts/NotoSansThai/OFL.txt "$(DIST)/NotoSansThai-OFL.txt"
 	cp third_party/FidelityFX/LICENSE.txt "$(DIST)/FidelityFX-LICENSE.txt"  # (AMD's MIT notice: the FSR 1, CAS and TAA shaders follow its code)

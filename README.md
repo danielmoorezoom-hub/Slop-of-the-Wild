@@ -169,6 +169,8 @@ Each change has its own commit saying what and why, and the code comments carry 
 ## Credits
 
 - **[Savage Wind Recomp](https://github.com/Revivedx/SavageWindRecomp)** by Revivedx and contributors, and
+
+- The title's lettering is [Cinzel Decorative](https://github.com/google/fonts/tree/main/ofl/cinzeldecorative) by Natanael Gama (OFL). The launcher art and icon were made with Gemini.
   **[LAS Recomp](https://github.com/peiikai/LASRecomp)** by Peiikai, which it builds on: nearly everything here is theirs.
   MIT License (see [LICENSE](LICENSE)).
 - **Clarity** from the [Cemu graphic packs](https://github.com/cemu-project/cemu_graphic_packs) (CC0): Jamie, Kiri and

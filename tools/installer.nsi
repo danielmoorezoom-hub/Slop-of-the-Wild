@@ -56,7 +56,7 @@ XPStyle on
 !insertmacro MUI_PAGE_DIRECTORY
 !define MUI_PAGE_CUSTOMFUNCTION_SHOW DarkInstFiles
 !insertmacro MUI_PAGE_INSTFILES
-!define MUI_PAGE_CUSTOMFUNCTION_SHOW DarkInner
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW DarkFinish
 !insertmacro MUI_PAGE_FINISH
 !define MUI_PAGE_CUSTOMFUNCTION_SHOW un.DarkInner
 !insertmacro MUI_UNPAGE_CONFIRM
@@ -124,6 +124,12 @@ FunctionEnd
 !insertmacro DarkFunctions ""
 !insertmacro DarkFunctions "un."
 
+Function DarkFinish
+  Call DarkInner
+  SetCtlColors $mui.FinishPage.Run 0D1A16 BEE254
+  SetCtlColors $mui.FinishPage.ShowReadme 0D1A16 BEE254
+FunctionEnd
+
 Function DesktopShortcut
   CreateShortcut "$DESKTOP\${NAME}.lnk" "$INSTDIR\savagewind.exe"
 FunctionEnd
@@ -160,6 +166,7 @@ Section "Uninstall"
   Delete "$INSTDIR\*.dll"
   Delete "$INSTDIR\*.ttf"
   Delete "$INSTDIR\FiraSans-OFL.txt"
+  Delete "$INSTDIR\CinzelDecorative-OFL.txt"
   Delete "$INSTDIR\NotoSansThai-OFL.txt"
   Delete "$INSTDIR\FidelityFX-LICENSE.txt"
   Delete "$INSTDIR\icon.png"

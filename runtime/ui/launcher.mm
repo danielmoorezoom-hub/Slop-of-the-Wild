@@ -35,6 +35,7 @@
 #include "option_rows.h"
 #include "osk.h"
 #include "splash.h"
+#include "imageload.h"
 #ifdef __APPLE__
 #include "imgui_impl_metal.h"
 #else
@@ -76,6 +77,7 @@ void *vk_frame_cmd(void);
 bool vk_imgui_backend_init(void);
 void vk_imgui_backend_shutdown(void);
 uint64_t vk_imgui_texture_rgba(const void *rgba, int w, int h);
+void vk_imgui_texture_free(uint64_t tex);
 void rec_drain(void);  // (runtime/nvn/vulkan/record.c)
 #endif
 }
@@ -754,7 +756,7 @@ static double files_size_gb(void) {
 }
 static void files_size_reset(void) { if (g_files_gb_state.load() == 2) g_files_gb_state = 0; }
 
-static ImFont *g_font_title, *g_font_menu, *g_font_small;
+static ImFont *g_font_title, *g_font_menu, *g_font_small, *g_font_logo;
 enum Page { MAIN, SETTINGS, SETUP, BENCH };  // SETTINGS: the in-game menu's tabs (runtime/ui/menu.mm)
 static int g_refocus = MAIN;  // back on the main page: select the item of the page we came from (controllers)
 
@@ -1024,7 +1026,13 @@ static void launcher_fonts(void) {
     ImGuiIO &io = ImGui::GetIO();
     io.Fonts->Clear();
     g_fonts_lang = ui_lang_generation();
-    g_font_small = g_font_menu = g_font_title = NULL;
+    g_font_small = g_font_menu = g_font_title = g_font_logo = NULL;
+    {   // the name's lettering (OFL, shipped: third_party/fonts/CinzelDecorative)
+        char logo[1024];
+        static const ImWchar ascii[] = {0x20, 0x7E, 0};
+        if (rt_resource("CinzelDecorative-Bold.ttf", "third_party/fonts/CinzelDecorative/CinzelDecorative-Bold.ttf", logo, sizeof logo))
+            g_font_logo = io.Fonts->AddFontFromFileTTF(logo, 110, NULL, ascii);
+    }
     // Fira Sans (OFL, shipped: third_party/fonts/FiraSans) - a clean humanist sans, like the game's own menu text:
     // SemiBold for the title and the menu, Medium for the rest. It has Cyrillic too (Russian menus).
     char semi[1024], med[1024];
@@ -1080,13 +1088,55 @@ static void splash_banner(ImDrawList *bg, ImVec2 ds) {
     bg->AddRectFilled(ImVec2(r - 1.5f * s, 0), ImVec2(r, ds.y), IM_COL32(190, 226, 84, 150));
 }
 
-// The name: "Slop" big, the rest under it, a short bar in the accent colour between. Returns its height.
+// The icon beside the name: icon.png, averaged down for its size on screen (no mipmaps here). Not on macOS, for now.
+static ImTextureID g_logo;
+static void logo_load(void) {
+#ifndef __APPLE__
+    char path[1024];
+    int w, h;
+    if (g_logo || !rt_resource("icon.png", "docs/icon/icon_1024.png", path, sizeof path)) return;
+    unsigned char *px = rt_image_rgba(path, &w, &h);
+    if (!px) return;
+    int f = w / 192 > 1 ? w / 192 : 1, ow = w / f, oh = h / f;
+    std::vector<unsigned char> out((size_t)ow * oh * 4);
+    for (int y = 0; y < oh; y++)
+        for (int x = 0; x < ow; x++)
+            for (int c = 0; c < 4; c++) {
+                int sum = 0;
+                for (int j = 0; j < f; j++)
+                    for (int i = 0; i < f; i++) sum += px[(((size_t)y * f + j) * w + x * f + i) * 4 + c];
+                out[((size_t)y * ow + x) * 4 + c] = (unsigned char)(sum / (f * f));
+            }
+    rt_image_free(px);
+    g_logo = (ImTextureID)vk_imgui_texture_rgba(out.data(), ow, oh);
+#endif
+}
+static void logo_unload(void) {
+#ifndef __APPLE__
+    if (g_logo) vk_imgui_texture_free((uint64_t)g_logo);
+    g_logo = 0;
+#endif
+}
+
+// The name in the style of a fantasy game's title: the icon, then "Slop" in gold capitals, and "of the Wild" centred under it
+// between two thin rules.
 static void wordmark(ImDrawList *dl, ImVec2 p, float s) {
-    ImFont *ft = g_font_title, *fm = g_font_menu;
-    float big = 74 * s, small = 25 * s;
-    dl->AddText(ft, big, p, IM_COL32(242, 238, 224, 255), "Slop");
-    float y = p.y + ft->CalcTextSizeA(big, FLT_MAX, 0, "Slop").y * 0.98f;
-    dl->AddText(fm, small, ImVec2(p.x + 3 * s, y), IM_COL32(190, 226, 84, 255), "of the Wild");
+    ImFont *ft = g_font_logo ? g_font_logo : g_font_title;
+    float ic = 88 * s, big = 62 * s, small = 20 * s, x = p.x;
+    if (g_logo) {
+        dl->AddImageRounded(g_logo, p, ImVec2(p.x + ic, p.y + ic), ImVec2(0, 0), ImVec2(1, 1), IM_COL32(255, 255, 255, 255), 16 * s);
+        x += ic + 16 * s;
+    }
+    const char *name = "Slop", *rest = "of the Wild";
+    ImVec2 ns = ft->CalcTextSizeA(big, FLT_MAX, 0, name), rs = ft->CalcTextSizeA(small, FLT_MAX, 0, rest);
+    float w = fmaxf(ns.x, rs.x + 44 * s), y = p.y + (ic - ns.y - rs.y) * 0.5f;
+    text_fx(dl, ft, big, ImVec2(x + (w - ns.x) * 0.5f, y), IM_COL32(255, 240, 196, 255), IM_COL32(214, 164, 78, 255), name, 2.5f * s);
+    float ry = y + ns.y - 2 * s, rx = x + (w - rs.x) * 0.5f, ly = ry + rs.y * 0.56f;
+    dl->AddRectFilledMultiColor(ImVec2(x, ly), ImVec2(rx - 6 * s, ly + 1.2f * s), IM_COL32(214, 164, 78, 0), IM_COL32(214, 164, 78, 230),
+                                IM_COL32(214, 164, 78, 230), IM_COL32(214, 164, 78, 0));
+    dl->AddRectFilledMultiColor(ImVec2(rx + rs.x + 6 * s, ly), ImVec2(x + w, ly + 1.2f * s), IM_COL32(214, 164, 78, 230), IM_COL32(214, 164, 78, 0),
+                                IM_COL32(214, 164, 78, 0), IM_COL32(214, 164, 78, 230));
+    dl->AddText(ft, small, ImVec2(rx, ry), IM_COL32(242, 238, 224, 255), rest);
 }
 
 #ifndef __APPLE__
@@ -1103,6 +1153,7 @@ extern "C" void launcher_boot_picture(void) {
     ImGui_ImplSDL3_InitForVulkan(ui_window());
     vk_imgui_backend_init();
     splash_load();
+    logo_load();
     // (three: the one presented while the window is still hidden isn't shown)
     for (int i = 0; i < 3; i++) {
         static const float clear_col[4] = {0.04f, 0.05f, 0.06f, 1};
@@ -1124,6 +1175,7 @@ extern "C" void launcher_boot_picture(void) {
         ui_window_show();
         SDL_PumpEvents();
     }
+    logo_unload();
     splash_unload();
     vk_imgui_backend_shutdown();
     ImGui_ImplSDL3_Shutdown();
@@ -1188,6 +1240,7 @@ extern "C" void launcher_run(const char *root, int mode) {
     launcher_pad_open_all();
     io.BackendFlags |= ImGuiBackendFlags_HasGamepad;
     splash_load();
+    logo_load();
 
     remove_old_image(g_root);
     std::string status = check_game_files(g_root);
@@ -1857,6 +1910,7 @@ extern "C" void launcher_run(const char *root, int mode) {
     }
     settings_save();
     SDL_SetWindowTitle(win, "Slop of the Wild");
+    logo_unload();
     splash_unload();
 #ifdef __APPLE__
     ImGui_ImplMetal_Shutdown();
