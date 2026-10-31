@@ -405,7 +405,7 @@ void build_items(void) {
                        [](const Item &) { return (int)g_settings.async_shaders; },
                        [](const Item &, int x) { g_settings.async_shaders = x; }, 1));
     // Extended draw distance (runtime/nvn/output_scale.c rt_lod_*): off by default, in steps of 50%
-    v.push_back(toggle(P_VIDEO, "Extended draw distance", "Grass and objects farther away. Off: as on the console.",
+    v.push_back(toggle(P_VIDEO, "Extended draw distance (beta)", "Grass and objects farther away. Beta, may be broken.",
                        [](const Item &) { return (int)g_settings.lod_extended; },
                        [](const Item &, int x) { g_settings.lod_extended = x; }, 0));
     {
@@ -414,19 +414,19 @@ void build_items(void) {
             snprintf(buf, sizeof buf, "%d%%", 100 + x * 50);
             return (const char *)buf;
         };
-        Item dist = choice(P_VIDEO, "Draw distance", "How far ground cover and objects draw. 100%: the game's own.",
+        Item dist = choice(P_VIDEO, "Draw distance (beta)", "How far ground cover and objects draw. Beta, may be broken.",
                            [](const Item &) { return 19; }, pct,
                            [](const Item &) { return (g_settings.lod_distance - 100) / 50; },
                            [](const Item &, int x) { g_settings.lod_distance = 100 + x * 50; }, 2);
         dist.value_off = [](const Item &, int) { return !g_settings.lod_extended; };
         v.push_back(dist);
-        Item grass = choice(P_VIDEO, "Grass density", "How much grass, and how far it reaches. 100%: the game's own.",
+        Item grass = choice(P_VIDEO, "Grass density (beta)", "How much grass, and how far it reaches. Beta, may be broken.",
                             [](const Item &) { return 29; }, pct,
                             [](const Item &) { return (g_settings.lod_grass - 100) / 50; },
                             [](const Item &, int x) { g_settings.lod_grass = 100 + x * 50; }, 2);
         grass.value_off = [](const Item &, int) { return !g_settings.lod_extended; };
         v.push_back(grass);
-        Item objects = choice(P_VIDEO, "Object distance", "Objects and enemies farther away. Enemies can notice you sooner.",
+        Item objects = choice(P_VIDEO, "Object distance (beta)", "Objects and enemies farther. They notice you sooner. Beta, may be broken.",
                               [](const Item &) { return 4; },
                               [](const Item &, int x) {
                                   static char buf[16];
@@ -549,7 +549,7 @@ void build_items(void) {
                              : [](const Item &, int x) { g_settings.stick_deadzone[0] = k_deadzone[x] / 100.0f; },
                            DEADZONE_DEFAULT));
     // Controller camera speed (runtime/hle/input.c rt_cam_stick_end): off by default, in steps of 25%
-    v.push_back(toggle(P_CONTROLS, "Controller camera speed", "A faster right stick camera. Off: the game's own speed.",
+    v.push_back(toggle(P_CONTROLS, "Controller camera speed (beta)", "A faster right stick camera. Beta, may be broken.",
                        [](const Item &) { return (int)g_settings.stick_cam_on; },
                        [](const Item &, int x) { g_settings.stick_cam_on = x; }, 0));
     {
@@ -558,13 +558,13 @@ void build_items(void) {
             snprintf(buf, sizeof buf, "%d%%", 100 + x * 25);
             return (const char *)buf;
         };
-        Item cx = choice(P_CONTROLS, "Left and right speed", "100%: the game's own speed.",
+        Item cx = choice(P_CONTROLS, "Left and right speed (beta)", "100%: the game's own speed. Beta, may be broken.",
                          [](const Item &) { return 21; }, cam_pct,
                          [](const Item &) { return (g_settings.stick_cam_x - 100) / 25; },
                          [](const Item &, int x) { g_settings.stick_cam_x = 100 + x * 25; }, 4);
         cx.value_off = [](const Item &, int) { return !g_settings.stick_cam_on; };
         v.push_back(cx);
-        Item cy = choice(P_CONTROLS, "Up and down speed", "100%: the game's own speed.",
+        Item cy = choice(P_CONTROLS, "Up and down speed (beta)", "100%: the game's own speed. Beta, may be broken.",
                          [](const Item &) { return 21; }, cam_pct,
                          [](const Item &) { return (g_settings.stick_cam_y - 100) / 25; },
                          [](const Item &, int x) { g_settings.stick_cam_y = 100 + x * 25; }, 4);

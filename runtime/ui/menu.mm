@@ -819,21 +819,21 @@ static void tab_display(void) {
                "can come out as garbage.");
     // shadow resolution (its own block)
     static const char *shadow[] = {"Console (896)", "High (2048)", "Ultra (4096)", "Extreme (8192)"};
-    opt_toggle("Extended draw distance", &g_settings.lod_extended, false,
-               "Draws grass, ground cover and objects farther away, with the two sliders below. Off: as on the console. "
-               "Costs some frame rate on the processor more than the graphics card.");
+    opt_toggle("Extended draw distance (beta)", &g_settings.lod_extended, false,
+               "Draws grass, ground cover and objects farther away, with the sliders below. Off: as on the console. Costs frame "
+               "rate, on the processor more than the graphics card. Beta, may be broken.");
     if (g_settings.lod_extended) {
         float dist = (float)g_settings.lod_distance, grass = (float)g_settings.lod_grass;
-        if (opt_slider("Draw distance", &dist, 100, 1000, 50, 200, "%g%%",
-                       "How far ground cover and objects are drawn. 100% is the game's own."))
+        if (opt_slider("Draw distance (beta)", &dist, 100, 1000, 50, 200, "%g%%",
+                       "How far ground cover and objects are drawn. 100% is the game's own. Beta, may be broken."))
             g_settings.lod_distance = (int)dist;
-        if (opt_slider("Grass density", &grass, 100, 1500, 50, 200, "%g%%",
-                       "How much grass is drawn, and how far it reaches. 100% is the game's own."))
+        if (opt_slider("Grass density (beta)", &grass, 100, 1500, 50, 200, "%g%%",
+                       "How much grass is drawn, and how far it reaches. 100% is the game's own. Beta, may be broken."))
             g_settings.lod_grass = (int)grass;
         float objects = (float)g_settings.lod_objects;
-        if (opt_slider("Object distance", &objects, 100, 175, 25, 100, "%g%%",
+        if (opt_slider("Object distance (beta)", &objects, 100, 175, 25, 100, "%g%%",
                        "How far objects and enemies are shown and kept active. 100% is the game's own. Higher: enemies can "
-                       "notice you from farther away, and it costs more frame rate."))
+                       "notice you from farther away, and it costs more frame rate. Beta, may be broken."))
             g_settings.lod_objects = (int)objects;
     }
     opt_choice("Shadow resolution", &g_settings.shadow_res, shadow, SHADOW_COUNT, SHADOW_CONSOLE,
@@ -930,14 +930,14 @@ static void tab_about(void) {
     hint("The d-pad (and the arrow keys) also move like the left stick while the stick is at rest.");
     ImGui::Spacing();
     header("Controller camera");
-    opt_toggle("Controller camera speed", &g_settings.stick_cam_on, false,
+    opt_toggle("Controller camera speed (beta)", &g_settings.stick_cam_on, false,
                "Turns the camera faster with the right stick than the game allows, with the two sliders below. Off: the "
-               "game's own speed.");
+               "game's own speed. Beta, may be broken.");
     if (g_settings.stick_cam_on) {
         float cx = (float)g_settings.stick_cam_x, cy = (float)g_settings.stick_cam_y;
-        if (opt_slider("Left and right speed", &cx, 100, 600, 25, 200, "%g%%", "100% is the game's own speed."))
+        if (opt_slider("Left and right speed (beta)", &cx, 100, 600, 25, 200, "%g%%", "100% is the game's own speed. Beta, may be broken."))
             g_settings.stick_cam_x = (int)cx;
-        if (opt_slider("Up and down speed", &cy, 100, 600, 25, 200, "%g%%", "100% is the game's own speed."))
+        if (opt_slider("Up and down speed (beta)", &cy, 100, 600, 25, 200, "%g%%", "100% is the game's own speed. Beta, may be broken."))
             g_settings.stick_cam_y = (int)cy;
     }
     ImGui::Spacing();
