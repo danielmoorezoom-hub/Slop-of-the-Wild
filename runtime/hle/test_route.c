@@ -1,4 +1,4 @@
-// (test only, never a player feature) A test run that looks where it's going. SAVAGEWIND_TEST_ROUTE=<file> (with
+// (tests, and the built-in benchmarks: runtime/benchmark.c) A test run that looks where it's going. SAVAGEWIND_TEST_ROUTE=<file> (with
 // SAVAGEWIND_HOST_INPUT set, which keeps the player's own controller out of it): steps, one a line, read while the game
 // runs, so lines added later come next (a live session: add a step, read the log, look at a shot). Each frame the sticks
 // are worked out from where Link is (uking::act::PlayerInfo +0x88) and where the world camera looks (vulkan/exec.c
@@ -24,6 +24,7 @@
 //   pokep <address> <offset> <float>   the same, at an offset from the pointer stored at address
 //   shot <name>               the window to build/<name>.png
 //   log <text>                a mark in the log
+//   bench begin|end           the frame times written down from here to there (runtime/benchmark.c)
 //   quit                      end the run
 //
 // While an event runs (a talk, a cutscene) a step waits, pressing A now and then. The log has a "[route]" line a second:
@@ -34,6 +35,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "../benchmark.h"
 #include "../framepace.h"
 #include "../game_sites.h"
 #include "../hle.h"
@@ -80,7 +82,7 @@ static void read_steps(void) {  // (only whole lines: one being added is read wh
         Step s = {{0}};
         int used = 0;
         if (sscanf(line, "%11s%n", s.op, &used) != 1 || s.op[0] == '#') continue;
-        if (!strcmp(s.op, "press") || !strcmp(s.op, "shot")) {
+        if (!strcmp(s.op, "press") || !strcmp(s.op, "shot") || !strcmp(s.op, "bench")) {
             int u2 = 0;
             sscanf(line + used, "%63s%n", s.name, &u2);
             used += u2;
@@ -330,9 +332,15 @@ void test_route_frame(int32_t *lx, int32_t *ly, int32_t *rx, int32_t *ry, uint32
         LOG("[route] %s (heading %.1f pitch %.1f)\n", s->name, have_cam ? atan2(f[0], f[1]) * 180 / PI : 0.0, have_cam ? camera_pitch() : 0.0);
         NEXT();
     }
+    if (!strcmp(s->op, "bench")) {
+        if (!strcmp(s->name, "begin")) benchmark_begin();
+        else benchmark_end();
+        NEXT();
+    }
     if (!strcmp(s->op, "quit")) {
         LOG("[route] the end\n");
         fflush(stderr);
+        benchmark_finish();
         _exit(0);
     }
     LOG("[route] unknown step \"%s\"\n", s->op);

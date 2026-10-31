@@ -28,6 +28,7 @@ extern "C" void rec_drain(void);              // runtime/nvn/vulkan/record.c
 
 extern "C" {
 #include "../hle.h"
+#include "../benchmark.h"
 #include "../settings.h"
 #include "../color_grade.h"
 #include "../window_size.h"
@@ -362,35 +363,35 @@ static void style_init(void) {  // Slop of the Wild: Sheikah slate - deep blue-b
     s.WindowPadding = ImVec2(32, 26); s.FramePadding = ImVec2(16, 9); s.ItemSpacing = ImVec2(14, 12);
     s.WindowBorderSize = 1; s.ScrollbarSize = 12; s.ScrollbarRounding = 6; s.TabBarBorderSize = 0;
     ImVec4 *c = s.Colors;
-    ImVec4 cyan(0.36f, 0.87f, 0.93f, 1), cyan_dim(0.20f, 0.55f, 0.62f, 1), deep(0.05f, 0.11f, 0.16f, 1);
+    ImVec4 cyan(0.745f, 0.886f, 0.33f, 1), cyan_dim(0.20f, 0.55f, 0.62f, 1), deep(0.05f, 0.11f, 0.16f, 1);
     c[ImGuiCol_WindowBg] = ImVec4(0.025f, 0.045f, 0.07f, 0.90f);
-    c[ImGuiCol_Border] = ImVec4(0.36f, 0.87f, 0.93f, 0.22f);
+    c[ImGuiCol_Border] = ImVec4(0.745f, 0.886f, 0.33f, 0.22f);
     c[ImGuiCol_ChildBg] = ImVec4(0, 0, 0, 0);
     c[ImGuiCol_PopupBg] = ImVec4(0.03f, 0.06f, 0.09f, 0.98f);
     c[ImGuiCol_Text] = ImVec4(0.92f, 0.95f, 0.96f, 1);
     c[ImGuiCol_TextDisabled] = ImVec4(0.48f, 0.56f, 0.60f, 1);
     c[ImGuiCol_FrameBg] = deep;
-    c[ImGuiCol_FrameBgHovered] = ImVec4(0.08f, 0.22f, 0.28f, 1);
-    c[ImGuiCol_FrameBgActive] = ImVec4(0.10f, 0.30f, 0.37f, 1);
-    c[ImGuiCol_Button] = ImVec4(0.06f, 0.14f, 0.19f, 1);
-    c[ImGuiCol_ButtonHovered] = ImVec4(0.10f, 0.30f, 0.37f, 1);
+    c[ImGuiCol_FrameBgHovered] = ImVec4(0.15f, 0.25f, 0.14f, 1);
+    c[ImGuiCol_FrameBgActive] = ImVec4(0.20f, 0.33f, 0.16f, 1);
+    c[ImGuiCol_Button] = ImVec4(0.07f, 0.15f, 0.12f, 1);
+    c[ImGuiCol_ButtonHovered] = ImVec4(0.20f, 0.33f, 0.16f, 1);
     c[ImGuiCol_ButtonActive] = ImVec4(0.14f, 0.42f, 0.50f, 1);
-    c[ImGuiCol_Header] = ImVec4(0.08f, 0.22f, 0.28f, 1);
-    c[ImGuiCol_HeaderHovered] = ImVec4(0.10f, 0.30f, 0.37f, 1);
+    c[ImGuiCol_Header] = ImVec4(0.15f, 0.25f, 0.14f, 1);
+    c[ImGuiCol_HeaderHovered] = ImVec4(0.20f, 0.33f, 0.16f, 1);
     c[ImGuiCol_HeaderActive] = ImVec4(0.14f, 0.42f, 0.50f, 1);
     c[ImGuiCol_Tab] = ImVec4(0, 0, 0, 0);
-    c[ImGuiCol_TabHovered] = ImVec4(0.10f, 0.30f, 0.37f, 0.8f);
-    c[ImGuiCol_TabSelected] = ImVec4(0.08f, 0.22f, 0.28f, 1);
+    c[ImGuiCol_TabHovered] = ImVec4(0.20f, 0.33f, 0.16f, 0.8f);
+    c[ImGuiCol_TabSelected] = ImVec4(0.15f, 0.25f, 0.14f, 1);
     c[ImGuiCol_TabSelectedOverline] = cyan;
     c[ImGuiCol_CheckMark] = cyan;
     c[ImGuiCol_SliderGrab] = cyan_dim;
     c[ImGuiCol_SliderGrabActive] = cyan;
     c[ImGuiCol_ScrollbarBg] = ImVec4(0, 0, 0, 0);
-    c[ImGuiCol_ScrollbarGrab] = ImVec4(0.36f, 0.87f, 0.93f, 0.25f);
-    c[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.36f, 0.87f, 0.93f, 0.45f);
+    c[ImGuiCol_ScrollbarGrab] = ImVec4(0.745f, 0.886f, 0.33f, 0.25f);
+    c[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.745f, 0.886f, 0.33f, 0.45f);
     c[ImGuiCol_ScrollbarGrabActive] = cyan;
     c[ImGuiCol_NavCursor] = cyan;
-    c[ImGuiCol_Separator] = ImVec4(0.36f, 0.87f, 0.93f, 0.18f);
+    c[ImGuiCol_Separator] = ImVec4(0.745f, 0.886f, 0.33f, 0.18f);
     c[ImGuiCol_TitleBg] = c[ImGuiCol_TitleBgActive] = c[ImGuiCol_WindowBg];
 }
 
@@ -488,7 +489,7 @@ static void drain_events(ImGuiIO &io) {
 // Section header in the big font.
 static void header(const char *t) {  // (Slop of the Wild: a section title as on the other tabs - cyan, upper case)
     std::string u = tr_upper(tr(t));
-    ImGui::TextColored(ImVec4(0.36f, 0.87f, 0.93f, 1), "%s", u.c_str());
+    ImGui::TextColored(ImVec4(0.745f, 0.886f, 0.33f, 1), "%s", u.c_str());
     ImGui::Separator();
     ImGui::Spacing();
 }
@@ -722,6 +723,16 @@ static void tab_display(void) {
                "FPS: the frame rate and frame time. Full: also CPU, memory and GPU load and temperatures, and a "
                "frame time graph. F10 switches between them while you play.");
 
+    opt_section("Benchmark");
+    for (int i = 0; i < benchmark_count(); i++) {  // (runtime/benchmark.c: the game restarts for it)
+        std::string d = std::string(tr(benchmark_about(i))) + " " +
+                        tr("The game restarts, walks the route by itself from a copy of your save, and comes back to the start "
+                           "screen. Your save isn't touched, but unsaved progress is lost.");
+        if (!benchmark_can_run()) d = tr("Needs a save to start from: play until the game has saved, then try again.");
+        std::string l = std::string(tr("Benchmark:")) + " " + benchmark_name(i);
+        if (!benchmark_can_run()) opt_disable_next();
+        if (opt_action(l.c_str(), *benchmark_last(i) ? benchmark_last(i) : tr("Run"), d.c_str(), false)) benchmark_run(i);
+    }
     opt_section("Rendering");
     {   // Graphics preset (settings.h): sets the rows it names; "Custom" is shown, never picked
         static const char *const gp[] = {"Potato", "Low", "Medium", "High", "Custom"};
@@ -1240,8 +1251,8 @@ static void tabs_body(float scale, bool in_game, void (*prelaunch)(float)) {
             bool lit = focused_tab == t.id && ImGui::GetCurrentContext()->NavCursorVisible;
             ImGui::PushStyleColor(ImGuiCol_NavCursor, ImVec4(0, 0, 0, 0));
             if (lit) {
-                ImGui::PushStyleColor(ImGuiCol_Tab, ImVec4(0.08f, 0.22f, 0.28f, 1));
-                ImGui::PushStyleColor(ImGuiCol_TabHovered, ImVec4(0.08f, 0.22f, 0.28f, 1));
+                ImGui::PushStyleColor(ImGuiCol_Tab, ImVec4(0.15f, 0.25f, 0.14f, 1));
+                ImGui::PushStyleColor(ImGuiCol_TabHovered, ImVec4(0.15f, 0.25f, 0.14f, 1));
             }
             if (g_focus_tab == -1 && !prelaunch) g_focus_tab = 8;  // (no Prelaunch in game: Controls, the first tab)
             bool focus_here = g_focus_tab == t.id || (g_focus_tab == -100 && t.id == g_tab);
@@ -1258,7 +1269,7 @@ static void tabs_body(float scale, bool in_game, void (*prelaunch)(float)) {
                 ImVec2 a = ImGui::GetItemRectMin(), b = ImGui::GetItemRectMax();
                 float h = 4 * scale > 2 ? 4 * scale : 2;
                 ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(a.x + 2, b.y - h), ImVec2(b.x - 2, b.y),
-                                                          IM_COL32(92, 222, 238, 255));  // (the menu accent)
+                                                          IM_COL32(190, 226, 84, 255));  // (the menu accent)
             }
             if (ImGui::IsItemFocused()) focused_tab = t.id;
             else if (focused_tab == t.id) focused_tab = -99;
@@ -1386,7 +1397,7 @@ void menu_render(void *cmd, uint32_t target_w, uint32_t target_h) {
         dl->AddText(f1, fh, ImVec2(xr - s1.x + o, y1 + o), IM_COL32(0, 0, 0, sh), l1);
         dl->AddText(f1, fh, ImVec2(xr - s1.x, y1), IM_COL32(246, 244, 236, a), l1);
         dl->AddText(f2, fh * 0.8f, ImVec2(xr - s2.x + o, y2 + o), IM_COL32(0, 0, 0, sh), l2);
-        dl->AddText(f2, fh * 0.8f, ImVec2(xr - s2.x, y2), IM_COL32(150, 226, 236, a), l2);
+        dl->AddText(f2, fh * 0.8f, ImVec2(xr - s2.x, y2), IM_COL32(190, 226, 84, a), l2);
     }
 
     if (open) {
@@ -1411,7 +1422,7 @@ void menu_render(void *cmd, uint32_t target_w, uint32_t target_h) {
         // header as on the start screen's Settings: the title, and a close X in the corner (B / Esc too). ("Title
         // screen" - rt_request_reboot(RT_REBOOT_TITLE) - is to find a new home; user 2026-10-11.)
         ImGui::PushFont(g_font_big);
-        ImGui::TextColored(ImVec4(0.36f, 0.87f, 0.93f, 1), "%s", tr("Settings"));
+        ImGui::TextColored(ImVec4(0.745f, 0.886f, 0.33f, 1), "%s", tr("Settings"));
         ImGui::SameLine();
         ImGui::TextDisabled("Slop of the Wild " SLOP_VERSION);
         ImGui::PopFont();
@@ -1423,7 +1434,7 @@ void menu_render(void *cmd, uint32_t target_w, uint32_t target_h) {
             bool close = ImGui::InvisibleButton("##close", ImVec2(bx, bx), ImGuiButtonFlags_EnableNav);
             ImGui::PopStyleColor();
             bool hot = ImGui::IsItemHovered() || ImGui::IsItemFocused();
-            ImU32 col = hot ? IM_COL32(92, 222, 238, 255) : IM_COL32(205, 215, 220, 255);
+            ImU32 col = hot ? IM_COL32(190, 226, 84, 255) : IM_COL32(205, 215, 220, 255);
             float m = bx * 0.3f, t = (hot ? 3.0f : 2.4f) * scale * 1.5f;
             ImDrawList *dl = ImGui::GetWindowDrawList();
             if (hot) dl->AddRectFilled(p, ImVec2(p.x + bx, p.y + bx), IM_COL32(255, 255, 255, 20), 8 * scale);

@@ -237,6 +237,7 @@ void settings_load(void) {
 #define CLAMP(v, lo, hi) ((v) < (lo) ? (lo) : (v) > (hi) ? (hi) : (v))
     g_settings.stick_cam_x = CLAMP(g_settings.stick_cam_x, 100, 600);
     g_settings.stick_cam_y = CLAMP(g_settings.stick_cam_y, 100, 600);
+    if (getenv("SAVAGEWIND_BENCHMARK")) g_settings.vsync = VSYNC_OFF;  // (its own copy of the settings: runtime/benchmark.c)
     g_settings.lod_distance = CLAMP(g_settings.lod_distance, 100, 1000);
     g_settings.lod_grass = CLAMP(g_settings.lod_grass, 100, 1500);
     g_settings.lod_objects = CLAMP(g_settings.lod_objects, 100, 140);

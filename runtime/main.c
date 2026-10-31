@@ -343,6 +343,7 @@ int main(int argc, char **argv) {
     if (launcher_config_key_held()) config = true;  // (the Mac's "Savage Wind Configuration": Option held)
 #endif
     rt_paths_init();  // the data root becomes the working directory (runtime/paths.h)
+    { extern void benchmark_start_up(void); benchmark_start_up(); }  // (a benchmark's own process: runtime/benchmark.c)
     if (dump) return dump_romfs(root, dump);
     if (scan) return scan_shaders(root);
 #ifndef __APPLE__

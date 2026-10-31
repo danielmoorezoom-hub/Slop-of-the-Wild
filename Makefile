@@ -303,6 +303,7 @@ dist:
 	cp runtime/cpu.h runtime/simd.h runtime/simd_fp.h runtime/simd_softfma.h runtime/gamelib.h tools/gamelib_entry.c \
 	    runtime/hle/hle_symbols.txt "$(DIST)/gamelib-src/"
 	cp docs/icon/icon_1024.png "$(DIST)/icon.png"
+	cp docs/art/launcher-art.png "$(DIST)/"  # (the start screen's picture: replace the file to change it)
 	cp third_party/fonts/FiraSans/FiraSans-SemiBold.ttf third_party/fonts/FiraSans/FiraSans-Medium.ttf "$(DIST)/"  # (menus, OFL)
 	cp third_party/fonts/FiraSans/OFL.txt "$(DIST)/FiraSans-OFL.txt"
 	cp third_party/fonts/NotoSansThai/NotoSansThai-Medium.ttf "$(DIST)/"  # (Thai menus, OFL)

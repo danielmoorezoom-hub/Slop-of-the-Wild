@@ -33,6 +33,7 @@ extern "C" {
 #include "../language.h"
 #include "../game_sites.h"
 #include "../nvn/output_scale.h"
+#include "../benchmark.h"
 #include "../settings.h"
 #include "../color_grade.h"
 #include "../window_size.h"
@@ -84,7 +85,7 @@ static_assert(sizeof(Entry) == 0x30);
 enum { KIND_TOGGLE = 0, KIND_CHOICE = 1, KIND_BUTTON = 2 };
 
 enum Page { P_MAIN, P_GAMEPLAY, P_VIDEO, P_COLOUR, P_AUDIO, P_CONTROLS, P_KEYS, P_STICKS, P_PAD, P_LANGUAGE, P_COUNT };
-enum Action { A_NONE, A_PAGE, A_BIND_KEY, A_BIND_PAD, A_RESET_KEYS, A_RESET_PAD, A_RESTART, A_QUIT, A_SIZE_LIST };
+enum Action { A_NONE, A_PAGE, A_BIND_KEY, A_BIND_PAD, A_RESET_KEYS, A_RESET_PAD, A_RESTART, A_QUIT, A_SIZE_LIST, A_BENCHMARK };
 
 struct Item {
     int page;
@@ -414,6 +415,14 @@ void build_items(void) {
     v.push_back(toggle(P_VIDEO, "Asynchronous shaders", "On: no stutter, but some effects appear late.",
                        [](const Item &) { return (int)g_settings.async_shaders; },
                        [](const Item &, int x) { g_settings.async_shaders = x; }, 1));
+    for (int i = 0; i < benchmark_count(); i++) {  // (runtime/benchmark.c: the game restarts for it)
+        static std::string names[8], descs[8];
+        names[i] = std::string("Benchmark: ") + benchmark_name(i);
+        descs[i] = std::string(benchmark_can_run() ? "Restarts the game and walks a set route, on a copy of your save. Unsaved progress is lost."
+                                                   : "Needs a save to start from.") +
+                   (*benchmark_last(i) ? std::string(" Last: ") + benchmark_last(i) : std::string());
+        v.push_back(button(P_VIDEO, names[i].c_str(), descs[i].c_str(), "Run", A_BENCHMARK, i));
+    }
     // Extended draw distance (runtime/nvn/output_scale.c rt_lod_*): off by default, in steps of 50%
     v.push_back(toggle(P_VIDEO, "Extended draw distance (beta)", "Grass and objects farther away. Beta, may be broken.",
                        [](const Item &) { return (int)g_settings.lod_extended; },
@@ -956,6 +965,9 @@ extern "C" int rt_opt_decide(uint64_t row) {
             settings_save();
             rt_request_reboot(1);
         }
+        return 2;
+    case A_BENCHMARK:
+        benchmark_run(it->arg);  // (only comes back if it can't start)
         return 2;
     case A_QUIT:
         return 3;

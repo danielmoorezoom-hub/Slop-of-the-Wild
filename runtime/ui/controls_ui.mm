@@ -75,7 +75,7 @@ extern "C" void controls_bindings_draw(float scale) {
         else if (kind == 4) snprintf(msg, sizeof msg, tr("Nothing pressed: %s unchanged."), tr(bind_input_name(rslot)));
         if (kind == 1 || kind == 2 || kind == 5) settings_save();
     }
-    if (msg[0]) ImGui::TextColored(ImVec4(0.36f, 0.87f, 0.93f, 1), "%s", msg);
+    if (msg[0]) ImGui::TextColored(ImVec4(0.745f, 0.886f, 0.33f, 1), "%s", msg);
 
     if (ImGui::BeginTable("##binds", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_PadOuterX)) {
         ImGui::TableSetupColumn("Switch", ImGuiTableColumnFlags_WidthStretch, 1.0f);

@@ -212,11 +212,11 @@ unsigned long long rt_game_files_size(const char *game_dir) {
     return n;
 }
 
-// The player's own start screen picture (runtime/ui/splash.mm): splash.jpg / splash.jpeg / splash.png in the data root
-// (next to the exe; a source checkout's root). Never shipped and never tracked (.gitignore): whatever the player puts
-// there, for themselves.
+// The start screen's picture (runtime/ui/splash.mm), in the data root (next to the exe; a source checkout's root): launcher-art.png,
+// which is shipped (docs/art, drawn by docs/art/make_art.py) and can simply be replaced; else the player's own splash.jpg / splash.jpeg
+// / splash.png, never shipped and never tracked (.gitignore). With one there, the game doesn't capture its title art.
 bool rt_user_splash(char *out, size_t n) {
-    static const char *const names[] = {"splash.jpg", "splash.jpeg", "splash.png"};
+    static const char *const names[] = {"launcher-art.png", "splash.jpg", "splash.jpeg", "splash.png"};
     char p[1100];
     for (size_t i = 0; i < sizeof names / sizeof *names; i++) {
         snprintf(p, sizeof p, "%s" SEP "%s", g_root, names[i]);

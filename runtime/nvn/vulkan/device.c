@@ -1823,6 +1823,10 @@ static void present_locked(NvnTexture *t) {
     vk_prof_frame(total_frames, SDL_GetTicksNS() - t0);
     extern void vk_list_stats_frame(void);
     vk_list_stats_frame();
+    {
+        extern void benchmark_frame(uint64_t ns);
+        benchmark_frame(SDL_GetTicksNS());
+    }
     {   // SAVAGEWIND_FRAME_LOG=1: "[ft] <ms> <frame> <target fps>" at every present (frame time statistics)
         static int ft = -1;
         if (ft < 0) ft = getenv("SAVAGEWIND_FRAME_LOG") != NULL;
