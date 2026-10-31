@@ -9,7 +9,7 @@
 //                  game's composite (vulkan/exec.c scene_upscale)
 //   MetalFX        (macOS) metal.m has no scene / final split yet: the modes stay greyed there, and MetalFX scales the
 //                  game's image to a bigger window
-//   AMD FSR 3      as FSR 1's modes, then rebuilt from past frames with motion vectors (vulkan/fsr3.cpp, vulkan/mvec.c)
+//   DLSS           listed as coming later
 // The window size itself is Video > Window size (runtime/window_size.c). On a window that isn't 16:9, Video > Fill wide
 // screens widens the game's views to it (rt_persp, below) and its 16:9 render targets with them; off, the 16:9 image
 // is fitted into the window with bars. Video > Field of view scales the world's camera in play (rt_persp).
@@ -29,33 +29,19 @@
 #define MAX_TEX 16384.0
 #define SCENE_LINES 900.0  // the height of the game's 3D scene targets (docked)
 
-#ifndef __APPLE__
-bool fsr3_available(void);  // (vulkan/fsr3.h: built in)
-#endif
-// Slop of the Wild: FSR 3 upscaling is offered (Video > Upscaler, off by default). Upstream held it back: where the thread
-// that records the frame for Vulkan limits the frame rate, its motion vectors can make a mode slower than native.
-// SAVAGEWIND_FSR3=0 turns it off (tests).
-bool fsr3_upscaler_enabled(void) {
-    static int on = -1;
-    if (on < 0) on = !getenv("SAVAGEWIND_FSR3") || atoi(getenv("SAVAGEWIND_FSR3")) != 0;
-    return on;
-}
-
 bool upscaler_available(int u) {
 #ifdef __APPLE__
     return u == UPSCALE_OFF || u == UPSCALE_METALFX;
 #else
-    return u == UPSCALE_OFF || u == UPSCALE_FSR1 || (u == UPSCALE_FSR3 && fsr3_available() && fsr3_upscaler_enabled());
+    return u == UPSCALE_OFF || u == UPSCALE_FSR1;
 #endif
 }
 
-bool rt_fsr3(void) { return g_settings.upscaler == UPSCALE_FSR3 && upscaler_available(UPSCALE_FSR3); }
-
-bool rt_temporal(void) { return rt_antialias() == AA_TAA || rt_fsr3(); }
+bool rt_temporal(void) { return rt_antialias() == AA_TAA; }
 
 double upscale_mode_factor(int q) {
     static const double f[UPQ_COUNT] = {1.3, 1.5, 1.7, 2.0, 3.0};
-    return q == UPQ_COUNT ? 1.0 : q >= 0 && q < UPQ_COUNT ? f[q] : 1.5;  // (UPQ_COUNT: SAVAGEWIND_UPSCALE_AT fsr3-native)
+    return q >= 0 && q < UPQ_COUNT ? f[q] : 1.5;
 }
 
 // Rendering below the window's size: the 3D scene's render targets at their own scale (vulkan/textures.c). Metal has
@@ -180,22 +166,6 @@ float output_view_shape(void) { return g_view_shape; }
 // copy; with tan alone a band of the far ground went dark and shadows were missing at the screen's edges above 100%
 // (#162, #203). The game sets fovy again every frame, so it doesn't build up. SAVAGEWIND_NO_FOV_CAMERA_FIX=1: tan and
 // aspect only.
-static WorldProj g_world;
-static pthread_mutex_t world_lock = PTHREAD_MUTEX_INITIALIZER;
-
-void output_world_proj_set(float t, float a, float n, float f) {
-    pthread_mutex_lock(&world_lock);
-    g_world = (WorldProj){t, a, n, f, g_world.serial + 1};
-    pthread_mutex_unlock(&world_lock);
-}
-
-bool output_world_proj(WorldProj *p) {
-    pthread_mutex_lock(&world_lock);
-    *p = g_world;
-    pthread_mutex_unlock(&world_lock);
-    return p->serial != 0;
-}
-
 static struct { uint64_t proj; uint32_t set_t, set_a, wrote_t, wrote_a; } wide_cam[16];
 static unsigned wide_cam_next;
 static pthread_mutex_t wide_cam_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -239,7 +209,6 @@ void rt_persp(uint64_t proj, uint32_t *tan_fovy, uint32_t *aspect) {
     a *= shape;
     if (shape < 1) t /= shape;  // (a taller window: the horizontal view kept, more above and below)
     memcpy(tan_fovy, &t, 4), memcpy(aspect, &a, 4);
-    if (world) output_world_proj_set(t, a, nf[0], nf[1]);
     if (world && wide_fix && (*tan_fovy != set_t || *aspect != set_a)) {  // (the world's camera: written back)
         memcpy((void *)(uintptr_t)(proj + 0xac), tan_fovy, 4), memcpy((void *)(uintptr_t)(proj + 0xb0), aspect, 4);
         if (*tan_fovy != set_t && wide_fov) {  // fovy, sin and cos of its half too
@@ -288,9 +257,9 @@ void rt_frustum(uint64_t proj, float *f) {
     }
 }
 
-// Temporal anti-aliasing / upscaling jitter (Video > Anti-aliasing TAA, Upscaler FSR 3; SAVAGEWIND_JITTER=1 / 0 whatever
+// Temporal anti-aliasing jitter (Video > Anti-aliasing TAA; SAVAGEWIND_JITTER=1 / 0 whatever
 // the setting): the world camera's projection moved by a sub-pixel offset, a Halton (2, 3) sequence over 8 presented
-// frames (FSR 3: its own count, rt_jitter_set_phases) (framepace_shown_frame: every matrix made in one frame gets the
+// frames (framepace_shown_frame: every matrix made in one frame gets the
 // same, and the paused game's two updates a frame one phase), [-0.5, 0.5] pixels of the scene's render size
 // (rt_jitter_set_size). It lands in the projection of the frame's
 // camera block, where vulkan/mvec.c reads it back and takes it out of the motion vectors.
@@ -305,10 +274,6 @@ bool rt_jitter_on(void) {
     if (env == -2) env = getenv("SAVAGEWIND_JITTER") ? atoi(getenv("SAVAGEWIND_JITTER")) != 0 : -1;
     return env >= 0 ? env : rt_temporal();
 }
-
-// The jitter sequence's length: 8, or FSR 3's for its upscale (fsr3_jitter_phases, set by vulkan/exec.c)
-static uint32_t jitter_phases = 8;
-void rt_jitter_set_phases(uint32_t n) { __atomic_store_n(&jitter_phases, n ? n : 8, __ATOMIC_RELAXED); }
 
 // Video > Anti-aliasing (settings.h AA_*). Test override: SAVAGEWIND_AA_AT=<frame>:<off|smaa|taa>,... from that
 // presented frame on (same-view A/B in one run).
@@ -355,7 +320,7 @@ void rt_persp_offset(uint64_t proj, uint32_t *x, uint32_t *y) {
     }
     uint32_t w = __atomic_load_n(&jitter_size[0], __ATOMIC_RELAXED), h = __atomic_load_n(&jitter_size[1], __ATOMIC_RELAXED);
     if (nf[1] > 10001 && rt_jitter_on() && w && h) {
-        uint32_t n = __atomic_load_n(&jitter_phases, __ATOMIC_RELAXED);
+        uint32_t n = 8;
         uint32_t i = (uint32_t)(framepace_shown_frame() % n) + 1;  // (from 1: Halton's 0 is 0)
         ox += (halton(i, 2) - 0.5f) / (float)w;
         oy += (halton(i, 3) - 0.5f) / (float)h;  // (the projection gets twice the offset: NDC is 2 wide)

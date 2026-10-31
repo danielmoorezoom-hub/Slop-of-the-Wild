@@ -1714,7 +1714,7 @@ VkSampler vk_sampler(NvnSamplerDesc *d, bool aniso_ok, float bias) {
         if (!memcmp(&g_samplers[i].key, &key, sizeof key)) s = g_samplers[i].s;
     bool found = s != VK_NULL_HANDLE;
     // maxSamplerAllocationCount (4000 on Intel's Windows driver, the spec's minimum) counts every VkSampler alive;
-    // keep some for the rest of the renderer (imgui, FidelityFX, the default samplers). Past it, or when the driver
+    // keep some for the rest of the renderer (imgui, the default samplers). Past it, or when the driver
     // refuses one (#239: -2 on an Intel Iris Xe), the closest existing sampler stands in rather than ending the game.
     uint32_t limit = g_vk.props.limits.maxSamplerAllocationCount;
     bool full = limit > 256 && (uint32_t)g_nsamplers >= limit - 128;

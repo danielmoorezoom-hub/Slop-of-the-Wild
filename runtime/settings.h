@@ -3,17 +3,15 @@
 #include <stdbool.h>
 
 // Upscalers (Video > Upscaler; runtime/nvn/output_scale.c): Off renders at the window's size; the others render
-// smaller by their quality mode's factor and scale up to the window. DLSS is listed as coming later.
+// smaller by their quality mode's factor and scale up to the window.
 enum { UPSCALE_OFF = 0, UPSCALE_METALFX = 1 /* macOS */, UPSCALE_FSR1 = 2 /* AMD FSR 1, Vulkan */,
-       UPSCALE_FSR3 = 3 /* AMD FSR 3.1, Vulkan where built in (vulkan/fsr3.h) */, UPSCALE_DLSS = 4 /* NVIDIA DLSS: not yet */,
+       UPSCALE_DLSS = 3 /* NVIDIA DLSS: not yet */,
        UPSCALE_COUNT };
 #ifdef __APPLE__
 #define UPSCALE_SPATIAL UPSCALE_METALFX  // each OS's spatial upscaler
-#define UPSCALE_FSR3_OR_SPATIAL UPSCALE_METALFX  // (a settings file from another OS)
 #define UPSCALE_DEFAULT UPSCALE_METALFX  // (Metal has no internal resolution yet: MetalFX scales the image to the window)
 #else
 #define UPSCALE_SPATIAL UPSCALE_FSR1
-#define UPSCALE_FSR3_OR_SPATIAL UPSCALE_FSR3
 #define UPSCALE_DEFAULT UPSCALE_OFF      // the 3D image at the window's resolution
 #endif
 // quality modes, AMD's scale factors (per axis): Ultra Quality 1.3, Quality 1.5, Balanced 1.7, Performance 2.0,
@@ -48,15 +46,13 @@ typedef struct {
     bool fullscreen;
     int window_w, window_h;  // Video > Window size, pixels (0: not chosen; runtime/window_size.c)
     int upscaler;        // UPSCALE_*: Off (render at the window's size), or render smaller and scale up
-    int upscale_quality; // UPQ_*: the upscaler's mode (how much smaller it renders; UPQ_COUNT: native, not at all)
-    int fsr_sharpness;   // FSR 3's sharpening (AMD RCAS), percent, 0 (off) .. 100 in steps of 10 (vulkan/exec.c)
+    int upscale_quality; // UPQ_*: the upscaler's mode (how much smaller it renders)
     int antialias;       // AA_*: anti-aliasing of the game image before it is scaled to the window
     int anisotropy;      // texture filtering: 0 the game's own, 1..4 = 2x, 4x, 8x, 16x (vulkan/textures.c)
     int sharpening;      // AMD CAS sharpening of the 3D image, 0 (off) .. 10 (100%) (vulkan/exec.c scene_post)
     int clarity;         // Cemu's Clarity in place of BOTW's tone map: 0 off, 1 Serfrost, 2 dim, 3 bright display (nvn/vulkan/clarity.c)
     bool fast_path;      // AMD / Intel on Windows: attachment feedback loops on (vulkan/device.c); about 1.6x the frame rate
     int render_scale;    // supersampling: 0 = 100% (the window's size), 1 = 125%, 2 = 150%, 3 = 200% (nvn/output_scale.c)
-    bool frame_gen;      // AMD FSR 3 frame generation (vulkan/framegen.cpp). Slop of the Wild: not offered, always off
     float volume;        // master volume, 1 = 100%
     bool reverb;         // room reverb effect
     bool movie_audio;

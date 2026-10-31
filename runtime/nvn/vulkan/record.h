@@ -28,7 +28,7 @@ void rec_UpdateDescriptorSets(uint32_t n, const VkWriteDescriptorSet *w);
 uint64_t rec_submitted(void);           // the latest submission handed to the driver (the timeline value it signals)
 void rec_wait_submitted(uint64_t seq);  // until the driver has submission seq (seq must have been passed to rec_QueueSubmit2)
 // Everything queued so far is recorded and submitted (the translating thread): before vkDeviceWaitIdle, before
-// recording into a command buffer directly (the menu's ImGui, frame generation), before using the queue outside it.
+// recording into a command buffer directly (the menu's ImGui), before using the queue outside it.
 void rec_drain(void);
 
 // ---- profiling (SAVAGEWIND_VK_PROF): counts since the last take

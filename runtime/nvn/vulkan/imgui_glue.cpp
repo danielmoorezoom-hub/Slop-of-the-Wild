@@ -23,7 +23,7 @@ extern "C" bool vk_imgui_backend_init(void) {
     ii.Queue = g_vk.queue;
     ii.DescriptorPoolSize = 64;
     ii.MinImageCount = 2;
-    // vertex buffers rotate per image: cover frames in flight (twice: frame generation draws the menu on both frames)
+    // vertex buffers rotate per image: cover frames in flight, twice over
     ii.ImageCount = 2 * (g_vk.sc_count > 3 ? g_vk.sc_count : 3) + 1;
     ii.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     ii.PipelineCache = g_vk.pcache;

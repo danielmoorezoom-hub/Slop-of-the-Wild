@@ -13,7 +13,7 @@
 //    met (kinds[] below), else float.
 // Keys of the shader key log for the same binary are added as they are: what this player's game used.
 //
-// Motion vector variants (Video > Anti-aliasing TAA, FSR 3: vulkan/mvec.c; exec.c draw_ picks them): with motion
+// Motion vector variants (Video > Anti-aliasing TAA: vulkan/mvec.c; exec.c draw_ picks them): with motion
 // vectors on, a pass with the internal-resolution scene depth gets the motion target appended after its color targets
 // (slot = the pass's color target count, exec.c begin_pass), and in it
 //  - a depth-writing draw (not full-screen) uses its program's motion variant: vertex key + mvec 1 and fragment key +

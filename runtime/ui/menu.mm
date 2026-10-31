@@ -188,11 +188,10 @@ extern "C" bool menu_input_captured(void) {
     return capturing() || game_options_input_hold() || SDL_GetTicks() < g_sizes_hold.load();
 }
 
-// In game the settings are the game's own Options screen (game_options.mm): F1, Esc and the controller's home button no
-// longer open this menu (SAVAGEWIND_OVERLAY=1 brings it back). Esc frees the mouse cursor instead, a click in the
-// window holds it again (runtime/hle/input.c).
+// In game the settings are the game's own Options screen (game_options.mm); on the keyboard, Esc frees the mouse cursor
+// and a click in the window holds it again (runtime/hle/input.c).
 static bool overlay_enabled(void) {
-    // Slop of the Wild: the overlay is back - F1 / Esc / Guide / Back+Start open it (SAVAGEWIND_OVERLAY=0: off)
+    // Slop of the Wild: this menu is the controller's: Home (PS, Xbox) or Back+Start opens it (SAVAGEWIND_OVERLAY=0: off)
     static const bool on = !(getenv("SAVAGEWIND_OVERLAY") && *getenv("SAVAGEWIND_OVERLAY") == '0');
     return on;
 }
@@ -221,13 +220,8 @@ bool menu_handle_event(const SDL_Event *e) {
     }
     switch (e->type) {
     case SDL_EVENT_KEY_DOWN:
-        if (!e->key.repeat && (e->key.scancode == SDL_SCANCODE_F1 ||
-                               (e->key.scancode == SDL_SCANCODE_ESCAPE && !g_open.load()))) {
-            if (!overlay_enabled()) {
-                if (e->key.scancode == SDL_SCANCODE_ESCAPE && !typing) g_cursor_free = !g_cursor_free.load();
-                return true;
-            }
-            if (!typing) set_open(!g_open.load());  // (Esc with the menu open goes to ImGui below: it cancels a field)
+        if (!e->key.repeat && e->key.scancode == SDL_SCANCODE_ESCAPE && !g_open.load()) {  // (menu open: closes it, below)
+            if (!typing) g_cursor_free = !g_cursor_free.load();
             return true;
         }
         if (!e->key.repeat && e->key.scancode == SDL_SCANCODE_F10 && !typing) {  // performance overlay: off, FPS, full
@@ -546,7 +540,6 @@ static bool toggle(const char *label, bool *v) {
 extern "C" void renderer_get_scale(float *sx, float *sy);
 extern "C" void renderer_get_scene_scale(float *sx, float *sy);
 extern "C" bool renderer_gpu_rtx(void);  // (vulkan/device.c, metal.m)
-extern "C" volatile int g_fg_active;     // (hle/framepace.c: the last presented frame was generated)
 // Video > Upscaler mode's names, by UPQ_*
 static const char *const k_upscale_modes[UPQ_COUNT] = {"Ultra Quality", "Quality", "Balanced", "Performance", "Ultra Performance"};
 extern "C" {
@@ -730,8 +723,9 @@ static void tab_display(void) {
                "frame time graph. F10 switches between them while you play.");
 
     opt_section("Rendering");
-    {   // Upscaler: Off, and this OS's upscaler (its modes on the row below; Slop of the Wild: AMD FSR 3, no FSR 1).
-        // Values that can't be picked yet are shown greyed; stepping onto them keeps the one in use.
+#ifdef __APPLE__  // (Slop of the Wild: render scale supersamples instead; settings.c keeps the upscaler off elsewhere)
+    {   // Upscaler: Off, this OS's spatial upscaler (its modes on the row below), and the temporal ones still to come.
+        // Values that can't be picked yet are shown greyed ("coming soon"); stepping onto them keeps the one in use.
         // The modes wait for render-target scaling (upscale_modes_available): until then the upscaler brings the
         // game's own 1920 x 1080 image to a bigger window.
 #ifdef __APPLE__
@@ -740,14 +734,6 @@ static void tab_display(void) {
         const char *ud = "How the game's image (1920 x 1080) is scaled up to a bigger window. Off: plain (bilinear) "
                          "scaling. MetalFX: Apple's upscaler, sharper.\n\nRendering below the window's size (the modes "
                          "below) is coming in a later version.";
-#else
-        const char *ups[] = {"Off", "AMD FSR 3"};
-        static const int ups_value[] = {UPSCALE_OFF, UPSCALE_FSR3};
-        const char *ud = "Off: the 3D image renders at the window's resolution. AMD FSR 3: it renders smaller (the mode "
-                         "below) and builds the full-resolution image from the frames before, following the game's motion, "
-                         "anti-aliased (Anti-aliasing has no effect with it). The HUD and menus always render at the "
-                         "window's resolution.\n\nOften softer and slower than Off: where the processor limits the frame "
-                         "rate, as it does on a fast graphics card, rendering smaller gains nothing.";
 #endif
         enum { NU = sizeof ups_value / sizeof ups_value[0] };
         bool avail[NU];
@@ -761,41 +747,32 @@ static void tab_display(void) {
         for (int i = 0; i < NU; i++) if (ups_value[i] == UPSCALE_DEFAULT) udef = i;
         if (opt_choice_avail("Upscaler", &ui, &shown, ups, avail, NU, udef, ud)) g_settings.upscaler = ups_value[ui];
         // its mode (AMD's scale factors), one step in; greyed when the upscaler is off
-        // (Slop of the Wild: Native, UPQ_COUNT: no smaller, the upscaler only anti-aliases; settings.c: softer modes removed)
-        static const int mode_value[] = {UPQ_COUNT, UPQ_ULTRA, UPQ_QUALITY};
-        static const char *const modes[] = {"Native", "Ultra Quality", "Quality"};
-        enum { NM = sizeof mode_value / sizeof mode_value[0] };
+        const char *const *modes = k_upscale_modes;
         bool modes_ok = upscale_modes_available();
-        std::string mode_names[NM];
-        const char *mn[NM];
-        bool mavail[NM];
-        int mi = NM - 1;
-        for (int i = 0; i < NM; i++) {
+        std::string mode_names[UPQ_COUNT];
+        const char *mn[UPQ_COUNT];
+        bool mavail[UPQ_COUNT];
+        for (int i = 0; i < UPQ_COUNT; i++) {
             mode_names[i] = modes_ok ? tr(modes[i]) : std::string(tr(modes[i])) + " " + tr("(coming soon)");
             mn[i] = mode_names[i].c_str();
             mavail[i] = modes_ok;
-            if (mode_value[i] == g_settings.upscale_quality) mi = i;
         }
         float sx, sy;  // the 3D scene's size (BOTW docked: 1600 x 900 times its scale)
         renderer_get_scene_scale(&sx, &sy);
         char rendering[100];
         snprintf(rendering, sizeof rendering, tr("Rendering at %.0f x %.0f."), 1600.0 * sx, 900.0 * sy);
         std::string md = std::string(tr("How much smaller the game renders before the upscaler brings it to the window, "
-                                        "on each side: Native not at all (the sharpest: the upscaler only smooths edges), "
-                                        "Ultra Quality 1.3x, Quality 1.5x.")) +
+                                        "on each side: Ultra Quality 1.3x, Quality 1.5x, Balanced 1.7x, Performance "
+                                        "2x, Ultra Performance 3x. Smaller is faster and softer.")) +
                          "\n\n" + (modes_ok ? rendering : tr("Coming in a later version."));
         opt_indent(1);
         if (g_settings.upscaler == UPSCALE_OFF) opt_disable_next();
         static int mshown = -1;
-        if (opt_choice_avail("Upscaler mode", &mi, &mshown, mn, mavail, NM, NM - 1, md.c_str()))
-            g_settings.upscale_quality = mode_value[mi];
-#ifndef __APPLE__
-        if (g_settings.upscaler == UPSCALE_OFF) opt_disable_next();
-        opt_int("FSR sharpening", &g_settings.fsr_sharpness, 0, 100, 10, 50, "%d%%",
-                "How much FSR 3 sharpens the image it builds (AMD RCAS). Too high and edges get halos.", "Off");
-#endif
+        opt_choice_avail("Upscaler mode", &g_settings.upscale_quality, &mshown, mn, mavail, UPQ_QUALITY + 1, UPQ_QUALITY,
+                         md.c_str());
         opt_indent(-1);
     }
+#endif
 #ifdef __APPLE__
     static const char *aa[] = {"Off", "SMAA"};
     opt_choice("Anti-aliasing", &g_settings.antialias, aa, 2, AA_SMAA,
@@ -937,7 +914,7 @@ static void tab_about(void) {
     ImGui::Spacing();
     header("Mouse");
     toggle("Mouse camera", &g_settings.mouse_camera);
-    hint("The mouse turns the camera. While you play, the cursor stays in the window; Esc or F1 frees it.");
+    hint("The mouse turns the camera. While you play, the cursor stays in the window; Esc frees it.");
     float sens = roundf(g_settings.mouse_sens * 100);
     if (opt_slider("Mouse sensitivity", &sens, 10, 1000, 5, MOUSE_SENS_DEFAULT * 100, "%g%%", "How fast the mouse turns the camera."))
         g_settings.mouse_sens = sens / 100.0f;
@@ -951,7 +928,7 @@ static void tab_about(void) {
     controls_bindings_draw(ImGui::GetFontSize() / 34);
     ImGui::Spacing();
     header("Menu");
-    ImGui::TextUnformatted(tr("Open / close this menu:  F1, Esc, the controller's Home / Xbox / PlayStation button, or Back + Start"));
+    ImGui::TextUnformatted(tr("Open / close this menu:  the controller's Home / Xbox / PlayStation button, or Back + Start"));
     ImGui::TextUnformatted(tr("Switch tabs:  L / R  (Q / E)        Back:  B  (Esc)"));
     ImGui::TextUnformatted(tr("Fullscreen:  F11 / Alt+Enter"));
 }
@@ -985,8 +962,7 @@ static void perf_overlay_draw(ImGuiIO &io, float scale) {
     const ImVec4 gpu_c(0.55f, 0.83f, 0.31f, 1), cpu_c(0.18f, 0.59f, 0.80f, 1), ram_c(0.80f, 0.45f, 0.70f, 1),
                  fps_c(0.95f, 0.95f, 0.95f, 1);
     if (g_settings.perf_overlay == PERF_FPS) {
-        // (frame generation: the presented frames, generated ones included)
-        ImGui::TextColored(fps_c, "%.0f FPS  %.1f ms", s.fps + s.fps_generated, s.frame_ms_avg);
+        ImGui::TextColored(fps_c, "%.0f FPS  %.1f ms", s.fps, s.frame_ms_avg);
         ImGui::End();
         return;
     }
@@ -1001,7 +977,7 @@ static void perf_overlay_draw(ImGuiIO &io, float scale) {
         ImGui::TableNextColumn(); ImGui::TextColored(ram_c, "RAM");
         perf_cell("%.1f GB", s.ram_used_mb / 1024); perf_cell("/ %.1f GB", s.ram_total_mb / 1024); perf_cell(tr("game %.1f GB"), s.ram_game_mb / 1024);
         ImGui::TableNextColumn(); ImGui::TextColored(fps_c, "FPS");
-        perf_cell("%.0f", s.fps + s.fps_generated);
+        perf_cell("%.0f", s.fps);
         perf_cell("%.1f ms", s.frame_ms_avg); perf_cell(tr("max %.1f ms"), s.frame_ms_max);
         ImGui::EndTable();
     }
@@ -1009,14 +985,13 @@ static void perf_overlay_draw(ImGuiIO &io, float scale) {
     ImGui::PlotLines("##ft", s.frame_ms, PERF_HISTORY, 0, NULL, 0, top, ImVec2(330 * scale, 48 * scale));
     ImGui::TextDisabled("%s", s.gpu_name[0] ? s.gpu_name : tr("GPU: no NVML / sysfs data"));
     ImGui::TextDisabled("%s", s.cpu_name);
-    // the graphics settings in effect: what the game falls back to (FSR 3 not built in, a mode that isn't offered), not
+    // the graphics settings in effect: what the game falls back to (a mode that isn't offered), not
     // what the menu says
     int up = upscaler_available(g_settings.upscaler) ? g_settings.upscaler : UPSCALE_OFF;
     std::string line = std::string(tr("Upscaler")) + ": ";
     switch (up) {
         case UPSCALE_METALFX: line += tr("MetalFX"); break;
         case UPSCALE_FSR1: line += tr("FSR 1"); break;
-        case UPSCALE_FSR3: line += tr("FSR 3"); break;
         default: line += tr("Off");
     }
     int q = g_settings.upscale_quality;
@@ -1025,9 +1000,8 @@ static void perf_overlay_draw(ImGuiIO &io, float scale) {
         snprintf(f, sizeof f, "%.1f", upscale_factor());
         line += std::string(" ") + (q >= 0 && q < UPQ_COUNT ? std::string(tr(k_upscale_modes[q])) + " " : "") + f + "x";
     }
-    // (FSR 3 anti-aliases the scene itself: the setting does nothing then)
     int aa = rt_antialias();
-    line += std::string(" | ") + tr("Anti-aliasing") + ": " + (rt_fsr3() ? tr("FSR 3") : aa == AA_TAA ? tr("TAA") : aa == AA_SMAA ? tr("SMAA") : tr("Off"));
+    line += std::string(" | ") + tr("Anti-aliasing") + ": " + (aa == AA_TAA ? tr("TAA") : aa == AA_SMAA ? tr("SMAA") : tr("Off"));
     ImGui::TextDisabled("%s", line.c_str());
     line.clear();
 #ifndef __APPLE__
@@ -1042,7 +1016,6 @@ static void perf_overlay_draw(ImGuiIO &io, float scale) {
         }
     }
 #endif
-    if (g_fg_active) line += std::string(line.empty() ? "" : " | ") + tr("Frame generation on");
     if (!line.empty()) ImGui::TextDisabled("%s", line.c_str());
     ImGui::End();
 }

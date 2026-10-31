@@ -9,8 +9,6 @@
 #include "input_bind.h"
 #include "language.h"
 
-bool fsr3_upscaler_enabled(void);  // (nvn/output_scale.c: SAVAGEWIND_FSR3=0 turns FSR 3 upscaling off)
-
 #define SETTINGS_FILE settings_file()
 
 // SAVAGEWIND_SETTINGS=<path>: another settings file (test runs never touch the player's savagewind.ini)
@@ -45,7 +43,6 @@ Settings g_settings = {
     .movie_audio = true,
     .upscaler = UPSCALE_DEFAULT,  // (Off: the window's resolution; MetalFX on macOS)
     .upscale_quality = UPQ_QUALITY,
-    .fsr_sharpness = 50,
     .mouse_camera = true,
     .mouse_sens = MOUSE_SENS_DEFAULT,
     .mouse_sens_y = 1.0f,
@@ -105,16 +102,13 @@ void settings_load(void) {
         }
         else if (!strcmp(key, "settings_version")) version = atoi(val);
         else if (!strcmp(key, "resolution")) snprintf(old_res, sizeof old_res, "%s", val);  // (version 1)
-        else if (!strcmp(key, "upscaler"))  // (metalfx / fsr1: this OS's spatial upscaler; fsr3: Vulkan, unless turned
-            // off, then FSR 1 with the same quality mode, nvn/output_scale.c fsr3_upscaler_enabled; dlss: not yet)
+        else if (!strcmp(key, "upscaler"))  // (metalfx / fsr1: this OS's spatial upscaler; anything else, off)
             g_settings.upscaler = !strcmp(val, "fsr1") || !strcmp(val, "metalfx") ? UPSCALE_SPATIAL
-                                : !strcmp(val, "fsr3") ? (fsr3_upscaler_enabled() ? UPSCALE_FSR3_OR_SPATIAL : UPSCALE_SPATIAL)
-                                                       : UPSCALE_OFF;
+                                                                               : UPSCALE_OFF;
         else if (!strcmp(key, "upscaler_quality")) {
             for (int i = 0; i < UPQ_COUNT; i++)
                 if (!strcmp(val, k_quality[i])) g_settings.upscale_quality = i;
             if (g_settings.upscale_quality > UPQ_QUALITY) g_settings.upscale_quality = UPQ_QUALITY;  // (Balanced / Performance: removed, too soft)
-            if (!strcmp(val, "native")) g_settings.upscale_quality = UPQ_COUNT;  // (no smaller: output_scale.c)
         }
         else if (!strcmp(key, "window_size")) {  // (WxH in pixels, or default)
             int w = 0, h = 0;
@@ -133,10 +127,6 @@ void settings_load(void) {
         else if (!strcmp(key, "render_scale")) {  // (percent: 100, 125, 150, 200)
             int p = atoi(val);
             g_settings.render_scale = p >= 200 ? 3 : p >= 150 ? 2 : p >= 125 ? 1 : 0;
-        }
-        else if (!strcmp(key, "fsr_sharpness")) {  // (percent, in steps of 10)
-            int p = atoi(val);
-            g_settings.fsr_sharpness = p < 0 ? 0 : p > 100 ? 100 : (p + 5) / 10 * 10;
         }
         else if (!strcmp(key, "sharpening")) {  // (percent, in steps of 10)
             int p = atoi(val);
@@ -244,8 +234,8 @@ void settings_load(void) {
         if (!(g_settings.stick_deadzone[i] >= 0 && g_settings.stick_deadzone[i] <= 0.5f))
             g_settings.stick_deadzone[i] = STICK_DEADZONE_DEFAULT;
 #ifndef __APPLE__
-    // Slop of the Wild: CAS and FSR 1 are gone from the menus (AMD FSR 3 is the upscaler, render scale supersamples)
-    if (g_settings.upscaler != UPSCALE_FSR3) g_settings.upscaler = UPSCALE_OFF;
+    // Slop of the Wild: the upscaler and CAS are gone from the menus (render scale supersamples instead)
+    g_settings.upscaler = UPSCALE_OFF;
     g_settings.sharpening = 0;
 #endif
     LOG("[settings] loaded %s\n", SETTINGS_FILE);
@@ -254,7 +244,7 @@ void settings_load(void) {
 void settings_save(void) {
     FILE *f = fopen(SETTINGS_FILE, "w");
     if (!f) { LOG("[settings] cannot write %s\n", SETTINGS_FILE); return; }
-    fprintf(f, "# Slop of the Wild settings (edited from the in-game menu: F1, Esc, or Minus+Plus on a controller)\n");
+    fprintf(f, "# Slop of the Wild settings (edited from the game's Options, or the controller's Home button)\n");
     fprintf(f, "settings_version = %d\n", SETTINGS_VERSION);
     fprintf(f, "fullscreen = %d\n", g_settings.fullscreen);
     if (g_settings.window_w > 0 && g_settings.window_h > 0)
@@ -271,11 +261,10 @@ void settings_save(void) {
     fprintf(f, "reverb = %d\n", g_settings.reverb);
     fprintf(f, "movie_audio = %d\n", g_settings.movie_audio);
     fprintf(f, "perf_overlay = %s\n", g_settings.perf_overlay == PERF_FULL ? "full" : g_settings.perf_overlay == PERF_FPS ? "fps" : "off");
-    static const char *const ups[UPSCALE_COUNT] = {"off", "metalfx", "fsr1", "fsr3", "dlss"};
+    static const char *const ups[UPSCALE_COUNT] = {"off", "metalfx", "fsr1", "dlss"};
     int u = g_settings.upscaler, uq = g_settings.upscale_quality;
     fprintf(f, "upscaler = %s\n", u >= 0 && u < UPSCALE_COUNT ? ups[u] : "off");
-    fprintf(f, "upscaler_quality = %s\n", uq == UPQ_COUNT ? "native" : k_quality[uq >= 0 && uq < UPQ_COUNT ? uq : UPQ_QUALITY]);
-    fprintf(f, "fsr_sharpness = %d\n", g_settings.fsr_sharpness);
+    fprintf(f, "upscaler_quality = %s\n", k_quality[uq >= 0 && uq < UPQ_COUNT ? uq : UPQ_QUALITY]);
     fprintf(f, "antialias = %s\n", g_settings.antialias == AA_TAA ? "taa" : g_settings.antialias == AA_SMAA ? "smaa" : "off");
     int an = g_settings.anisotropy;
     if (an >= 1 && an <= 4) fprintf(f, "anisotropy = %dx\n", 1 << an);

@@ -149,15 +149,11 @@ static double on_refresh(double fps) {
     return n >= 1 && fabs(hz / n - fps) < fps * 0.01 ? hz / n : fps;
 }
 
-// With frame generation (Video > Frame generation, vulkan/framegen.cpp) a frame is made between each two the game
-// draws: the frame rate counts the presented frames, so the game draws at half of it (60 with 120 chosen).
-volatile int g_fg_active;  // (vulkan/device.c: the last frame was generated)
-
 uint64_t framepace_period_ns(void) {
     int target = framepace_target();
     double fps = target > 0 ? target : FPS_CEILING, cap = vsync_cap();
     if (cap > 0 && fps > cap) fps = cap;
-    return (uint64_t)((g_fg_active ? 2e9 : 1e9) / on_refresh(fps) + 0.5);
+    return (uint64_t)(1e9 / on_refresh(fps) + 0.5);
 }
 
 // The frame loop's vsync wait: the present keeps the pace instead (1: skipped; 0: the game's own wait).

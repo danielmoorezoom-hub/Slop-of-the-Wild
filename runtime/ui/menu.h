@@ -1,4 +1,4 @@
-// In-game overlay menu (Dear ImGui). Open with F1 / Esc, or Minus+Plus (Back+Start) on a controller.
+// In-game overlay menu (Dear ImGui). Open with the controller's Home button, or Minus+Plus (Back+Start).
 #pragma once
 #include <stdbool.h>
 #include <stdint.h>

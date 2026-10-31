@@ -52,6 +52,7 @@ Version **0.0**, built on Savage Wind **0.3.1-alpha.3**. Tested on one PC: Windo
 | **Clarity** (`vulkan/clarity.c`, new) | A port of Cemu's well-known BOTW "Clarity" graphic pack (CC0; shader by Jamie, Kiri and Crementif, presets by Serfrost). It replaces BOTW's tone-mapping pass (found by its shader constants) with Clarity's: less haze and bloom, deeper blacks, richer color. Presets: Serfrost, Serfrost (dim display), Serfrost (bright display). |
 | **Render scale** 100 / 125 / 150 / 200 % (`nvn/output_scale.c`) | Supersampling: the cleanest anti-aliasing there is, and the TotK port's main quality lever. 150 % at 1440p is 4K internally, and it held 120 fps on the test PC. |
 | **Removed the upscaler, upscaler mode and CAS sharpening options** | FSR 1 only helps when rendering *below* the window size, and with render scale nobody needs that. Its "Performance" mode and CAS above 50 % made the picture visibly worse. "FSR 3" and "DLSS" were placeholders that did nothing. |
+| **No FSR 3, FSR 4 or frame generation** | The AMD FidelityFX SDK, its upscaler and frame generation are out of the build. The game is limited by the CPU here, so upscaling only cost frames (209 fps off, 159 with FSR 3). TAA stays: our own shaders, no AMD SDK. |
 | **Better defaults**: fullscreen at the display's native size, 16x anisotropic, SMAA, Clarity on, asynchronous shaders on, the frame rate matched to the display | A fresh install should look its best without a trip to the settings. |
 
 ### Performance
@@ -72,7 +73,7 @@ and pipeline compiles.
 | Change | Why |
 | --- | --- |
 | **New look** for the launcher and the in-game settings (`ui/option_rows.mm`, `menu.mm`, `launcher.mm`) | The old one "looked and felt rushed". The new one is a Sheikah-slate style: deep blue glass, a cyan accent, animated on/off switches, value bars with notches, eased highlights, and amber for any value you changed from its default. |
-| **The settings menu opens again with F1 / Esc** (also the controller's Guide button, or Back + Start) | Savage Wind had turned its overlay menu off, so nothing came up when you pressed Esc or F1. It's back, restyled. |
+| **The settings overlay opens from a controller's Home button** (PlayStation, Xbox; or Back + Start). The keyboard uses the game's own Options; Esc frees the mouse | Savage Wind had turned its overlay menu off, so nothing came up when you pressed Esc or F1. It's back, restyled. |
 | **The game pauses while the menu is open** | During testing the game kept running behind the menu and Link died while settings were being changed. Opening the menu now presses the game's own pause (Plus), and closing it unpauses. This is skipped on the title screen and during cutscenes. |
 | **Real BOTW art behind the launcher** (`ui/splash.mm`, `vulkan/device.c`) | The title screen's own key art (plateau, Epona, cliff, Guardian) cycles behind the launcher with a slow crossfade and pan. It can't be shipped, since it's Nintendo's, so the game captures it from your own title screen the first time you play and saves it as `splash.jpg`, `splash2.jpg` and so on next to the program. |
 | **Straight into the game once set up** (`main.c`, `ui/launcher.mm`) | The launcher opens for setup and from `Slop of the Wild Configuration.exe`. A normal start shows your title art while the game boots, with no black screen, then the title screen. |

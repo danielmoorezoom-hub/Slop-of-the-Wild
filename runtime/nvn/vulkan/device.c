@@ -232,7 +232,6 @@ static bool radv_gcn(void) {
 
 // RADV on an RDNA 4 chip (RX 9060 / 9070): "AMD Radeon RX 9070 XT (RADV GFX1201)"
 static bool radv_gfx12(void) { return strstr(g_vk.props.deviceName, "(RADV GFX12") != NULL; }
-bool vk_shader_fp16(void) { return g_vk.fp16; }
 
 static void create_device(void) {
     uint32_t ne = 0;
@@ -412,7 +411,7 @@ static void create_device(void) {
                                             .pipelineCreationCacheControl = g_vk.gpl && f13_have.pipelineCreationCacheControl,
                                             .pNext = m5 ? (void *)&m5_on : g_vk.custom_border ? (void *)&cbc
                                                                          : g_vk.divisor ? (void *)&div : NULL};
-    {   // 16-bit floats in shaders where the device has them (the FSR 3 upscaler's shaders: vulkan/fsr3.cpp)
+    {   // 16-bit floats in shaders where the device has them
         VkPhysicalDeviceVulkan12Features q12 = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
         VkPhysicalDeviceVulkan11Features q11 = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, .pNext = &q12};
         VkPhysicalDeviceFeatures2 q = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, .pNext = &q11};
@@ -1034,7 +1033,7 @@ static void create_swapchain(void) {
     hdr_failed = hdr && !hdr_found;
     if (hdr && !hdr_found) LOG("[vk] HDR wanted, but this display offers no HDR10 swapchain format: SDR\n");
     if (hdr_found) draw.format = VK_FORMAT_B8G8R8A8_UNORM;
-    uint32_t count = caps.minImageCount + 2;  // (+1, and one for frame generation's queued pair: present_wait_room)
+    uint32_t count = caps.minImageCount + 2;
     if (caps.maxImageCount && count > caps.maxImageCount) count = caps.maxImageCount;
     if (count > 8) count = 8;
     VkSwapchainKHR old = g_vk.swapchain;
@@ -1242,46 +1241,17 @@ static void recreate_swapchain(void) {
 // came on top of translating the next frame, and BOTW's frame timer dropped the game to 20 fps (interval 3) whenever
 // three frames in a row ran over 31.7 ms. On the console a present only queues the frame. Here a thread of its own
 // presents, on a second queue of the same family (queues are externally synchronized: the GPU thread keeps submitting
-// on the first one meanwhile). The presents queue up (frame generation's pair: the game's frame waits there while the
-// next frame is drawn); vkQueuePresentKHR and vkAcquireNextImageKHR take sc_lock (the swapchain is externally
-// synchronized). The next frame begins once only a game frame after a generated one is still waiting (vk_frame_begin:
-// one frame at a time otherwise, as before); a swapchain change and teardown wait for them all.
+// on the first one meanwhile). vkQueuePresentKHR and vkAcquireNextImageKHR take sc_lock (the swapchain is externally
+// synchronized). One frame at a time: the next begins once this one is presented (vk_frame_begin).
 // SAVAGEWIND_VK_PRESENT_THREAD=0, NVIDIA before Turing (create_device, #36) or a family with one queue: presents on
 // the calling thread, as before.
 static pthread_mutex_t pres_m = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t pres_cv = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t sc_lock = PTHREAD_MUTEX_INITIALIZER;
 enum { PRES_Q = 4 };
-static struct { VkSwapchainKHR sc; VkSemaphore sem; uint32_t img; int kind; uint64_t seq; } presq[PRES_Q];
+static struct { VkSwapchainKHR sc; VkSemaphore sem; uint32_t img; uint64_t seq; } presq[PRES_Q];
 static int presq_head, presq_n;  // (pres_m) queued or being presented
 static _Atomic int pres_stale;   // that present said the swapchain is out of date or suboptimal
-// Frame generation (exec.c vk_fg_generate) presents two frames for each the game draws, the generated one, then the
-// game's (PRES_GEN, PRES_AFTER_GEN). The display shows a frame when the GPU has drawn it, not when it is handed over:
-// the GPU runs a frame or two behind (present to shown ~33 ms at 50 drawn fps), and both frames of a pair are done
-// within a millisecond of each other. Spacing the presents by the CPU's clock left them on screen together and then a
-// long gap (with VSync's FIFO and with G-SYNC: ghosting while the camera moved). So each is presented once the GPU has
-// drawn it, the generated one at once, the game's half the time between generated frames after it, as AMD's frame
-// interpolation swapchain does.
-enum { PRES_PLAIN, PRES_GEN, PRES_AFTER_GEN };
-
-static void present_wait_turn(int kind, uint64_t seq) {
-    static uint64_t last_gen;
-    static double gen_iv;  // (between generated frames, averaged: the game's frame time)
-    if (kind == PRES_PLAIN) return;
-    VkSemaphoreWaitInfo wi = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO, .semaphoreCount = 1, .pSemaphores = &g_vk.timeline,
-                              .pValues = &seq};
-    vkWaitSemaphores(g_vk.dev, &wi, 1000000000ull);  // (drawn; a second at most)
-    uint64_t now = SDL_GetTicksNS();
-    if (kind == PRES_GEN) {
-        double dt = last_gen ? (double)(now - last_gen) : 0;
-        if (dt > 0 && dt < 1e8) gen_iv = gen_iv > 0 ? gen_iv + (dt - gen_iv) * 0.1 : dt;
-        last_gen = now;
-        return;
-    }
-    uint64_t at = last_gen + (uint64_t)(gen_iv / 2);
-    if (gen_iv > 0 && now < at) SDL_DelayPrecise(at - now);
-}
-
 static void *present_thread(void *arg) {
     (void)arg;
     pthread_mutex_lock(&pres_m);
@@ -1290,7 +1260,6 @@ static void *present_thread(void *arg) {
         __typeof__(presq[0]) q = presq[presq_head];
         pthread_mutex_unlock(&pres_m);
         rec_wait_submitted(q.seq);  // (its semaphore's signal must be submitted first: record.c may not have yet)
-        present_wait_turn(q.kind, q.seq);
         VkPresentInfoKHR pi = {.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR, .waitSemaphoreCount = 1, .pWaitSemaphores = &q.sem,
                                .swapchainCount = 1, .pSwapchains = &q.sc, .pImageIndices = &q.img};
         pthread_mutex_lock(&sc_lock);
@@ -1326,19 +1295,6 @@ static bool present_threaded(void) {
 void vk_present_idle(void) {
     pthread_mutex_lock(&pres_m);
     while (presq_n) pthread_cond_wait(&pres_cv, &pres_m);
-    pthread_mutex_unlock(&pres_m);
-}
-
-// Before the next window image is drawn: no plain present waiting (one frame at a time, as before), at most two of
-// frame generation's (the previous pair's game frame, this pair's generated one)
-static void present_wait_room(void) {
-    pthread_mutex_lock(&pres_m);
-    for (;;) {
-        bool plain = false;
-        for (int i = 0; i < presq_n; i++) plain |= presq[(presq_head + i) % PRES_Q].kind == PRES_PLAIN;
-        if (!plain && presq_n <= 2) break;
-        pthread_cond_wait(&pres_cv, &pres_m);
-    }
     pthread_mutex_unlock(&pres_m);
 }
 
@@ -1383,20 +1339,18 @@ static VkResult acquire_image(VkSemaphore sem, uint32_t *img) {
     }
 }
 
-// Present window image img once sem is signalled (kind, seq: frame generation's pair and the frame's submission, see
-// present_wait_turn). Returns false when the swapchain must be made again.
-static bool present_image(uint32_t img, VkSemaphore sem, int kind, uint64_t seq) {
+// Present window image img once sem is signalled (seq: the frame's submission). Returns false when the swapchain must be made again.
+static bool present_image(uint32_t img, VkSemaphore sem, uint64_t seq) {
     if (!present_threaded()) {
         VkPresentInfoKHR pi = {.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR, .waitSemaphoreCount = 1, .pWaitSemaphores = &sem,
                                .swapchainCount = 1, .pSwapchains = &g_vk.swapchain, .pImageIndices = &img};
         rec_wait_submitted(seq);  // (as present_thread)
-        present_wait_turn(kind, seq);
         VkResult r = queue_present(g_vk.queue, &pi);
         return !(r == VK_ERROR_OUT_OF_DATE_KHR || r == VK_SUBOPTIMAL_KHR);
     }
     pthread_mutex_lock(&pres_m);
     while (presq_n == PRES_Q) pthread_cond_wait(&pres_cv, &pres_m);
-    presq[(presq_head + presq_n) % PRES_Q] = (__typeof__(presq[0])){g_vk.swapchain, sem, img, kind, seq};
+    presq[(presq_head + presq_n) % PRES_Q] = (__typeof__(presq[0])){g_vk.swapchain, sem, img, seq};
     presq_n++;
     pthread_cond_broadcast(&pres_cv);
     pthread_mutex_unlock(&pres_m);
@@ -1467,7 +1421,7 @@ bool vk_frame_begin(const float clear[4]) {
     // minimised (Windows keeps the window's size then, but its surface is 0 x 0: every acquire was out of date)
     if (!w || !h || (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED)) return false;
     uint64_t tp = SDL_GetTicksNS();
-    present_wait_room();
+    vk_present_idle();  // (one frame at a time)
     g_present_split[4] += SDL_GetTicksNS() - tp;
     float white;  // (Windows HDR turned on or off, the window moved to another display, Video > HDR changed)
     bool hdr = hdr_wanted(&white);
@@ -1569,7 +1523,6 @@ static void save_window_image(VkCommandBuffer cb, VkSpan *out) {
 }
 
 // End rendering into the window image and present it. shot_path: also save the window image as PNG.
-static int frame_kind;  // (frame generation: PRES_GEN / PRES_AFTER_GEN for the next vk_frame_end's present)
 void vk_frame_end(const char *shot_path) {
     if (!cur_frame.ok) return;
     VkCommandBuffer cb = vk_cmd();
@@ -1585,8 +1538,7 @@ void vk_frame_end(const char *shot_path) {
     vk_submit_extra(cur_frame.acquired, done_sem[img], VK_NULL_HANDLE);
     g_present_split[3] += SDL_GetTicksNS() - ts;
     ts = SDL_GetTicksNS();
-    if (!present_image(img, done_sem[img], frame_kind, seq)) recreate_swapchain();
-    frame_kind = PRES_PLAIN;
+    if (!present_image(img, done_sem[img], seq)) recreate_swapchain();
     g_present_split[4] += SDL_GetTicksNS() - ts;
     cur_frame.ok = false;
     if (shot_path) {
@@ -1678,34 +1630,6 @@ static uint64_t pso_wait(void) {  // ns waited
     return dt;
 }
 
-// Frame generation (Video > Frame generation; exec.c vk_fg_generate): wanted in play, not over the menus (the pause
-// menu's pages, the map, the title screen, the F1 menu), where the picture mostly stands and the game's own frames
-// keep its cursor crisp. SAVAGEWIND_FG=0/1 overrides the setting (tests).
-extern volatile int g_fg_want;
-extern volatile int g_fg_active;  // (framepace.c: the game draws every other presented frame)
-TexBackend *vk_fg_generate(NvnTexture *t, TexBackend *b);
-static uint64_t gen_frames;
-static char fg_real_shot[256];  // (SAVAGEWIND_FG_SHOT_AT: the game's frame after a generated one saved)
-
-void vk_fg_wait_idle(void) {
-    vk_present_idle();
-    rec_drain();
-    vkDeviceWaitIdle(g_vk.dev);
-}
-
-static bool fg_wanted(void) {
-    static int forced = -2;
-    if (forced == -2) forced = getenv("SAVAGEWIND_FG") ? atoi(getenv("SAVAGEWIND_FG")) : -1;
-    if (!(forced >= 0 ? forced : g_settings.frame_gen)) return false;
-    static int log = -1;
-    static uint64_t n;
-    if (log < 0) log = getenv("SAVAGEWIND_FG_LOG") != NULL;
-    if (log && n++ % 300 == 0)
-        LOG("[fg] wanted? title %d menu %d paused %d F1 menu %d\n", framepace_title_ui(), framepace_menu_ui(),
-            framepace_paused(), menu_is_open());
-    return !framepace_title_ui() && !framepace_menu_ui() && !framepace_paused() && !menu_is_open();
-}
-
 // Slop of the Wild: the game's first frames are about 1.7 s of plain black, which came out of nowhere after the start
 // screen's picture had held still through the boot. They aren't presented: the picture stays up until the title's
 // screen starts to fade in, 0.7 s after it is up (at most 6 s, for whatever boots without it). (backend_reset: again
@@ -1752,14 +1676,6 @@ static void present_locked(NvnTexture *t) {
     g_present_split[1] += SDL_GetTicksNS() - t0;
     t0 += pso_wait();  // (not the acquire's time)
     bool held = boot_held();
-    // Frame generation: the frame between the last one and this (exec.c vk_fg_generate), presented first
-    TexBackend *gen = held ? NULL : vk_fg_generate(t, b);
-    {   // (measuring) SAVAGEWIND_FG_TEST=1: the frame made, not presented
-        static int test = -1;
-        if (test < 0) test = getenv("SAVAGEWIND_FG_TEST") ? atoi(getenv("SAVAGEWIND_FG_TEST")) : 0;
-        if (test == 1) gen = NULL;
-    }
-    g_fg_active = gen != NULL;
     static const float black[4] = {0, 0, 0, 1};
     bool have = !held && vk_frame_begin(black);
     uint64_t nd = SDL_GetTicksNS() - t0;
@@ -1776,40 +1692,6 @@ static void present_locked(NvnTexture *t) {
         float pv[8] = {renderer_origin_lower_left() ? 1.0f : 0.0f, 0, 0, 0, crop[0], crop[1], crop[2], crop[3]};
         memcpy(g_shot_crop, crop, sizeof crop);
         uint64_t td = SDL_GetTicksNS();
-        if (gen) {  // the generated frame, as the game's are (crop, anti-aliasing, menu), then this one half a frame later
-            vk_present_draw(cb, gen, (float)vx, (float)vy, (float)vw, (float)vh, pv);
-            if (menu_render_needed()) rec_drain();  // (ImGui records into cb itself, and may upload its fonts on the queue)
-            menu_render((void *)cb, g_vk.sc_extent.width, g_vk.sc_extent.height);
-            // SAVAGEWIND_FG_SHOT_AT=<frame>,... (counted as SAVAGEWIND_SHOT_AT): the window at two presents in a row
-            // from there, each generated frame and the game's after it -> build/frames/window_N_<0|1>_<gen|real>.png
-            // (real 0, gen 1, real 1: a generated frame between the two it was made from)
-            static const char *gnext;
-            static int ginit, gleft;
-            static long gat;
-            if (!ginit) { ginit = 1; gnext = getenv("SAVAGEWIND_FG_SHOT_AT"); if (gnext) mkdir("build/frames", 0755); }
-            if (!gleft && gnext && *gnext) {
-                extern uint64_t framepace_script_frame(uint64_t presented);
-                long at = strtol(gnext, NULL, 10);
-                if ((long)framepace_script_frame(total_frames + 1) >= at) {
-                    gat = at, gleft = 2;
-                    while (*gnext && *gnext != ',') gnext++;
-                    if (*gnext == ',') gnext++;
-                }
-            }
-            char gpath[256] = "";
-            if (gleft) {
-                snprintf(gpath, sizeof gpath, "build/frames/window_%05ld_%d_gen.png", gat, 2 - gleft);
-                snprintf(fg_real_shot, sizeof fg_real_shot, "build/frames/window_%05ld_%d_real.png", gat, 2 - gleft);
-                gleft--;
-            }
-            frame_kind = PRES_GEN;
-            vk_frame_end(gpath[0] ? gpath : NULL);
-            frame_kind = PRES_AFTER_GEN;  // (the game's frame, below)
-            gen_frames++;
-            perfmon_generated_frame();
-            if (!vk_frame_begin(black)) { renderer_submit(); goto presented; }
-            cb = vk_cmd();
-        }
         vk_present_draw(cb, b, (float)vx, (float)vy, (float)vw, (float)vh, pv);
         static long menu_at = -1;
         if (menu_at < 0) menu_at = getenv("SAVAGEWIND_MENU_AT") ? atol(getenv("SAVAGEWIND_MENU_AT")) : 0;
@@ -1848,13 +1730,11 @@ static void present_locked(NvnTexture *t) {
             art_n = rt_user_splash(p, sizeof p) || getenv("SAVAGEWIND_NO_ART_CAPTURE") ? 99 : 0;
         }
         extern bool menu_title_visible(void);
-        if (art_n < 4 && !shot && !wpath[0] && !fg_real_shot[0] && menu_title_visible() && !framepace_title_load_ui()) {
+        if (art_n < 4 && !shot && !wpath[0] && menu_title_visible() && !framepace_title_load_ui()) {
             art_seen++;
-            // (two looks 240 frames apart: still? Closer, a slow blur-in passed for it at 120 frames a second)
-            if (art_seen % 400 == 120 || art_seen % 400 == 360) art = true;
+            if (art_seen % 160 == 120 || art_seen % 160 == 150) art = true;  // (two looks 30 frames apart: still?)
         }
-        vk_frame_end(shot ? "build/window.png" : wpath[0] ? wpath : fg_real_shot[0] ? fg_real_shot : art ? "cache/art_tmp.raw" : NULL);
-        fg_real_shot[0] = 0;
+        vk_frame_end(shot ? "build/window.png" : wpath[0] ? wpath : art ? "cache/art_tmp.raw" : NULL);
         if (art) {
             static uint8_t prev[48 * 27 * 3], kept[4][48 * 27 * 3];
             static bool have_prev;
@@ -1888,7 +1768,16 @@ static void present_locked(NvnTexture *t) {
                 }
                 long npx = 48 * 27 * 3;
                 bool still = have_prev && dprev / npx < 3, bright = lum / npx > 30, fresh = dmin / npx > 25;
-                if (still && bright && fresh) {
+                // (still sharpening between the two looks, or going soft: the art's slow blur in and out passes for still)
+                static long prev_sharp;
+                long sharp = 0;
+                for (int y = 0; y < 64; y++) {
+                    const uint8_t *row = px + (size_t)(y0 + y * ch / 64) * w * 4 + 1;
+                    for (int x = 0; x + 1 < cw; x++) sharp += abs((int)row[x * 4] - (int)row[(x + 1) * 4]);
+                }
+                bool settled = sharp * 100 >= prev_sharp * 98 && sharp * 100 <= prev_sharp * 102;
+                prev_sharp = sharp;
+                if (still && bright && fresh && settled) {
                     int ow = cw < 2560 ? cw : 2560, oh = ow * 9 / 16;  // (scaled down to at most 2560 x 1440)
                     uint8_t *out = malloc((size_t)ow * oh * 4);
                     for (int y = 0; out && y < oh; y++)
@@ -1925,8 +1814,6 @@ static void present_locked(NvnTexture *t) {
         if (held) { OutScale os; window_scale(&os); }  // (the game sizes its render targets by these from the start)
         renderer_submit();
     }
-presented:
-    g_fg_want = fg_wanted();  // (for the next frame's draws)
     extern void vk_prof_frame(uint64_t frame, uint64_t present_ns);
     vk_prof_frame(total_frames, SDL_GetTicksNS() - t0);
     extern void vk_list_stats_frame(void);
@@ -1983,9 +1870,7 @@ presented:
     }
     if (g_debug_frame) LOG("===== debug frame %llu =====\n", (unsigned long long)total_frames);
     {   // (testing) SAVAGEWIND_UPSCALE_AT=<frame>:<off|ultra|quality|balanced|performance>,... (ascending): the
-        // upscaler from that frame on, as the Video page sets it (A/B of the same view a few frames apart): FSR 1, or
-        // FSR 3 with a fsr3- in front of the mode (fsr3-quality); fsr3-native: FSR 3 at the window's size (its native
-        // AA: the reference for TAA, which is the same reconstruction)
+        // upscaler from that frame on, as the Video page sets it (A/B of the same view a few frames apart): FSR 1
         static const char *next;
         static int init;
         if (!init) { init = 1; next = getenv("SAVAGEWIND_UPSCALE_AT"); }
@@ -1995,13 +1880,10 @@ presented:
             if ((long)total_frames < at) break;
             const char *m = *end == ':' ? end + 1 : end;
             static const char *const names[] = {"ultra", "quality", "balanced", "performance", "ultraperf"};  // (UPQ_*; a later match wins)
-            bool f3 = !strncmp(m, "fsr3-", 5);
-            if (f3) m += 5;
             g_settings.upscaler = UPSCALE_OFF;
             for (int i = 0; i < 5; i++)
                 if (!strncmp(m, names[i], strlen(names[i])))
-                    g_settings.upscaler = f3 ? UPSCALE_FSR3 : UPSCALE_FSR1, g_settings.upscale_quality = i;
-            if (f3 && !strncmp(m, "native", 6)) g_settings.upscaler = UPSCALE_FSR3, g_settings.upscale_quality = UPQ_COUNT;
+                    g_settings.upscaler = UPSCALE_FSR1, g_settings.upscale_quality = i;
             LOG("[test] frame %llu: upscaler %d mode %d\n", (unsigned long long)total_frames, g_settings.upscaler,
                 g_settings.upscale_quality);
             next = strchr(m, ',');
@@ -2103,12 +1985,8 @@ presented:
         if (last_fps_time > 0)
             LOG("[vk] t=%.1f frame %llu %.1f fps max %.0fms (%s)\n", now, (unsigned long long)total_frames,
                 frames / (now - last_fps_time), max_gap * 1000.0, renderer_stats());
-        if (gen_frames && last_fps_time > 0)
-            LOG("[fg] %.1f generated frames/s: %.1f presented\n", gen_frames / (now - last_fps_time),
-                (frames + gen_frames) / (now - last_fps_time));
         max_gap = 0;
         frames = 0;
-        gen_frames = 0;
         last_fps_time = now;
     }
 }
