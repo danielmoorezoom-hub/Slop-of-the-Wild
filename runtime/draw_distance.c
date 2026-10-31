@@ -55,6 +55,7 @@
 #include <string.h>
 
 #include "hle.h"
+#include "platform.h"
 #include "settings.h"
 
 #define FAR_DIST 2000.0f  // (metres)
@@ -109,13 +110,39 @@ static float env_factor(const char *name, float *cache) {
     }
     return *cache;
 }
+// Draw Distance > Hold the frame rate: how much of the slider's extra grass reach is in use, 0..1. Each half second, from the frames' average
+// against the frame rate limit: down quickly when they run long, back up slowly. (No limit set: nothing to hold to.)
+static float g_auto = 1.0f;
+static void auto_update(void) {
+    extern uint64_t framepace_period_ns(void);
+    extern int framepace_target(void);
+    static uint64_t t0;
+    static int frames;
+    if (!g_settings.lod_auto || !framepace_target()) { g_auto = 1.0f; t0 = 0; return; }
+    uint64_t now = plat_now_ns();
+    if (!t0) { t0 = now, frames = 0; return; }
+    frames++;
+    if (now - t0 < 500000000ull) return;
+    double avg = (double)(now - t0) / frames, period = (double)framepace_period_ns();
+    float was = g_auto;
+    if (avg > period * 1.04) g_auto = g_auto > 0.1f ? g_auto - 0.1f : 0.0f;
+    else if (avg < period * 1.01) g_auto = g_auto < 0.98f ? g_auto + 0.02f : 1.0f;
+    static float logged = 1.0f;
+    if (was != g_auto && (g_auto == 0 || g_auto == 1 || g_auto < logged - 0.25f || g_auto > logged + 0.25f)) {
+        LOG("[draw distance] holding %d fps: grass at %.0f%% of the slider's extra reach\n", framepace_target(), g_auto * 100);
+        logged = g_auto;
+    }
+    t0 = now, frames = 0;
+}
+
 static float grass_target(int quads) {
     static float env[2] = {-1, -1};
     float e = env_factor(quads ? "SAVAGEWIND_GRASS_QUADS" : "SAVAGEWIND_GRASS_BLADES", &env[quads]);
     if (e > 0) return e;
     if (!g_settings.lod_extended) return 1.0f;
     float g = g_settings.lod_grass / 100.0f;
-    return g < GRASS_MAX ? g : GRASS_MAX;
+    g = g < GRASS_MAX ? g : GRASS_MAX;
+    return 1.0f + (g - 1.0f) * g_auto;
 }
 
 static int grass_probe(void) {  // (tests) SAVAGEWIND_GRASS_PROBE=1: the grass layers' numbers in the log
@@ -138,6 +165,7 @@ static float tree_far_factor(void) {
 }
 
 static void blades_factor(uint64_t mgr) {
+    auto_update();
     float target = grass_target(0);
     if (target == 1.0f) { g_blades = 1.0f; return; }  // (Original)
     static int noguard = -1;

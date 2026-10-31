@@ -109,6 +109,7 @@ static void save_png(id<MTLTexture> tex, const char *path) {
 
 // The version this build is (also names the release files; Makefile / tools/bundle_macos.sh / make_dmg.sh read it).
 #define SAVAGEWIND_VERSION "0.3.1-alpha.3"
+#define SLOP_VERSION_TEXT "0.1"  // (the release tag: Makefile SLOP_VERSION)
 extern "C" const char *rt_version(void) { return SAVAGEWIND_VERSION; }  // (the title screen's version line: fs.c)
 
 // ------------------------------------------------------------------ game files
@@ -950,6 +951,9 @@ void reveal_folder(const std::string &dir) {
 }
 
 extern "C" const char *report_make(void);  // (runtime/report.c)
+extern "C" void update_check_start(void);  // (runtime/update_check.c)
+extern "C" int update_check_state(void);
+extern "C" const char *update_check_tag(void);
 static SDL_Window *g_launcher_win;
 static bool g_files_deleted;  // set here: the start screen goes back to setting the game files up
 static void prelaunch_tab(float sc) {
@@ -1001,6 +1005,22 @@ static void prelaunch_tab(float sc) {
     if (gamelib_compat()) {  // (runtime/gamelib.h: built for CPUs without AVX2 / FMA)
         ImGui::Spacing();
         ImGui::TextDisabled("%s", tr("Game code: compatible mode (this CPU has no AVX2 / FMA), slower"));
+    }
+    ImGui::Spacing();
+    ImGui::Spacing();
+    heading("Updates");
+    {
+        int st = update_check_state();
+        if (ImGui::Button(tr("Check for updates")) && st != 1) update_check_start();
+        ImGui::SameLine();
+        if (st == 1) ImGui::TextDisabled("%s", tr("Asking GitHub..."));
+        else if (st == 3) ImGui::TextDisabled("%s", tr("Couldn't reach GitHub."));
+        else if (st == 2 && !strcmp(update_check_tag(), SLOP_VERSION_TEXT)) ImGui::TextDisabled("%s", tr("You have the latest version."));
+        else if (st == 2) {
+            ImGui::Text(tr("%s is out."), update_check_tag());
+            ImGui::SameLine();
+            if (ImGui::Button(tr("Open the release page"))) SDL_OpenURL("https://github.com/devall96/Slop-of-the-Wild/releases/latest");
+        }
     }
     ImGui::Spacing();
     ImGui::Spacing();

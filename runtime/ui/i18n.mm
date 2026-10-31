@@ -11,6 +11,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 
 #include "imgui.h"
 extern "C" {
@@ -96,6 +97,29 @@ void refresh(void) {  // (lock held)
     for (const Table &t : tables)
         if (!strcmp(t.lang, ui))
             for (const Entry *e = t.entries; e->en; e++) by_text[e->en] = e->tr;
+    {   // a community pack: lang/<code>.txt, a line each of the English text, a tab, its translation. Over the tables above.
+        static std::vector<std::string> kept;  // (by_text holds views of them)
+        char path[64];
+        snprintf(path, sizeof path, "lang/%s.txt", ui);
+        if (FILE *f = fopen(path, "rb")) {
+            char line[4096];
+            int n = 0;
+            while (fgets(line, sizeof line, f)) {
+                line[strcspn(line, "\r\n")] = 0;
+                char *tab = strchr(line, '\t');
+                if (!tab || line[0] == '#') continue;
+                *tab = 0;
+                kept.push_back(line);
+                std::string_view en = kept.back();
+                kept.push_back(tab + 1);
+                n++;
+                (void)en;
+            }
+            fclose(f);
+            for (size_t i = 0; i + 1 < kept.size(); i += 2) by_text[kept[i]] = kept[i + 1].c_str();
+            fprintf(stderr, "[lang] %s: %d lines\n", path, n);
+        }
+    }
 }
 }  // namespace
 

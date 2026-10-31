@@ -130,6 +130,42 @@ uint64_t romfs_dir_bytes(const char *dir) {
     return n;
 }
 
+// Mods: mods/<name>/romfs/<the game's path> in place of the game's file, for the game's own RomFS only. The last mod by name wins. The copy
+// in extracted/ stays as it is. The game's size table isn't changed, so a mod's file much larger than the original may not load.
+static void apply_mods(Lists *l, const char *dir) {
+    size_t dl = strlen(dir);
+    if (dl < 5 || strcmp(dir + dl - 5, "romfs") || strstr(dir, "aoc")) return;
+    DIR *m = opendir("mods");
+    if (!m) return;
+    char names[64][128];
+    int n = 0, used = 0;
+    struct dirent *e;
+    while ((e = readdir(m)) && n < 64)
+        if (e->d_name[0] != '.') snprintf(names[n++], sizeof names[0], "%s", e->d_name);
+    closedir(m);
+    for (int i = 1; i < n; i++)  // (by name)
+        for (int j = i; j > 0 && strcmp(names[j - 1], names[j]) > 0; j--) {
+            char t[128];
+            memcpy(t, names[j], sizeof t), memcpy(names[j], names[j - 1], sizeof t), memcpy(names[j - 1], t, sizeof t);
+        }
+    for (int f = 0; n && f < l->nf; f++) {
+        const char *rel = l->files[f]->path + dl;
+        for (int i = n - 1; i >= 0; i--) {
+            char p[1200];
+            struct stat st;
+            snprintf(p, sizeof p, "mods/%s/romfs%s", names[i], rel);
+            if (stat(p, &st) == 0 && !S_ISDIR(st.st_mode)) {
+                free(l->files[f]->path);
+                l->files[f]->path = strdup(p);
+                l->files[f]->size = (uint64_t)st.st_size;
+                used++;
+                break;
+            }
+        }
+    }
+    if (n) fprintf(stderr, "[mods] %d mod folder(s), %d game file(s) replaced\n", n, used);
+}
+
 bool romfs_layout(const char *dir, RomfsLayout *out, char *why, size_t why_size) {
     #define FAIL(...) do { if (why) snprintf(why, why_size, __VA_ARGS__); goto fail; } while (0)
     bool ok = false;
@@ -144,6 +180,7 @@ bool romfs_layout(const char *dir, RomfsLayout *out, char *why, size_t why_size)
     l.dirs[l.nd++] = root;
     flatten(root, &l);
     if (!l.nf) FAIL("no files in %s", dir);
+    apply_mods(&l, dir);
 
     // entry offsets
     uint32_t dsize = 0, fsize = 0;

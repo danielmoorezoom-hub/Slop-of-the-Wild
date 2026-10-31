@@ -512,6 +512,9 @@ void build_items(void) {
                              [](const Item &, int x) { settings_lod_master_apply(x * 5); }, 15);
         master.value_off = [](const Item &, int) { return !g_settings.lod_extended; };
         v.push_back(master);
+        v.push_back(toggle(P_DISTANCE, "Hold the frame rate (beta)", "Pulls the grass in when the game can't keep up with your limit. Beta, may be broken.",
+                           [](const Item &) { return (int)g_settings.lod_auto; },
+                           [](const Item &, int x) { g_settings.lod_auto = x; }, 0));
         auto pct = [](const Item &, int x) {
             static char buf[16];
             snprintf(buf, sizeof buf, "%d%%", 100 + x * 10);

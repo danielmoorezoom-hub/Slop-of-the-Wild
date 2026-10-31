@@ -155,6 +155,7 @@ void settings_load(void) {
         else if (!strcmp(key, "cheat_stamina")) g_settings.cheat_stamina = atoi(val) != 0;
         else if (!strcmp(key, "cheat_arrows")) g_settings.cheat_arrows = atoi(val) != 0;
         else if (!strcmp(key, "cheat_weapons")) g_settings.cheat_weapons = atoi(val) != 0;
+        else if (!strcmp(key, "lod_auto")) g_settings.lod_auto = atoi(val) != 0;
         else if (!strcmp(key, "lod_master")) g_settings.lod_master = atoi(val);
         else if (!strcmp(key, "lod_distance")) g_settings.lod_distance = atoi(val);  // (percent)
         else if (!strcmp(key, "lod_grass")) g_settings.lod_grass = atoi(val);  // (percent)
@@ -345,6 +346,7 @@ void settings_save(void) {
             g_settings.cheat_stamina, g_settings.cheat_arrows, g_settings.cheat_weapons);
     fprintf(f, "auto_continue = %d\ndamage_taken = %d\n", g_settings.auto_continue, g_settings.damage_taken);
     fprintf(f, "cheat_rupees = %d\nweapon_wear = %d\nsave_backups = %d\n", g_settings.cheat_rupees, g_settings.weapon_wear, g_settings.save_backups);
+    fprintf(f, "lod_auto = %d\n", g_settings.lod_auto);
     fprintf(f, "lod_master = %d\n", g_settings.lod_master);
     fprintf(f, "lod_distance = %d\n", g_settings.lod_distance);
     fprintf(f, "lod_grass = %d\n", g_settings.lod_grass);

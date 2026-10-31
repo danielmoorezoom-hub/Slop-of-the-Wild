@@ -59,6 +59,7 @@ typedef struct {
     bool auto_continue;  // Gameplay > Start at Continue: past the title screen by itself (hle/input.c)
     int damage_taken;    // Cheats > Damage taken, percent of the game's: 25..300 (runtime/cheats.c)
     bool save_backups;   // a copy of the save folder before each game start (runtime/save_backup.c)
+    bool lod_auto;       // Draw Distance > Hold the frame rate (runtime/draw_distance.c)
     int lod_master;      // Draw Distance > Overall distance, 0..100: moving it sets the three below (settings_lod_master_apply)
     int lod_distance;    // how far the distant trees go, percent of the game's: 100..150
     int lod_grass;       // how far grass reaches, percent of the game's: 100..250

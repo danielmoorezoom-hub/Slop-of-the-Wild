@@ -912,6 +912,8 @@ static void tab_distance(void) {
                        "Moves all three sliders below together, from the game's own at 0% to the farthest at 100%. Fine-tune them "
                        "afterwards. Beta, may be broken."))
             settings_lod_master_apply((int)master);
+        opt_toggle("Hold the frame rate (beta)", &g_settings.lod_auto, false,
+                   "Pulls the grass in when the game can't keep up with your frame rate limit, and lets it back out when it can. Beta, may be broken.");
         opt_section("Fine-tune");
         float dist = (float)g_settings.lod_distance, grass = (float)g_settings.lod_grass, objects = (float)g_settings.lod_objects;
         if (opt_slider("Draw distance (beta)", &dist, 100, 150, 10, 140, "%g%%",

@@ -34,41 +34,41 @@ An estimate before reading the code each needs. Speed items are theories: each g
 | 3 | Compile test hooks out of release builds | Not needed: nearly all are read once and kept |
 | 4 | Automatic save backups before each game start | Done |
 | 5 | FPS and frame-time graph in the F10 overlay | Done |
-| 6 | Skip intro logos and unskippable text | Feature |
+| 6 | Skip intro logos and unskippable text | Done as Start at Continue, off by default. Unskippable text not done |
 | 7 | More cheats: rupees, one-hit kills, moon jump, rune cooldowns | Partly: infinite rupees done; one-hit kills, moon jump and rune cooldowns not |
 | 8 | Durability multiplier | Done, as Weapon wear |
-| 9 | Settings profiles | Feature |
-| 10 | One-click problem report, with no game files or saves | Feature |
+| 9 | Settings profiles | Done, three slots |
+| 10 | One-click problem report, with no game files or saves | Done, a folder rather than a zip |
 | 11 | GPU readings on AMD for Windows | Already there: the F10 overlay reads an AMD GPU on Windows |
-| 12 | Recommended preset from a first-run benchmark | Feature |
-| 13 | Smaller installer, FSR 4 files as an optional download | Install |
-| 14 | Difficulty sliders for damage dealt and taken | Feature |
-| 15 | Time of day and weather in photo mode | Feature |
-| 16 | Depth of field and filters in photo mode | Feature |
-| 17 | Fast-travel to any map marker | Feature |
-| 18 | Teleport bookmarks inside shrines | Feature |
+| 12 | Recommended preset from a first-run benchmark | Done, on the Benchmark page |
+| 13 | Smaller installer, FSR 4 files as an optional download | Not done: the program has no downloader, so the FSR 4 files stay in the installer |
+| 14 | Difficulty sliders for damage dealt and taken | Partly: Damage taken done. Damage dealt not, because the same code hurts Link and enemies |
+| 15 | Time of day and weather in photo mode | Tried and cut: the game keeps the clock, and holding the d-pad barely moved the sun |
+| 16 | Depth of field and filters in photo mode | Not done: the Colour page already covers filters; depth of field would be new shader work |
+| 17 | Fast-travel to any map marker | Not started |
+| 18 | Teleport bookmarks inside shrines | Not started: needs the current map, which bookmarks do not record |
 | 19 | Smarter CPU core placement | Nothing to gain on a 7800X3D (one die); untested on other CPUs |
-| 20 | Skip shadow draws that don't matter | Speed |
+| 20 | Skip shadow draws that don't matter | Not started: 200+ fps already, and skipping cascades risks visible shadow flicker |
 | 21 | Higher optimization on the hottest game code | Dropped: all game code at -O2 gave 243 to 255 fps on the field route and nothing at Hateno, for 70 s more setup |
-| 22 | Large memory pages for the game's heap, optional | Speed |
-| 23 | Native versions of hot game routines | Speed |
-| 24 | Less guest memory kept committed | Speed |
-| 25 | Skip descriptor and state changes that haven't changed | Speed |
-| 26 | Read ahead for the next area | Speed |
-| 27 | Pre-warm pipelines at the title screen | Speed |
-| 28 | Cache indirect call targets | Speed |
-| 29 | Less waiting for emulated cores | Speed |
-| 30 | Cheaper far grass | Speed |
-| 31 | Draw distance that holds a target frame rate | Feature |
-| 32 | Incremental setup, so updates don't rebuild everything | Install |
-| 33 | Better horse steering on keyboard (#290) | Feature |
-| 34 | Update checks and in-place updates | Feature |
-| 35 | Per-action remapping (#180) | Feature |
-| 36 | XeSS and DLSS | Feature |
-| 37 | Community language packs (#265) | Feature |
-| 38 | Mod loader for file replacements | Feature |
-| 39 | Parallel draw translation | Speed |
-| 40 | Randomizer | Feature |
+| 22 | Large memory pages for the game's heap, optional | Not tested: needs a Windows security permission, which is your call |
+| 23 | Native versions of hot game routines | Dropped: all game code at -O2 barely moved Hateno, so faster routines look unlikely to help |
+| 24 | Less guest memory kept committed | Not started: 5.2 GB in use on a 31 GB PC, no sign it limits anything |
+| 25 | Skip descriptor and state changes that haven't changed | Mostly there already: about 90% of descriptor sets are reused. stage_set trimmed, gain within noise |
+| 26 | Read ahead for the next area | Not started |
+| 27 | Pre-warm pipelines at the title screen | Already there: shader precompilation and warm-up |
+| 28 | Cache indirect call targets | Dropped: dispatch is 0.2% of samples |
+| 29 | Less waiting for emulated cores | Tried and dropped: spinning before sleep cut 210 fps to 120 |
+| 30 | Cheaper far grass | Done: removing my older patches took draw distance on from 149 to 211 fps with no visible change |
+| 31 | Draw distance that holds a target frame rate | Done as Hold the frame rate, grass only |
+| 32 | Incremental setup, so updates don't rebuild everything | Not started |
+| 33 | Better horse steering on keyboard (#290) | Not started: needs testing on a horse with a keyboard |
+| 34 | Update checks and in-place updates | Partly: a check button and a link to the page, no in-place update. Not tried against GitHub |
+| 35 | Per-action remapping (#180) | Not started |
+| 36 | XeSS and DLSS | Not started: needs vendor SDKs |
+| 37 | Community language packs (#265) | Done for menus: lang/<code>.txt. The game's own text is not covered |
+| 38 | Mod loader for file replacements | Done: mods/<name>/romfs/ replaces files by path |
+| 39 | Parallel draw translation | Not started: the render thread is 81% busy, not the only limit, and it is the riskiest item |
+| 40 | Randomizer | Not started |
 
 ## Chosen list, done on 2026-10-31
 

@@ -60,6 +60,11 @@ options.
 | **Mouse pointer** (Controls, on by default) | Point and click in menus, inventory and map, and aim the bow with the right button. Esc pauses and goes back, F2 frees the cursor. |
 | **AMD FSR 4** (Video > Anti-aliasing) | On a Radeon on Windows. Anti-aliasing at full size, with no upscaling. Elsewhere it acts as TAA. |
 | **Confirm button** (Controller) | Confirm on the bottom button, as on Xbox and PlayStation pads. The prompts follow. |
+| **Start at Continue** (Video) | Goes past the title screen by itself, into your latest save. Any button stops it. |
+| **Profiles** | Three saved sets of all your settings. |
+| **Save backups** (on by default) | A copy before each game start when your saves have changed, the last 5 in `save-backups/`. |
+| **Mods** | `mods/<name>/romfs/<game path>` replaces that game file. Your copy of the game isn't changed. |
+| **Language packs** | `lang/<code>.txt` with lines of English, a tab, then the translation, for the menus. |
 | **Home button menu** | The settings overlay opens from a controller's Home button, or Back + Start. Esc frees the mouse. The game's own pause menu has the options too. |
 | **Straight into the game** | Once set up, starting the game goes to the title with a splash, not a launcher and not a black screen. `Slop of the Wild Configuration.exe` opens the settings. |
 | **A single installer** | One exe, in place of 0.0's drop-in zip that needed Savage Wind's release first. |

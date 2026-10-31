@@ -119,7 +119,7 @@ IMGUI_OBJ += $(B)/imgui/imgui_impl_vulkan.o
 UIFLAGS  := -x c++ $(OSFLAGS)  # the .mm UI sources are plain C++ apart from __APPLE__ blocks
 GAMELIB  := $(B)/swgame.dll
 # the runtime functions it calls: exported by the .exe, linked through its import library
-LDFLAGS  += -Wl,--export-all-symbols -Wl,--out-implib,$(B)/savagewind.dll.a
+LDFLAGS  += -lwinhttp -Wl,--export-all-symbols -Wl,--out-implib,$(B)/savagewind.dll.a
 GAMELIB_LDFLAGS := -shared -fuse-ld=lld $(B)/savagewind.dll.a
 GAMELIB_SHARED := -shared  # (+ the import library: runtime/gamebuild.c)
 # "Savage Wind Configuration.exe" in the release: starts savagewind.exe --config (runtime/platform/windows_config.c)
