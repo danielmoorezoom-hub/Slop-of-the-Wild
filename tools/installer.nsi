@@ -172,5 +172,5 @@ Section "Uninstall"
   Delete "$DESKTOP\${NAME}.lnk"
   DeleteRegKey HKCU "${UNINST}"
   IfFileExists "$INSTDIR\*.*" 0 +2
-    MessageBox MB_OK /SD IDOK "Your saves, settings and game files were kept in $INSTDIR. Delete that folder yourself if you don't want them."
+    MessageBox MB_OK "Your saves, settings and game files were kept in $INSTDIR. Delete that folder yourself if you don't want them." /SD IDOK
 SectionEnd
