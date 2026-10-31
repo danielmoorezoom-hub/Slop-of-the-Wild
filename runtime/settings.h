@@ -42,6 +42,9 @@ enum { VSYNC_ON = 0, VSYNC_FAST = 1, VSYNC_ADAPTIVE = 2, VSYNC_OFF = 3, VSYNC_CO
 // Video > HDR: Auto presents in HDR10 while Windows HDR is on for the window's monitor, On always (where the display
 // takes it), Off never (an SDR picture, which Windows shows dim and dull while its HDR is on)
 enum { HDR_AUTO = 0, HDR_ON = 1, HDR_OFF = 2, HDR_COUNT };
+// Video > Graphics preset: sets anti-aliasing, texture filtering, render scale and shadow resolution together. Nothing else,
+// and never the beta options. settings_preset_current: the one the settings match, or GRAPHICS_PRESET_COUNT (Custom).
+enum { GRAPHICS_PRESET_POTATO, GRAPHICS_PRESET_LOW, GRAPHICS_PRESET_MEDIUM, GRAPHICS_PRESET_HIGH, GRAPHICS_PRESET_COUNT };
 typedef struct {
     bool fullscreen;
     int window_w, window_h;  // Video > Window size, pixels (0: not chosen; runtime/window_size.c)
@@ -108,3 +111,5 @@ void settings_load(void);
 void settings_save(void);
 
 void settings_fps_for_display(float hz);  // (window_size.c: no frame rate chosen yet -> the display's)
+int settings_preset_current(void);
+void settings_preset_apply(int preset);

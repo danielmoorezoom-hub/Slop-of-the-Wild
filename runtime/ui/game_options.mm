@@ -376,6 +376,16 @@ void build_items(void) {
     };
     v.push_back(mode);
 #endif
+    {   // Graphics preset (settings.h): sets the rows it names; "Custom" is shown, never picked
+        static const char *const gp[] = {"Potato", "Low", "Medium", "High", "Custom"};
+        Item preset = choice(P_VIDEO, "Graphics preset", "Sets anti-aliasing, filtering, scale and shadows together.",
+                             [](const Item &) { return (int)GRAPHICS_PRESET_COUNT + 1; },
+                             [](const Item &, int x) { return tr(gp[x]); },
+                             [](const Item &) { return settings_preset_current(); },
+                             [](const Item &, int x) { settings_preset_apply(x); }, GRAPHICS_PRESET_COUNT);
+        preset.value_off = [](const Item &, int x) { return x >= GRAPHICS_PRESET_COUNT; };
+        v.push_back(preset);
+    }
     v.push_back(choice(P_VIDEO, "Anti-aliasing", "Smooths jagged edges.",
                        [](const Item &) { return N(k_aa); }, [](const Item &, int x) { return tr(k_aa[x]); },
                        [](const Item &) { return g_settings.antialias; },

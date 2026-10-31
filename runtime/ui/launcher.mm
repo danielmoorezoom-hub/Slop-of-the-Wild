@@ -274,6 +274,7 @@ extern "C" bool launcher_config_key_held(void) { return (NSEvent.modifierFlags &
 // clones / hard links where the file system allows); the game reads romfs/ in place (runtime/romfs_image.h).
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 static std::string g_src;           // the picked folder
+static std::string g_dlc_src;       // the folder picked for the downloadable content, if apart from the game's
 static std::string g_job;           // current setup step / result for the status line
 static std::string g_job_hint;      // a failure: what to do about it (shown under it)
 static bool g_busy, g_job_failed;
@@ -505,6 +506,21 @@ static std::string dlc_installed(const std::string &root) {
     return list.empty() || v.empty() ? list : list + " (" + v + ")";
 }
 
+// A setup clears the game folder. Downloadable content set up before stays unless this setup brings its own: moved beside
+// the folder meanwhile (keep_dlc), then back (restore_dlc).
+static void keep_dlc(const std::string &root) {
+    for (int i = 1; i <= DLC_MAX; i++) {
+        std::string d = root + "/" + aoc_name(AOC_DIR, i);
+        if (is_dir(d) && !rt_is_link(d.c_str())) rename(d.c_str(), (root + ".keep-" + aoc_name(AOC_DIR, i)).c_str());
+    }
+}
+static void restore_dlc(const std::string &root) {
+    for (int i = 1; i <= DLC_MAX; i++) {
+        std::string k = root + ".keep-" + aoc_name(AOC_DIR, i);
+        if (is_dir(k)) rename(k.c_str(), (root + "/" + aoc_name(AOC_DIR, i)).c_str());
+    }
+}
+
 static void remove_dlc(const std::string &root) {
     for (int i = 1; i <= DLC_MAX; i++) {
         rt_remove_game_file(root.c_str(), aoc_name(AOC_DIR, i).c_str());
@@ -541,15 +557,26 @@ static bool setup_dlc(std::vector<std::string> dlc) {
 }
 
 static void *extract_thread(void *) {
-    std::string src;
+    std::string src, dlc_src;
     pthread_mutex_lock(&g_lock);
-    src = g_src;
+    src = g_src, dlc_src = g_dlc_src;
     pthread_mutex_unlock(&g_lock);
     g_done = 0, g_total = 0, g_build_frac = -1, g_copy_skipped = false;
     std::string exefs, romfs;
     std::vector<std::string> dlc;
     bool unusable = false;  // (game packages rather than its files)
     bool dlc_only = false;  // (the shaders precompiled are the game's: nothing new to precompile)
+    if (!dlc_src.empty()) {  // (their own folder: only what is downloadable content counts there)
+        std::string e, r;
+        bool u = false;
+        find_game(dlc_src, 0, e, r, dlc, u);
+        if (dlc.empty()) {
+            set_job("No downloadable content in that folder", true, "Choose the folder with their extracted RomFS: it holds "
+                    "System/AocVersion.txt. Nothing was changed.");
+            goto done;
+        }
+    }
+    if (src.empty() && !dlc.empty()) goto dlc_alone;
     if (src.empty() && check_copied_files(g_root).empty()) {  // copied already (an update needs new game code)
         g_copy_skipped = true;
         if (!build_game_code()) goto done;
@@ -558,6 +585,7 @@ static void *extract_thread(void *) {
     set_job("Looking for the game files...");
     find_game(src, 0, exefs, romfs, dlc, unusable);
     if (exefs.empty() && romfs.empty() && !dlc.empty()) {  // DLC alone: added to the game files set up
+dlc_alone:
         if (!check_copied_files(g_root).empty()) {
             set_job("Set up the game files first", true, "Choose the folder with the game files (exefs and romfs) and set "
                     "them up, then the one with the downloadable content.");
@@ -596,8 +624,10 @@ static void *extract_thread(void *) {
             goto done;
         }
         set_job("Clearing the earlier copy...");
+        if (dlc.empty()) keep_dlc(g_root);
         rt_remove_game_files(g_root.c_str());  // (an earlier or interrupted setup's; removes the folder too)
         mkdir(g_root.c_str(), 0755);
+        if (dlc.empty()) restore_dlc(g_root);
         unsigned long long rbytes = romfs_dir_bytes(romfs.c_str());
         g_total = rbytes;
         set_job("Copying the game files...");
@@ -630,6 +660,12 @@ done:
 }
 
 // ------------------------------------------------------------------ folder dialog (SDL calls back on any thread)
+static void SDLCALL picked_dlc(void *, const char *const *files, int) {
+    if (!files || !files[0]) return;
+    pthread_mutex_lock(&g_lock);
+    g_dlc_src = files[0];
+    pthread_mutex_unlock(&g_lock);
+}
 static void SDLCALL picked(void *, const char *const *files, int) {
     if (!files || !files[0]) return;
     pthread_mutex_lock(&g_lock);
@@ -1204,7 +1240,8 @@ extern "C" void launcher_run(const char *root, int mode) {
     if (ap && status.empty() && !(runs && !strcmp(ap, "once"))) play = true;  // (test: PLAY at once)
     runs++;
     if (const char *t = getenv("SAVAGEWIND_LAUNCHER_EXTRACT")) {  // (test) <folder>: set the game files up, log, exit
-        g_src = t;
+        g_src = !strcmp(t, "-") ? "" : t;  // ("-": none: SAVAGEWIND_LAUNCHER_DLC alone)
+        if (const char *d = getenv("SAVAGEWIND_LAUNCHER_DLC")) g_dlc_src = d;
         g_busy = true;
         extract_thread(NULL);
         fprintf(stderr, "[launcher] setup: %s -> %s\n", g_job.c_str(), check_game_files(g_root).empty() ? "READY" : "NOT READY");
@@ -1481,18 +1518,20 @@ extern "C" void launcher_run(const char *root, int mode) {
                     dl->AddLine(ImVec2(x, cy), ImVec2(x + u * 0.35f, cy + u * 0.35f), g, fs * 0.11f);
                     dl->AddLine(ImVec2(x + u * 0.35f, cy + u * 0.35f), ImVec2(x + u, cy - u * 0.4f), g, fs * 0.11f);
                 };
-                std::string src_d = trv("The folder with your own extracted game files: exefs (main, main.npdm, sdk...) and "
-                                        "romfs, version %s with the update merged in. The game isn't included with Savage Wind.");
+                std::string src_d = trv("The folder holding your own copy of the game, dumped from your Switch: a folder named exefs "
+                                        "(with files called main and main.npdm) and one named romfs, version %s with the update "
+                                        "merged in. They can be a few folders down. .nsp and .xci files don't work: extract them "
+                                        "first. The game isn't included.");
                 if (!src.empty()) src_d += std::string("\n\n") + tr("Chosen:") + " " + src;
                 // the step that's running / its result, under the rows and in the Set up row's explanation
                 const std::string &job_line = job;
-                std::string ex_d = tr("Copies the game files Savage Wind needs and recompiles the game from them. This only "
-                                      "needs to be done once and may take a while. Your own files aren't changed.");
+                std::string ex_d = tr("Copies the game files into this program's folder (about 15 GB) and builds the game code from "
+                                      "them, about five minutes. You only do this once. Your own files aren't changed.");
                 if (!job.empty())
                     ex_d += std::string("\n\n") + trv(job) + (job_hint.empty() ? "" : std::string(".\n") + trv(job_hint));
-                std::string again_d = tr("Sets the game files up again from the folder chosen above, in place of Savage Wind's "
-                                         "copy. With no folder chosen, builds the game code again from Savage Wind's copy. "
-                                         "Saves and settings are kept.");
+                std::string again_d = tr("Sets the game files up again from the folder chosen above, in place of the copy here. With no "
+                                         "folder chosen, builds the game code again from the copy here. Saves, settings and any "
+                                         "downloadable content are kept.");
 
                 // the controller's cursor starts on the first row (not the X), a few frames while the window lays out
                 static int seen_frame = -10, focus_first;  // (not drawn last frame: the window has just opened)
@@ -1574,6 +1613,27 @@ extern "C" void launcher_run(const char *root, int mode) {
                     if (opt_action("Game files folder", src_v.c_str(), src_d.c_str(), true))
                         SDL_ShowOpenFolderDialog(picked, NULL, win, NULL, false);
                     check_left_of_value(src_v);
+                    {   // the downloadable content, if apart from the game's folder
+                        pthread_mutex_lock(&g_lock);
+                        std::string ds = g_dlc_src;
+                        pthread_mutex_unlock(&g_lock);
+                        size_t sl = ds.find_last_of("/\\");
+                        std::string dv = ds.empty() ? tr("None") : sl == std::string::npos ? ds : ds.substr(sl + 1);
+                        if (busy) opt_disable_next();
+                        if (opt_action("Add downloadable content (optional)", dv.c_str(),
+                                       tr("Only if you own them: the folder with the extracted RomFS of The Master Trials or The "
+                                          "Champions' Ballad. Not needed to play. If they're already inside the game's folder they're "
+                                          "found by themselves, and any set up before stay."), true))
+                            SDL_ShowOpenFolderDialog(picked_dlc, NULL, win, NULL, false);
+                        if (!ds.empty()) {
+                            if (busy) opt_disable_next();
+                            if (opt_action("Don't add downloadable content", "", tr("Clears the folder chosen above."), true)) {
+                                pthread_mutex_lock(&g_lock);
+                                g_dlc_src.clear();
+                                pthread_mutex_unlock(&g_lock);
+                            }
+                        }
+                    }
                     if (!ready) {
                         first_row();
                         opt_section("Set up");
@@ -1585,14 +1645,16 @@ extern "C" void launcher_run(const char *root, int mode) {
                                        "After the setup, translates and compiles every shader of the game, so that none "
                                        "stutters the first time it is drawn, also in places never visited. A few more "
                                        "minutes and about 1.5 GB of disk. It can be done later too, from the game "
-                                       "files page of Savage Wind Configuration."))
+                                       "files page of Slop of the Wild Configuration."))
                             settings_save();
                     }
 #endif
-                    if (busy || (src.empty() && !check_copied_files(g_root).empty())) opt_disable_next();
+                    if (busy || (src.empty() && g_dlc_src.empty() && !check_copied_files(g_root).empty()) ||
+                        (src.empty() && !ready && !g_dlc_src.empty()))
+                        opt_disable_next();
                     if (opt_action("Set up game files", busy ? tr("Working...") : "", ready ? again_d.c_str() : ex_d.c_str(),
                                    true)) {
-                        settings_save();  // (the colour look as chosen above)
+                        settings_save();
                         pthread_mutex_lock(&g_lock);
                         g_busy = true;
                         pthread_mutex_unlock(&g_lock);

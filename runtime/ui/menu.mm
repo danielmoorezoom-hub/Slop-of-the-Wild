@@ -723,6 +723,15 @@ static void tab_display(void) {
                "frame time graph. F10 switches between them while you play.");
 
     opt_section("Rendering");
+    {   // Graphics preset (settings.h): sets the rows it names; "Custom" is shown, never picked
+        static const char *const gp[] = {"Potato", "Low", "Medium", "High", "Custom"};
+        static const bool gpa[] = {true, true, true, true, false};
+        int cur = settings_preset_current(), shown = cur;
+        if (opt_choice_avail("Graphics preset", &cur, &shown, gp, gpa, 5, GRAPHICS_PRESET_COUNT,
+                             "Sets anti-aliasing, texture filtering, render scale and shadow resolution together. Potato: the "
+                             "fastest. High: the sharpest, for a strong graphics card. Change any of them below and it shows Custom."))
+            settings_preset_apply(cur);
+    }
 #ifdef __APPLE__  // (Slop of the Wild: render scale supersamples instead; settings.c keeps the upscaler off elsewhere)
     {   // Upscaler: Off, this OS's spatial upscaler (its modes on the row below), and the temporal ones still to come.
         // Values that can't be picked yet are shown greyed ("coming soon"); stepping onto them keeps the one in use.

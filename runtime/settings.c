@@ -334,3 +334,26 @@ void settings_save(void) {
     bind_settings_save(f);
     fclose(f);
 }
+
+static const struct { int antialias, anisotropy, render_scale, shadow_res; } graphics_presets[GRAPHICS_PRESET_COUNT] = {
+    [GRAPHICS_PRESET_POTATO] = {AA_OFF, 0, 0, SHADOW_CONSOLE},
+    [GRAPHICS_PRESET_LOW] = {AA_SMAA, 2, 0, SHADOW_CONSOLE},
+    [GRAPHICS_PRESET_MEDIUM] = {AA_SMAA, 4, 0, SHADOW_HIGH},
+    [GRAPHICS_PRESET_HIGH] = {AA_TAA, 4, 1, SHADOW_ULTRA},
+};
+
+int settings_preset_current(void) {
+    for (int i = 0; i < GRAPHICS_PRESET_COUNT; i++)
+        if (g_settings.antialias == graphics_presets[i].antialias && g_settings.anisotropy == graphics_presets[i].anisotropy &&
+            g_settings.render_scale == graphics_presets[i].render_scale && g_settings.shadow_res == graphics_presets[i].shadow_res)
+            return i;
+    return GRAPHICS_PRESET_COUNT;
+}
+
+void settings_preset_apply(int preset) {
+    if (preset < 0 || preset >= GRAPHICS_PRESET_COUNT) return;
+    g_settings.antialias = graphics_presets[preset].antialias;
+    g_settings.anisotropy = graphics_presets[preset].anisotropy;
+    g_settings.render_scale = graphics_presets[preset].render_scale;
+    g_settings.shadow_res = graphics_presets[preset].shadow_res;
+}
