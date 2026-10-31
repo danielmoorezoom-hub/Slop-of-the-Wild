@@ -5,6 +5,22 @@ own ideas. Numbers are their pull requests and issues on [Revivedx/SavageWindRec
 
 Already taken from them for the current list: draw distance (#88) and the memory fixes on reloads (#237).
 
+## Chosen next, easiest first
+
+An estimate from the size of each pull request and what is already here, before reading their code.
+
+| # | Idea | Where | Why it sits here |
+|---|---|---|---|
+| 1 | Wii U and Cemu save import | `6cf491e` | Finished on their side. Three files conflict with ours (Makefile, README, menus). Needs a real Wii U or Cemu save to test |
+| 2 | Virtual gyro, dual-stick gyro | #235, #272 | Real controller gyro already works here. About 900 lines each and they touch the same code, so one after the other. #281 (DSU) is a Linux Steam Deck fallback: skip it on Windows |
+| 3 | Menu pointer, mouse in menus | #234, #183 | One piece of work: #234 is the fix for #183. 1,600 lines over 21 files, in menus we have changed |
+| 4 | Teleport bookmarks | roadmap | No code to take. Our warp only works while a save loads, so either restart to warp or find the game's own warp call |
+| 5 | Achievements | #236 | The biggest pull request: 3,900 lines over 39 files, and many triggers to test |
+| 6 | FSR 4 | #308 | 1,600 lines, but we removed FSR and they build on it. Needs AMD's SDK. May help shimmer, worth comparing with TAA |
+| 7 | Native controller support, more customization | #143, #180 | No code to take and a broad request: settle what is missing first, since rebinding already exists |
+| 8 | Free camera and photo mode | roadmap | No code to take. Needs control of the game's camera while the world is paused, and the HUD hidden |
+| 9 | How shadows look | #300 | Open-ended, the cause isn't known. The first try at shadow distance changed nothing visible |
+
 ## Savage Wind: work in progress
 
 | Idea | Where | Note |
