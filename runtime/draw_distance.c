@@ -2,7 +2,7 @@
 // map, draws its grass and its distant trees. Off leaves every one of the game's values untouched.
 //
 // From Savage Wind (its Video > Draw distance, #88), where Original, Medium and High are the levels named below. Here
-// the sliders set the factors: Object distance the actors' (at most 1.4), Grass density both grass layers' (at most
+// the sliders set the factors: Object distance the actors' (at most 1.4), Grass distance both grass layers' (at most
 // GRASS_MAX) and Draw distance how far the distant trees go (at most FAR_MAX). Grass's 512 draw slots and its cone are
 // what High has, and come with the option being on when the game starts.
 //

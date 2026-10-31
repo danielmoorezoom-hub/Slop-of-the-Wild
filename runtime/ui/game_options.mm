@@ -265,7 +265,7 @@ void build_items(void) {
     std::vector<Item> &v = g_items;
     // first page: the sections (the game's own options are on Gameplay and Controls)
     v.push_back(button(P_MAIN, "Gameplay", "Mini-map, HUD, jump button and more.", "Open", A_PAGE, P_GAMEPLAY));
-    v.push_back(button(P_GAMEPLAY, "Photo mode", "While playing: F6, or press both sticks in. The world stops and the HUD goes. Sticks fly the camera, L and R go up and down, ZR is faster, the d-pad changes the time of day, B leaves. F7 saves a picture.", "F6", A_NONE, 0));
+    v.push_back(button(P_GAMEPLAY, "Photo mode", "While playing: F6, or press both sticks in. The world stops and the HUD goes. Sticks fly the camera, L and R go up and down, ZR is faster, B leaves. F7 saves a picture.", "F6", A_NONE, 0));
     v.push_back(button(P_MAIN, "Video", "Screen, resolution and image quality.", "Open", A_PAGE, P_VIDEO));
     v.push_back(button(P_MAIN, "Draw distance", "How far grass, trees and objects reach.", "Open", A_PAGE, P_DISTANCE));
 #ifndef __APPLE__
@@ -509,24 +509,24 @@ void build_items(void) {
                                  return (const char *)buf;
                              },
                              [](const Item &) { return g_settings.lod_master / 5; },
-                             [](const Item &, int x) { settings_lod_master_apply(x * 5); }, 2);
+                             [](const Item &, int x) { settings_lod_master_apply(x * 5); }, 15);
         master.value_off = [](const Item &, int) { return !g_settings.lod_extended; };
         v.push_back(master);
         auto pct = [](const Item &, int x) {
             static char buf[16];
-            snprintf(buf, sizeof buf, "%d%%", 100 + x * 50);
+            snprintf(buf, sizeof buf, "%d%%", 100 + x * 10);
             return (const char *)buf;
         };
-        Item dist = choice(P_DISTANCE, "Draw distance (beta)", "How far ground cover and distant trees draw. Beta, may be broken.",
-                           [](const Item &) { return 19; }, pct,
-                           [](const Item &) { return (g_settings.lod_distance - 100) / 50; },
-                           [](const Item &, int x) { g_settings.lod_distance = 100 + x * 50; }, 2);
+        Item dist = choice(P_DISTANCE, "Draw distance (beta)", "How far the distant trees draw. Beta, may be broken.",
+                           [](const Item &) { return 6; }, pct,
+                           [](const Item &) { return (g_settings.lod_distance - 100) / 10; },
+                           [](const Item &, int x) { g_settings.lod_distance = 100 + x * 10; }, 4);
         dist.value_off = [](const Item &, int) { return !g_settings.lod_extended; };
         v.push_back(dist);
-        Item grass = choice(P_DISTANCE, "Grass density (beta)", "How much grass, and how far it reaches. Beta, may be broken.",
-                            [](const Item &) { return 29; }, pct,
-                            [](const Item &) { return (g_settings.lod_grass - 100) / 50; },
-                            [](const Item &, int x) { g_settings.lod_grass = 100 + x * 50; }, 3);
+        Item grass = choice(P_DISTANCE, "Grass distance (beta)", "How far grass reaches. Beta, may be broken.",
+                            [](const Item &) { return 16; }, pct,
+                            [](const Item &) { return (g_settings.lod_grass - 100) / 10; },
+                            [](const Item &, int x) { g_settings.lod_grass = 100 + x * 10; }, 11);
         grass.value_off = [](const Item &, int) { return !g_settings.lod_extended; };
         v.push_back(grass);
         Item objects = choice(P_DISTANCE, "Object distance (beta)", "Objects and enemies farther. They notice you sooner. Beta, may be broken.",
@@ -537,7 +537,7 @@ void build_items(void) {
                                   return (const char *)buf;
                               },
                               [](const Item &) { return (g_settings.lod_objects - 100) / 10; },
-                              [](const Item &, int x) { g_settings.lod_objects = 100 + x * 10; }, 2);
+                              [](const Item &, int x) { g_settings.lod_objects = 100 + x * 10; }, 3);
         objects.value_off = [](const Item &, int) { return !g_settings.lod_extended; };
         v.push_back(objects);
     }

@@ -129,10 +129,6 @@ SITES = [
     # BOTW's streaming Yaz0 decoder: its entry and its return (tools/patches.py; runtime/hle/yaz0.c)
     # Draw distance (tools/patches.py _lod; runtime/nvn/output_scale.c rt_lod_*): the 1000.0 of the ground cover and object
     # distance checks and of the grass (Cemu's Draw Distance pack has the grass value at 0x1030A774 on the Wii U)
-    Site('lod_distance_a', 'code', 'bd41f3e4 1e2f1003 52a88f4a bd41f7e5 1e2329c3 bd41fbe6', 2),
-    Site('lod_distance_b', 'code', '1e2042b7 1e204395 1e20405c 52a88f4a 9b2c35cb 1e233843', 3),
-    Site('lod_grass_a', 'code', '528005e0 39406129 52a88f43 528e7d02 72a00062 11003021', 2),
-    Site('lod_grass_b', 'code', 'b94067ed 528005e0 52a88f43 a9433bf0 528e7d02', 2),
     Site('yaz0_stream', 'code', 'a9bd7bfd f9000bf5 a9024ff4 910003fd 39406808 2a0203f4 aa0103f5 aa0003f3', 0),
     Site('yaz0_stream_ret', 'code', 'd65f03c0 7100869f 54000003/ff00001f b9400e68 35000008/ff00001f 12800000 '
          '14000000/fc000000 12800020', 0),
@@ -266,7 +262,6 @@ SITES = [
 OPTIONAL_GROUPS = [
     ('quick_menu_capture_alpha',),
     ('yaz0_stream', 'yaz0_stream_ret'),
-    ('lod_distance_a', 'lod_distance_b', 'lod_grass_a', 'lod_grass_b'),
     ('pc_map_focus', 'pc_map_focus_target', 'pc_map_focus_now'),
     ('pc_button_group',),
     ('pc_cursor_manager', 'pc_cursor_activate', 'pc_pane_bounds'),

@@ -624,16 +624,6 @@ def _yaz0_stream_ret(gen, a):
     return '{ extern void rt_yaz0_done(Cpu *); rt_yaz0_done(c); return; }' + f'  /* {a:#x}: ret (Yaz0 stream decoder) */'
 
 
-# Draw distance (Video > Extended draw distance): these load 1000.0 for the distance checks of ground cover and objects,
-# and for the grass, where a smaller value is more of it. The runtime gives the value (runtime/nvn/output_scale.c).
-def _lod(word, reg, fn, what):
-    def patch(gen, a):
-        assert _word(gen, a) == word, hex(_word(gen, a))  # mov w<reg>, #0x447a0000
-        return (f'{{ extern uint32_t {fn}(void); c->x[{reg}] = {fn}(); }}'
-                f'  /* {a:#x}: mov w{reg}, #1000.0 ({what}) */')
-    return patch
-
-
 # Cheats (runtime/cheats.c). Damage to Link: w25 is the life after the hit, [x21] the life now, [sp, #0xc] a copy of w25; before the
 # `cmp w25, #0` that takes the death path a loss is undone, and healing goes through. Its one-quarter path, life - 1, stays life.
 def _cheat_damage(gen, a):
@@ -710,10 +700,6 @@ PATCHES = {
     'cheat_arrow_zero': _cheat_arrow_zero,
     'no_wear_store': _no_wear,
     'no_wear_hit': _no_wear_hit,
-    'lod_distance_a': _lod(0x52a88f4a, 10, 'rt_lod_distance', 'draw distance'),
-    'lod_distance_b': _lod(0x52a88f4a, 10, 'rt_lod_distance', 'draw distance'),
-    'lod_grass_a': _lod(0x52a88f43, 3, 'rt_lod_grass', 'grass density'),
-    'lod_grass_b': _lod(0x52a88f43, 3, 'rt_lod_grass', 'grass density'),
     'pc_map_focus': _pc_map_focus(False),
     'pc_map_focus_target': _pc_map_focus(True),
     'pc_map_focus_now': _pc_map_focus(True),

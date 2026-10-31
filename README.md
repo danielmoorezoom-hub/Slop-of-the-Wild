@@ -50,7 +50,7 @@ options.
 | **Faster shader waits on first load** | Waiting for a shader now yields at first instead of sleeping. The first-load stall went from 665 ms to about 120 ms with the driver cache warm. |
 | **A little more frame rate** | The render thread wakes the recorder thread far less often, and indirect calls no longer save registers on their usual path. Hateno went from 208 to 215 fps in one run each. |
 | **Controller camera speed** (Controls, off by default, beta) | The game's top camera speed is 85 degrees a second, over four seconds for a full turn. This goes past it with separate left/right and up/down sliders, up to 600%, measured at exactly 2x and 4x. |
-| **Extended draw distance** (its own Draw Distance page, off by default, beta) | Overall distance moves everything at once, with sliders under it for Draw distance (to 1000%), Grass density (to 1500%, farthest reach at 250%) and Object distance (to 140%; past that the game drops parts of Rito Village). They change live. See [Known issues](#known-issues). |
+| **Extended draw distance** (its own Draw Distance page, off by default, beta) | Overall distance moves everything at once, with sliders under it for Draw distance (to 150%), Grass distance (to 250%) and Object distance (to 140%; past that the game drops parts of Rito Village). |
 | **Benchmark** (Video, and the start screen) | Three set walks with your settings, on a copy of your save. The results stay in `benchmark/results.txt`. |
 | **Cheats** (their own page) | Infinite health, stamina and arrows, unbreakable weapons. Off by default. |
 | **Teleport** (its own page, in game) | Four bookmarks and the main places. The game restarts and Continue lands you there, from your last save. |

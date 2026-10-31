@@ -812,10 +812,9 @@ static void fill_state(Cpu *c) {
         if (dx || dy) lx = dx * m, ly = dy * m;
     }
     {   // photo mode (runtime/photo.c): both sticks pressed; while on, the camera has the controls
-        extern bool photo_take_input(int32_t, int32_t, int32_t, int32_t, bool, bool, bool, bool, bool, int);
+        extern bool photo_take_input(int32_t, int32_t, int32_t, int32_t, bool, bool, bool, bool, bool);
         if (!menu && photo_take_input(lx, ly, rx, ry, b >> BTN_R & 1, b >> BTN_L & 1, b >> BTN_ZR & 1,
-                                      (b >> BTN_LSTICK & 1) && (b >> BTN_RSTICK & 1), b >> BTN_B & 1,
-                                      (int)(b >> BTN_RIGHT & 1) - (int)(b >> BTN_LEFT & 1)))
+                                      (b >> BTN_LSTICK & 1) && (b >> BTN_RSTICK & 1), b >> BTN_B & 1))
             b = 0, lx = ly = rx = ry = 0;
     }
     // stick directions also appear as buttons (bits 16-23)

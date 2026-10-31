@@ -39,10 +39,10 @@ Settings g_settings = {
     .weapon_wear = 100,
     .damage_taken = 100,
     .save_backups = true,
-    .lod_master = 10,
-    .lod_distance = 200,
-    .lod_grass = 250,
-    .lod_objects = 120,
+    .lod_master = 75,
+    .lod_distance = 140,
+    .lod_grass = 210,
+    .lod_objects = 130,
     .anisotropy = 4,
     .antialias = AA_SMAA,
     .clarity = 1,
@@ -266,8 +266,8 @@ void settings_load(void) {
     g_settings.weapon_wear = CLAMP(g_settings.weapon_wear, 10, 300);
     g_settings.damage_taken = CLAMP(g_settings.damage_taken, 25, 300);
     g_settings.lod_master = CLAMP(g_settings.lod_master, 0, 100);
-    g_settings.lod_distance = CLAMP(g_settings.lod_distance, 100, 1000);
-    g_settings.lod_grass = CLAMP(g_settings.lod_grass, 100, 1500);
+    g_settings.lod_distance = CLAMP(g_settings.lod_distance, 100, 150);
+    g_settings.lod_grass = CLAMP(g_settings.lod_grass, 100, 250);
     g_settings.lod_objects = CLAMP(g_settings.lod_objects, 100, 140);
     g_settings.color_exposure = CLAMP(g_settings.color_exposure, -20, 20);
     g_settings.color_contrast = CLAMP(g_settings.color_contrast, -50, 50);
@@ -395,15 +395,13 @@ void settings_preset_apply(int preset) {
     g_settings.shadow_res = graphics_presets[preset].shadow_res;
 }
 
-// Overall distance: each slider below it from the game's own at 0 to its top at 100, on that slider's steps. Object distance gets
-// to its top by a quarter of the way: it has the least room and costs the least for what it shows.
+// Overall distance: each slider below it from the game's own at 0 to its top at 100, on steps of 10
 void settings_lod_master_apply(int master) {
     master = master < 0 ? 0 : master > 100 ? 100 : master;
-    int objects = master * 4 > 100 ? 100 : master * 4;
     g_settings.lod_master = master;
-    g_settings.lod_distance = 100 + (900 * master / 100 + 25) / 50 * 50;
-    g_settings.lod_grass = 100 + (1400 * master / 100 + 25) / 50 * 50;
-    g_settings.lod_objects = 100 + (40 * objects / 100 + 5) / 10 * 10;
+    g_settings.lod_distance = 100 + (50 * master / 100 + 5) / 10 * 10;
+    g_settings.lod_grass = 100 + (150 * master / 100 + 5) / 10 * 10;
+    g_settings.lod_objects = 100 + (40 * master / 100 + 5) / 10 * 10;
 }
 
 #ifdef _WIN32

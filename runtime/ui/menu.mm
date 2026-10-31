@@ -908,19 +908,19 @@ static void tab_distance(void) {
                "rate: try the Benchmark on the Video page. Grass reaches farthest if this is on when the game starts. Beta, may be broken.");
     if (g_settings.lod_extended) {
         float master = (float)g_settings.lod_master;
-        if (opt_slider("Overall distance (beta)", &master, 0, 100, 5, 10, "%g%%",
+        if (opt_slider("Overall distance (beta)", &master, 0, 100, 5, 75, "%g%%",
                        "Moves all three sliders below together, from the game's own at 0% to the farthest at 100%. Fine-tune them "
                        "afterwards. Beta, may be broken."))
             settings_lod_master_apply((int)master);
         opt_section("Fine-tune");
         float dist = (float)g_settings.lod_distance, grass = (float)g_settings.lod_grass, objects = (float)g_settings.lod_objects;
-        if (opt_slider("Draw distance (beta)", &dist, 100, 1000, 50, 200, "%g%%",
-                       "How far ground cover and the distant trees are drawn. 100% is the game's own. Beta, may be broken."))
+        if (opt_slider("Draw distance (beta)", &dist, 100, 150, 10, 140, "%g%%",
+                       "How far the distant trees are drawn. 100% is the game's own. Beta, may be broken."))
             g_settings.lod_distance = (int)dist;
-        if (opt_slider("Grass density (beta)", &grass, 100, 1500, 50, 250, "%g%%",
-                       "How much grass is drawn, and how far it reaches (farthest at 250%). 100% is the game's own. Beta, may be broken."))
+        if (opt_slider("Grass distance (beta)", &grass, 100, 250, 10, 210, "%g%%",
+                       "How far grass reaches. 100% is the game's own. Beta, may be broken."))
             g_settings.lod_grass = (int)grass;
-        if (opt_slider("Object distance (beta)", &objects, 100, 140, 10, 120, "%g%%",
+        if (opt_slider("Object distance (beta)", &objects, 100, 140, 10, 130, "%g%%",
                        "How far objects and enemies are shown and kept active. 100% is the game's own. Higher: enemies can "
                        "notice you from farther away, and it costs more frame rate. Beta, may be broken."))
             g_settings.lod_objects = (int)objects;

@@ -344,18 +344,6 @@ void output_scale_screen(double sw, double sh, int iw, int ih, OutScale *o) {
     o->vw *= k; o->vh *= k;
 }
 
-// Video > Extended draw distance (tools/patches.py _lod): the game's 1000.0, as bits of a float, for its draw distance
-// checks (bigger: farther) and its grass (smaller: more of it). Off, the game's own.
-static uint32_t float_bits(float f) {
-    union { float f; uint32_t u; } v = {f};
-    return v.u;
-}
-uint32_t rt_lod_distance(void) {
-    return float_bits(g_settings.lod_extended ? 10.0f * g_settings.lod_distance : 1000.0f);
-}
-uint32_t rt_lod_grass(void) {
-    return float_bits(g_settings.lod_extended ? 100000.0f / g_settings.lod_grass : 1000.0f);
-}
 
 // Console: the game's own size (BOTW: 896 x 896 per cascade); High 2048, Ultra 4096, Extreme 8192. Test override:
 // SAVAGEWIND_SHADOW_AT=<frame>:<console|high|ultra|extreme|width>,... from that presented frame on (same-view A/B in one
