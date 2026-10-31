@@ -839,24 +839,6 @@ static void tab_display(void) {
                "can come out as garbage.");
     // shadow resolution (its own block)
     static const char *shadow[] = {"Console (896)", "High (2048)", "Ultra (4096)", "Extreme (8192)"};
-    opt_toggle("Extended draw distance (beta)", &g_settings.lod_extended, false,
-               "Draws grass, ground cover and objects farther away, with the sliders below. Off: as on the console. Costs frame "
-               "rate, on the processor more than the graphics card. Beta, may be broken.");
-    if (g_settings.lod_extended) {
-        float dist = (float)g_settings.lod_distance, grass = (float)g_settings.lod_grass;
-        if (opt_slider("Draw distance (beta)", &dist, 100, 1000, 50, 200, "%g%%",
-                       "How far ground cover, and the distant trees, are drawn. 100% is the game's own. Beta, may be broken."))
-            g_settings.lod_distance = (int)dist;
-        if (opt_slider("Grass density (beta)", &grass, 100, 1500, 50, 200, "%g%%",
-                       "How much grass is drawn, and how far it reaches (farthest at 250%). 100% is the game's own. Turning the option on "
-                       "reaches farthest after the game restarts. Beta, may be broken."))
-            g_settings.lod_grass = (int)grass;
-        float objects = (float)g_settings.lod_objects;
-        if (opt_slider("Object distance (beta)", &objects, 100, 140, 10, 130, "%g%%",
-                       "How far objects and enemies are shown and kept active. 100% is the game's own. Higher: enemies can "
-                       "notice you from farther away, and it costs more frame rate. Beta, may be broken."))
-            g_settings.lod_objects = (int)objects;
-    }
     opt_choice("Shadow resolution", &g_settings.shadow_res, shadow, SHADOW_COUNT, SHADOW_CONSOLE,
                "The size of the maps the sun's shadows are drawn from. Console: the game's own, 896 x 896. High (2048), "
                "Ultra (4096) and Extreme (8192) give sharper shadow edges (Link, trees, buildings) for more GPU time "
@@ -864,6 +846,34 @@ static void tab_display(void) {
 #ifndef __APPLE__
     tab_colour();
 #endif
+    opt_end();
+}
+
+static void tab_distance(void) {
+    opt_begin("##distance", ImGui::GetFontSize() / 34);
+    opt_section("Extended draw distance");
+    opt_toggle("Extended draw distance (beta)", &g_settings.lod_extended, false,
+               "Draws grass, ground cover, trees and objects farther away, with the sliders below. Off: as on the console. Costs frame "
+               "rate: try the Benchmark on the Video page. Grass reaches farthest if this is on when the game starts. Beta, may be broken.");
+    if (g_settings.lod_extended) {
+        float master = (float)g_settings.lod_master;
+        if (opt_slider("Overall distance (beta)", &master, 0, 100, 5, 10, "%g%%",
+                       "Moves all three sliders below together, from the game's own at 0% to the farthest at 100%. Fine-tune them "
+                       "afterwards. Beta, may be broken."))
+            settings_lod_master_apply((int)master);
+        opt_section("Fine-tune");
+        float dist = (float)g_settings.lod_distance, grass = (float)g_settings.lod_grass, objects = (float)g_settings.lod_objects;
+        if (opt_slider("Draw distance (beta)", &dist, 100, 1000, 50, 200, "%g%%",
+                       "How far ground cover and the distant trees are drawn. 100% is the game's own. Beta, may be broken."))
+            g_settings.lod_distance = (int)dist;
+        if (opt_slider("Grass density (beta)", &grass, 100, 1500, 50, 250, "%g%%",
+                       "How much grass is drawn, and how far it reaches (farthest at 250%). 100% is the game's own. Beta, may be broken."))
+            g_settings.lod_grass = (int)grass;
+        if (opt_slider("Object distance (beta)", &objects, 100, 140, 10, 120, "%g%%",
+                       "How far objects and enemies are shown and kept active. 100% is the game's own. Higher: enemies can "
+                       "notice you from farther away, and it costs more frame rate. Beta, may be broken."))
+            g_settings.lod_objects = (int)objects;
+    }
     opt_end();
 }
 
@@ -1209,9 +1219,9 @@ static void tabs_body(float scale, bool in_game, void (*prelaunch)(float)) {
     Tab tabs[11];
     int ntabs = 0;
     if (prelaunch) tabs[ntabs++] = {"Prelaunch", -1, true};
-    // (ids 2-7 were Link's Awakening tabs; the ids stay: test hooks)
-    static const char *names[] = {"Video", "Audio", "Language", "", "", "", "", "", "Controls", "Quit"};
-    static const int order[] = {8, 0, 1, 2, 9};  // Controls, Video, Audio, Language, Quit
+    // (ids 4-7 were Link's Awakening tabs; the ids stay: test hooks)
+    static const char *names[] = {"Video", "Audio", "Language", "Draw Distance", "", "", "", "", "Controls", "Quit"};
+    static const int order[] = {8, 0, 3, 1, 2, 9};  // Controls, Video, Draw Distance, Audio, Language, Quit
     for (int i : order)  // (Quit: in game only - the start screen has its own QUIT)
         if (i != 9 || !prelaunch) tabs[ntabs++] = {names[i], i, true};
     int cur = 0;  // g_tab / g_tab_request hold ids
@@ -1290,6 +1300,7 @@ static void tabs_body(float scale, bool in_game, void (*prelaunch)(float)) {
                 case -1: prelaunch(scale); break;
                 case 0: tab_display(); break;
                 case 1: tab_audio(); break;
+                case 3: tab_distance(); break;
                 case 2: tab_language(in_game); break;
                 case 8: tab_about(); break;
                 case 9: tab_quit(scale, in_game); break;

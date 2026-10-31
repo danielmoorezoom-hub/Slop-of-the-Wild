@@ -36,9 +36,10 @@ Settings g_settings = {
     .fast_path = true,
     .stick_cam_x = 200,
     .stick_cam_y = 200,
+    .lod_master = 10,
     .lod_distance = 200,
-    .lod_grass = 200,
-    .lod_objects = 130,
+    .lod_grass = 250,
+    .lod_objects = 120,
     .anisotropy = 4,
     .antialias = AA_SMAA,
     .clarity = 1,
@@ -133,6 +134,7 @@ void settings_load(void) {
         else if (!strcmp(key, "stick_camera_x")) g_settings.stick_cam_x = atoi(val);  // (percent)
         else if (!strcmp(key, "stick_camera_y")) g_settings.stick_cam_y = atoi(val);  // (percent)
         else if (!strcmp(key, "lod_extended")) g_settings.lod_extended = atoi(val) != 0;
+        else if (!strcmp(key, "lod_master")) g_settings.lod_master = atoi(val);
         else if (!strcmp(key, "lod_distance")) g_settings.lod_distance = atoi(val);  // (percent)
         else if (!strcmp(key, "lod_grass")) g_settings.lod_grass = atoi(val);  // (percent)
         else if (!strcmp(key, "lod_objects")) g_settings.lod_objects = atoi(val);  // (percent)
@@ -238,6 +240,7 @@ void settings_load(void) {
     g_settings.stick_cam_x = CLAMP(g_settings.stick_cam_x, 100, 600);
     g_settings.stick_cam_y = CLAMP(g_settings.stick_cam_y, 100, 600);
     if (getenv("SAVAGEWIND_BENCHMARK")) g_settings.vsync = VSYNC_OFF;  // (its own copy of the settings: runtime/benchmark.c)
+    g_settings.lod_master = CLAMP(g_settings.lod_master, 0, 100);
     g_settings.lod_distance = CLAMP(g_settings.lod_distance, 100, 1000);
     g_settings.lod_grass = CLAMP(g_settings.lod_grass, 100, 1500);
     g_settings.lod_objects = CLAMP(g_settings.lod_objects, 100, 140);
@@ -310,6 +313,7 @@ void settings_save(void) {
     fprintf(f, "stick_camera_x = %d\n", g_settings.stick_cam_x);
     fprintf(f, "stick_camera_y = %d\n", g_settings.stick_cam_y);
     fprintf(f, "lod_extended = %d\n", g_settings.lod_extended);
+    fprintf(f, "lod_master = %d\n", g_settings.lod_master);
     fprintf(f, "lod_distance = %d\n", g_settings.lod_distance);
     fprintf(f, "lod_grass = %d\n", g_settings.lod_grass);
     fprintf(f, "lod_objects = %d\n", g_settings.lod_objects);
@@ -357,4 +361,15 @@ void settings_preset_apply(int preset) {
     g_settings.anisotropy = graphics_presets[preset].anisotropy;
     g_settings.render_scale = graphics_presets[preset].render_scale;
     g_settings.shadow_res = graphics_presets[preset].shadow_res;
+}
+
+// Overall distance: each slider below it from the game's own at 0 to its top at 100, on that slider's steps. Object distance gets
+// to its top by a quarter of the way: it has the least room and costs the least for what it shows.
+void settings_lod_master_apply(int master) {
+    master = master < 0 ? 0 : master > 100 ? 100 : master;
+    int objects = master * 4 > 100 ? 100 : master * 4;
+    g_settings.lod_master = master;
+    g_settings.lod_distance = 100 + (900 * master / 100 + 25) / 50 * 50;
+    g_settings.lod_grass = 100 + (1400 * master / 100 + 25) / 50 * 50;
+    g_settings.lod_objects = 100 + (40 * objects / 100 + 5) / 10 * 10;
 }

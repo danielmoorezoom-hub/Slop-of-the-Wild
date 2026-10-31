@@ -84,7 +84,7 @@ struct Entry {           // the game's option entry (0x30)
 static_assert(sizeof(Entry) == 0x30);
 enum { KIND_TOGGLE = 0, KIND_CHOICE = 1, KIND_BUTTON = 2 };
 
-enum Page { P_MAIN, P_GAMEPLAY, P_VIDEO, P_COLOUR, P_AUDIO, P_CONTROLS, P_KEYS, P_STICKS, P_PAD, P_LANGUAGE, P_COUNT };
+enum Page { P_MAIN, P_GAMEPLAY, P_VIDEO, P_COLOUR, P_AUDIO, P_CONTROLS, P_KEYS, P_STICKS, P_PAD, P_LANGUAGE, P_DISTANCE, P_COUNT };
 enum Action { A_NONE, A_PAGE, A_BIND_KEY, A_BIND_PAD, A_RESET_KEYS, A_RESET_PAD, A_RESTART, A_QUIT, A_SIZE_LIST, A_BENCHMARK };
 
 struct Item {
@@ -257,6 +257,7 @@ void build_items(void) {
     // first page: the sections (the game's own options are on Gameplay and Controls)
     v.push_back(button(P_MAIN, "Gameplay", "Mini-map, HUD, jump button and more.", "Open", A_PAGE, P_GAMEPLAY));
     v.push_back(button(P_MAIN, "Video", "Screen, resolution and image quality.", "Open", A_PAGE, P_VIDEO));
+    v.push_back(button(P_MAIN, "Draw distance", "How far grass, trees and objects reach.", "Open", A_PAGE, P_DISTANCE));
 #ifndef __APPLE__
     v.push_back(button(P_MAIN, "Colour", "Presets, exposure, contrast, saturation and LUTs.", "Open", A_PAGE, P_COLOUR));
 #endif
@@ -423,29 +424,40 @@ void build_items(void) {
                    (*benchmark_last(i) ? std::string(" Last: ") + benchmark_last(i) : std::string());
         v.push_back(button(P_VIDEO, names[i].c_str(), descs[i].c_str(), "Run", A_BENCHMARK, i));
     }
-    // Extended draw distance (runtime/nvn/output_scale.c rt_lod_*): off by default, in steps of 50%
-    v.push_back(toggle(P_VIDEO, "Extended draw distance (beta)", "Grass and objects farther away. Beta, may be broken.",
+    // Extended draw distance (runtime/draw_distance.c, nvn/output_scale.c): off by default. Overall distance sets the three under it.
+    v.push_back(toggle(P_DISTANCE, "Extended draw distance (beta)", "Grass, trees and objects farther away. Costs frame rate. Beta, may be broken.",
                        [](const Item &) { return (int)g_settings.lod_extended; },
                        [](const Item &, int x) { g_settings.lod_extended = x; }, 0));
     {
+        Item master = choice(P_DISTANCE, "Overall distance (beta)", "Moves the three below together. Beta, may be broken.",
+                             [](const Item &) { return 21; },
+                             [](const Item &, int x) {
+                                 static char buf[16];
+                                 snprintf(buf, sizeof buf, "%d%%", x * 5);
+                                 return (const char *)buf;
+                             },
+                             [](const Item &) { return g_settings.lod_master / 5; },
+                             [](const Item &, int x) { settings_lod_master_apply(x * 5); }, 2);
+        master.value_off = [](const Item &, int) { return !g_settings.lod_extended; };
+        v.push_back(master);
         auto pct = [](const Item &, int x) {
             static char buf[16];
             snprintf(buf, sizeof buf, "%d%%", 100 + x * 50);
             return (const char *)buf;
         };
-        Item dist = choice(P_VIDEO, "Draw distance (beta)", "How far ground cover and objects draw. Beta, may be broken.",
+        Item dist = choice(P_DISTANCE, "Draw distance (beta)", "How far ground cover and distant trees draw. Beta, may be broken.",
                            [](const Item &) { return 19; }, pct,
                            [](const Item &) { return (g_settings.lod_distance - 100) / 50; },
                            [](const Item &, int x) { g_settings.lod_distance = 100 + x * 50; }, 2);
         dist.value_off = [](const Item &, int) { return !g_settings.lod_extended; };
         v.push_back(dist);
-        Item grass = choice(P_VIDEO, "Grass density (beta)", "How much grass, and how far it reaches. Beta, may be broken.",
+        Item grass = choice(P_DISTANCE, "Grass density (beta)", "How much grass, and how far it reaches. Beta, may be broken.",
                             [](const Item &) { return 29; }, pct,
                             [](const Item &) { return (g_settings.lod_grass - 100) / 50; },
-                            [](const Item &, int x) { g_settings.lod_grass = 100 + x * 50; }, 2);
+                            [](const Item &, int x) { g_settings.lod_grass = 100 + x * 50; }, 3);
         grass.value_off = [](const Item &, int) { return !g_settings.lod_extended; };
         v.push_back(grass);
-        Item objects = choice(P_VIDEO, "Object distance (beta)", "Objects and enemies farther. They notice you sooner. Beta, may be broken.",
+        Item objects = choice(P_DISTANCE, "Object distance (beta)", "Objects and enemies farther. They notice you sooner. Beta, may be broken.",
                               [](const Item &) { return 5; },
                               [](const Item &, int x) {
                                   static char buf[16];
@@ -453,7 +465,7 @@ void build_items(void) {
                                   return (const char *)buf;
                               },
                               [](const Item &) { return (g_settings.lod_objects - 100) / 10; },
-                              [](const Item &, int x) { g_settings.lod_objects = 100 + x * 10; }, 3);
+                              [](const Item &, int x) { g_settings.lod_objects = 100 + x * 10; }, 2);
         objects.value_off = [](const Item &, int) { return !g_settings.lod_extended; };
         v.push_back(objects);
     }
@@ -885,7 +897,7 @@ extern "C" int rt_opt_store(uint64_t row) {
     // (the sizes offered follow Fullscreen, texts and Upscaler mode's values the upscaler; Colour: the preset sets the
     // sliders, they the preset). A value kept on show because it couldn't be picked goes once it can (Upscaler mode
     // after Off: the mode stored, not the Off shown).
-    if (it->page == P_VIDEO || it->page == P_COLOUR) {
+    if (it->page == P_VIDEO || it->page == P_COLOUR || it->page == P_DISTANCE) {
         for (size_t i = 0; i < g_items.size() && i < g_shown.size(); i++) {
             const Item &o = g_items[i];
             if (g_shown[i] >= 0 && (!o.value_off || !o.value_off(o, g_shown[i]))) g_shown[i] = -1;
