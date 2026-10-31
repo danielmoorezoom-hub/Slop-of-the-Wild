@@ -100,7 +100,7 @@ Function ${un}DarkInner
     StrCmp $R0 0 done
     System::Call 'user32::GetClassName(p R0, t .R2, i 64)'
     StrCmp $R2 "Button" 0 +2
-      System::Call 'uxtheme::SetWindowTheme(p R0, w "", w "")'
+      System::Call 'uxtheme::SetWindowTheme(p R0, w " ", w " ")'
     StrCmp $R2 "Edit" 0 +2
       System::Call 'uxtheme::SetWindowTheme(p R0, w "DarkMode_CFD", p 0)'
     SetCtlColors $R0 ${TXT} ${BG}
@@ -116,7 +116,7 @@ FunctionEnd
 Function ${un}DarkInstFiles
   Call ${un}DarkInner
   GetDlgItem $R0 $R3 1004
-  System::Call 'uxtheme::SetWindowTheme(p R0, w "", w "")'
+  System::Call 'uxtheme::SetWindowTheme(p R0, w " ", w " ")'
   SendMessage $R0 0x0409 0 0x0054E2BE
   SendMessage $R0 0x2001 0 0x00302218
 FunctionEnd
