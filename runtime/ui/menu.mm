@@ -30,6 +30,8 @@ extern "C" void rec_drain(void);              // runtime/nvn/vulkan/record.c
 extern "C" {
 #include "../hle.h"
 #include "../benchmark.h"
+void photo_toggle(void);
+void photo_shot(void);
 #include "../teleport.h"
 #include "../settings.h"
 #include "../color_grade.h"
@@ -239,6 +241,14 @@ bool menu_handle_event(const SDL_Event *e) {
         }
         if (!e->key.repeat && !pc_cursor_enabled() && e->key.scancode == SDL_SCANCODE_ESCAPE && !g_open.load()) {  // (menu open: closes it, below)
             if (!typing) g_cursor_free = !g_cursor_free.load();
+            return true;
+        }
+        if (!e->key.repeat && e->key.scancode == SDL_SCANCODE_F6 && !typing) {  // photo mode (runtime/photo.c)
+            photo_toggle();
+            return true;
+        }
+        if (!e->key.repeat && e->key.scancode == SDL_SCANCODE_F7 && !typing) {
+            photo_shot();
             return true;
         }
         if (!e->key.repeat && e->key.scancode == SDL_SCANCODE_F10 && !typing) {  // performance overlay: off, FPS, full
@@ -1470,7 +1480,8 @@ void menu_render(void *cmd, uint32_t target_w, uint32_t target_h) {
         ImGui::GetForegroundDrawList()->AddRect(a,b,IM_COL32(250,250,220,255),2.f*s,0,2.f*s);
     }
 
-    if (g_settings.perf_overlay != PERF_OFF) perf_overlay_draw(io, scale);
+    extern volatile int g_photo_on;  // (runtime/photo.c)
+    if (g_settings.perf_overlay != PERF_OFF && !g_photo_on) perf_overlay_draw(io, scale);
     if (title) {  // the title screen's brand, where the game's version line was (fs.c leaves it blank)
         bool up = tt && SDL_GetTicks() - tt < 300 && !open;  // (hidden under the open menu)
         title_a += ((up ? 1.0f : 0.0f) - title_a) * fminf(1.0f, io.DeltaTime * 6);

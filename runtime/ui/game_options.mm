@@ -265,6 +265,7 @@ void build_items(void) {
     std::vector<Item> &v = g_items;
     // first page: the sections (the game's own options are on Gameplay and Controls)
     v.push_back(button(P_MAIN, "Gameplay", "Mini-map, HUD, jump button and more.", "Open", A_PAGE, P_GAMEPLAY));
+    v.push_back(button(P_GAMEPLAY, "Photo mode", "While playing: F6, or press both sticks in. The world stops and the HUD goes. Sticks fly the camera, L and R go up and down, ZR is faster, B leaves. F7 saves a picture.", "F6", A_NONE, 0));
     v.push_back(button(P_MAIN, "Video", "Screen, resolution and image quality.", "Open", A_PAGE, P_VIDEO));
     v.push_back(button(P_MAIN, "Draw distance", "How far grass, trees and objects reach.", "Open", A_PAGE, P_DISTANCE));
 #ifndef __APPLE__

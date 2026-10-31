@@ -337,6 +337,10 @@ void rt_vfr_update(uint64_t vfr) {
     else if (iv == 2 && slow < 0.7) iv = 1;
     else if (iv == 2 && slow > 1.3) iv = 3;
     else if (iv == 3 && slow < 1.15) iv = 2;
+    {
+        extern volatile int g_photo_on;  // (runtime/photo.c: the world nearly still; 0 would divide by it)
+        if (g_photo_on) ratio = 0.0005f;
+    }
     VF(float, vfr, VFR_RATIO) = ratio;
     VF(float, vfr, VFR_NEW_RATIO) = ratio;
     if (!paused) g_frame_ratio = ratio;

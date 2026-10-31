@@ -790,6 +790,12 @@ static void fill_state(Cpu *c) {
         int32_t m = dx && dy ? 23170 : 32767;  // diagonals: same speed (32767 / sqrt 2)
         if (dx || dy) lx = dx * m, ly = dy * m;
     }
+    {   // photo mode (runtime/photo.c): both sticks pressed; while on, the camera has the controls
+        extern bool photo_take_input(int32_t, int32_t, int32_t, int32_t, bool, bool, bool, bool, bool);
+        if (!menu && photo_take_input(lx, ly, rx, ry, b >> BTN_R & 1, b >> BTN_L & 1, b >> BTN_ZR & 1,
+                                      (b >> BTN_LSTICK & 1) && (b >> BTN_RSTICK & 1), b >> BTN_B & 1))
+            b = 0, lx = ly = rx = ry = 0;
+    }
     // stick directions also appear as buttons (bits 16-23)
     if (lx < -16000) b |= 1ull << 16;
     if (ly > 16000) b |= 1ull << 17;

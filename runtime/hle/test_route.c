@@ -18,6 +18,7 @@
 //   fight <seconds>           lock on (left trigger), walk in, attack (west) twice a second
 //   hold <seconds>            stand still
 //   sprint <seconds>          run ahead, holding the sprint button
+//   photo                     photo mode on or off (runtime/photo.c)
 //   teleport <x> <y> <z>      as the Teleport page does: the game restarts (runtime/teleport.c); then `play` again
 //   shadow <0-3>              Video > Shadow resolution, now
 //   camspeed <0|1> <x %> <y %>   Controls > Controller camera speed and its sliders, now
@@ -284,6 +285,11 @@ void test_route_frame(int32_t *lx, int32_t *ly, int32_t *rx, int32_t *ry, uint32
         cur++;
         teleport_to((float)s->v[0], (float)s->v[1], (float)s->v[2]);
         return;
+    }
+    if (!strcmp(s->op, "photo")) {
+        extern void photo_toggle(void);
+        photo_toggle();
+        NEXT();
     }
     if (!strcmp(s->op, "sprint")) {
         *ly = axis(1);
