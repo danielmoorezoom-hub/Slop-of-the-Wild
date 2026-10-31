@@ -19,7 +19,7 @@ enum { UPSCALE_OFF = 0, UPSCALE_METALFX = 1 /* macOS */, UPSCALE_FSR1 = 2 /* AMD
 enum { UPQ_ULTRA = 0, UPQ_QUALITY = 1, UPQ_BALANCED = 2, UPQ_PERFORMANCE = 3, UPQ_ULTRA_PERFORMANCE = 4, UPQ_COUNT };
 // TAA (Vulkan): the game's own motion vectors (vulkan/mvec.c) and a jittered camera (output_scale.c rt_jitter_on)
 // blend each frame with the ones before it (vulkan/exec.c mvec_taa)
-enum { AA_OFF = 0, AA_SMAA = 1, AA_TAA = 2 };
+enum { AA_OFF = 0, AA_SMAA = 1, AA_TAA = 2, AA_FSR4 = 3 /* AMD FSR 4 on a Radeon, Windows; elsewhere TAA (rt_antialias) */ };
 #ifdef __APPLE__
 #define AA_TAA_OR_SMAA AA_SMAA
 #else

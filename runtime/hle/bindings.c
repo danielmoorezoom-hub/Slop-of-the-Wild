@@ -249,3 +249,20 @@ void bind_settings_save(FILE *f) {
         if (g_bind_key[i] != k_def_key[i])
             fprintf(f, "bind_key_%s = %s\n", k_ini[i], g_bind_key[i] ? bind_key_label(g_bind_key[i]) : "none");
 }
+
+// Which button confirms: the game's A on the right, as on a Switch, or on the bottom, as on an Xbox or PlayStation pad (A and B swap;
+// X and Y stay where they are). The prompts follow the bindings (nvn/glyphs.c), so they show the button that does it.
+static int slot_named(const char *name) {
+    for (int i = 0; i < BIND_PAD_COUNT; i++)
+        if (!strcmp(bind_input_name(i), name)) return i;
+    return 0;
+}
+
+bool bind_confirm_bottom(void) {
+    return g_bind_pad[slot_named("A")] == SDL_GAMEPAD_BUTTON_SOUTH && g_bind_pad[slot_named("B")] == SDL_GAMEPAD_BUTTON_EAST;
+}
+
+void bind_set_confirm_bottom(bool bottom) {
+    g_bind_pad[slot_named("A")] = bottom ? SDL_GAMEPAD_BUTTON_SOUTH : SDL_GAMEPAD_BUTTON_EAST;
+    g_bind_pad[slot_named("B")] = bottom ? SDL_GAMEPAD_BUTTON_EAST : SDL_GAMEPAD_BUTTON_SOUTH;
+}

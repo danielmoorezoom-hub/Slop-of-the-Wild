@@ -102,6 +102,15 @@ extern "C" void controls_bindings_draw(float scale) {
         ImGui::EndTable();
     }
     ImGui::Spacing();
+    {   // (hle/bindings.c)
+        bool bottom = bind_confirm_bottom();
+        if (ImGui::Checkbox(tr("Confirm with the bottom button (Xbox and PlayStation layout)"), &bottom)) {
+            bind_capture_cancel();
+            bind_set_confirm_bottom(bottom);
+            settings_save();
+        }
+    }
+    ImGui::Spacing();
     ImGui::BeginDisabled(bind_is_default(BIND_DEV_PAD));
     if (ImGui::Button(tr("Reset controller to defaults"))) { bind_capture_cancel(); bind_reset(BIND_DEV_PAD); }
     ImGui::EndDisabled();

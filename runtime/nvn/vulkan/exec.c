@@ -1,4 +1,5 @@
 // Executes recorded NVN command lists with Vulkan (port of renderer.m; same structure, same behaviour).
+#include "fsr_api.h"
 #include <SDL3/SDL_cpuinfo.h>
 #include <SDL3/SDL_timer.h>
 #include <float.h>
@@ -7728,6 +7729,51 @@ static bool mvec_scene_view(Prog *pr, CmdRec *r, NvnTexture **taa_t, TexBackend 
 //   scene's alpha), RGBA16F, which FSR 1 and CAS take from there.
 // The history starts over when a frame was not blended (TAA off, a frame without the scene) or the size changed.
 // NULL when the vectors or the depth aren't the scene's size, or there is no camera yet.
+void vk_gpuprof_mark(VkCommandBuffer cb, const char *what) { gp_mark(cb, "%s", what); }  // (fsr_api.cpp)
+
+// Video > Anti-aliasing FSR 4: AMD's upscaler (fsr_api.h) with the same inputs TAA has, at the same size: anti-aliasing, no upscaling.
+// NULL: not this frame, TAA does it. (From Savage Wind's pull request #308, where it upscales.)
+static TexBackend *fsr4_native(VkCommandBuffer cb, TexBackend *b, TexBackend *db, uint64_t frame) {
+    float jit[2], nr, fr, fov;
+    TexBackend *v = mvec_vectors_img;
+    if (!mvec_camera_now(jit, &nr, &fr, &fov)) return NULL;
+    uint32_t w = b->width, h = b->height;
+    static const VkComponentMapping id = {0};
+    TexBackend *dep = post_image(14, w, h, VK_FORMAT_R32_SFLOAT), *rea = post_image(15, w, h, VK_FORMAT_R8_UNORM);
+    TexBackend *out = post_image_ex(13, w, h, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_STORAGE_BIT);
+    float pc[8] = {0};
+    VkImageView di[3] = {vk_image_view(db, VK_IMAGE_VIEW_TYPE_2D, db->format, 0, 1, 0, 1, id, VK_IMAGE_ASPECT_DEPTH_BIT)};
+    post_pass(cb, "fsr3_depth.frag", di, 1, dep, pc, false);
+    VkImageView ri[3] = {post_view(v)};
+    float rpc[8] = {1.0f};
+    post_pass(cb, "fsr3_reactive.frag", ri, 1, rea, rpc, false);
+    vk_full_barrier(cb);
+    float flip = nvn_window_origin() == 0 ? -1.0f : 1.0f;  // (the game's NDC y to clip y: mvec_fill.frag's a.x)
+    static uint64_t last = ~0ull, last_ns;
+    uint64_t ns = SDL_GetTicksNS();
+    Fsr3Dispatch d = {
+        .dev = g_vk.dev, .phys = g_vk.phys, .cb = cb,
+        .color = {b->image, b->format, w, h}, .depth = {dep->image, dep->format, w, h},
+        .motion = {v->image, v->format, w, h}, .reactive = {rea->image, rea->format, w, h},
+        .output = {out->image, out->format, w, h},
+        .jitter = {jit[0] * (float)w * 0.5f, -jit[1] * flip * (float)h * 0.5f},
+        .motion_scale = {-0.5f * (float)w, 0.5f * (float)h},
+        .dt_ms = last_ns && ns > last_ns ? (float)((ns - last_ns) / 1e6) : 16.7f,
+        .near_ = nr, .far_ = fr, .fov_y = fov,
+        .sharpness = g_settings.sharpening / 10.0f,
+        .reset = last == ~0ull || last + 1 != frame,
+    };
+    last_ns = ns;
+    gp_mark(cb, "FSR 4");
+    rec_drain();  // (FidelityFX records into cb itself, and may wait for the device: what was queued before goes first)
+    bool ok = fsr_api_dispatch(&d, 4);
+    vk_dyn_forget();  // (FSR's own pipelines and sets were bound)
+    vk_full_barrier(cb);
+    if (!ok) return NULL;
+    last = frame;
+    return out;
+}
+
 static TexBackend *mvec_taa(VkCommandBuffer cb, TexBackend *b, uint64_t frame) {
     TexBackend *db = mvec_depth ? vk_tex(mvec_depth, false) : NULL;
     uint32_t w = b->width, h = b->height;
@@ -7739,6 +7785,10 @@ static TexBackend *mvec_taa(VkCommandBuffer cb, TexBackend *b, uint64_t frame) {
         if (!logged) LOG("[taa] unavailable: the device lacks shaderStorageImageExtendedFormats\n");
         logged = true;
         return NULL;
+    }
+    if (rt_fsr4() && fsr_api_usable(4)) {
+        TexBackend *f4 = fsr4_native(cb, b, db, frame);
+        if (f4) return f4;
     }
     float jit[2], nr, fr, fov;
     if (!mvec_camera_now(jit, &nr, &fr, &fov)) return NULL;

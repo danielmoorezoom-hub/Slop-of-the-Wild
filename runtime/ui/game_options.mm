@@ -152,7 +152,7 @@ const char *const k_modes[] = {"Ultra Quality", "Quality", "Balanced", "Performa
 #ifdef __APPLE__
 const char *const k_aa[] = {"Off", "SMAA"};
 #else
-const char *const k_aa[] = {"Off", "SMAA", "TAA"};  // (settings.h AA_*)
+const char *const k_aa[] = {"Off", "SMAA", "TAA", "AMD FSR 4"};  // (settings.h AA_*)
 #endif
 const char *const k_aniso[] = {"Off", "2x", "4x", "8x", "16x"};  // (settings anisotropy 0..4)
 const char *const k_shadow[] = {"Console (896)", "High (2048)", "Ultra (4096)", "Extreme (8192)"};  // (SHADOW_*)
@@ -713,6 +713,14 @@ void build_items(void) {
     v.push_back(button(P_KEYS, "Reset keyboard to defaults", "Every key back to its default.", "Reset", A_RESET_KEYS, 0));
     for (int s = BIND_LS_UP; s <= BIND_RS_RIGHT; s++) bind(P_STICKS, A_BIND_KEY, s);
     v.push_back(button(P_STICKS, "Reset keyboard to defaults", "Every key back to its default.", "Reset", A_RESET_KEYS, 0));
+    {   // (hle/bindings.c: the prompts follow)
+        static const char *const conf[] = {"Right (Nintendo layout)", "Bottom (Xbox, PlayStation layout)"};
+        Item c = choice(P_PAD, "Confirm button", "Which button is the game's A. The prompts show the button that does it.",
+                        [](const Item &) { return 2; }, [](const Item &, int x) { return tr(conf[x]); },
+                        [](const Item &) { return (int)bind_confirm_bottom(); },
+                        [](const Item &, int x) { bind_set_confirm_bottom(x != 0); }, 0);
+        v.push_back(c);
+    }
     for (int s = 0; s < BIND_PAD_COUNT; s++) bind(P_PAD, A_BIND_PAD, s);
     v.push_back(button(P_PAD, "Reset controller to defaults", "Every button back to its default.", "Reset", A_RESET_PAD, 0));
 
@@ -1013,7 +1021,7 @@ extern "C" int rt_opt_store(uint64_t row) {
     // (the sizes offered follow Fullscreen, texts and Upscaler mode's values the upscaler; Colour: the preset sets the
     // sliders, they the preset). A value kept on show because it couldn't be picked goes once it can (Upscaler mode
     // after Off: the mode stored, not the Off shown).
-    if (it->page == P_VIDEO || it->page == P_COLOUR || it->page == P_DISTANCE) {
+    if (it->page == P_VIDEO || it->page == P_COLOUR || it->page == P_DISTANCE || it->page == P_PAD) {
         for (size_t i = 0; i < g_items.size() && i < g_shown.size(); i++) {
             const Item &o = g_items[i];
             if (g_shown[i] >= 0 && (!o.value_off || !o.value_off(o, g_shown[i]))) g_shown[i] = -1;

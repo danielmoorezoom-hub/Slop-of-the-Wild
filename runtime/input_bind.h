@@ -45,6 +45,8 @@ const char *bind_pad_label(int host, int fam); // controller button in the pad f
 const char *bind_key_label(int scancode);
 int bind_label_family(void);                   // the connected controller's family (also on the start screen)
 void bind_reset(int dev);
+bool bind_confirm_bottom(void);              // the game's A on the bottom button, B on the right (hle/bindings.c)
+void bind_set_confirm_bottom(bool bottom);
 bool bind_is_default(int dev);
 bool bind_is_default_slot(int dev, int slot);
 

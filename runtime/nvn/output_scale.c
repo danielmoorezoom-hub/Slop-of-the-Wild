@@ -292,11 +292,21 @@ int rt_antialias(void) {
             if (e) e++;
         }
     }
-    int r = g_settings.antialias;
+    int r = g_settings.antialias == AA_FSR4 ? AA_TAA : g_settings.antialias;  // (FSR 4 wants all TAA does)
     uint64_t frame = n ? renderer_present_count() : 0;
     for (int i = 0; i < n; i++)
         if (frame >= at[i]) r = mode[i];
     return r;
+}
+
+// Video > Anti-aliasing FSR 4, on a PC that has it (vulkan/fsr_api.h: AMD's DLLs, an AMD Radeon)
+bool fsr4_available(void);
+bool rt_fsr4(void) {
+#ifdef __APPLE__
+    return false;
+#else
+    return g_settings.antialias == AA_FSR4 && fsr4_available();
+#endif
 }
 
 static float halton(uint32_t i, uint32_t b) {

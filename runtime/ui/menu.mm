@@ -828,13 +828,13 @@ static void tab_display(void) {
                "blends only along them, so textures stay sharp. Most useful with an upscaler.");
 #else
     {   // (the TAA sentence on its own: the first one keeps its translations)
-        static const char *aa[] = {"Off", "SMAA", "TAA"};  // (settings.h AA_*)
+        static const char *aa[] = {"Off", "SMAA", "TAA", "AMD FSR 4"};  // (settings.h AA_*)
         static std::string d;
         d = std::string(tr("Smooths jagged edges of the game image before it is scaled to the window. SMAA: finds the "
                            "edges and blends only along them, so textures stay sharp. Most useful with an upscaler.")) +
             " " + tr("TAA: blends each frame with the ones before it, following the game's motion, so edges stay "
                      "smooth and stop shimmering; slightly softer, use it with Sharpening.");
-        opt_choice("Anti-aliasing", &g_settings.antialias, aa, 3, AA_SMAA, d.c_str());
+        opt_choice("Anti-aliasing", &g_settings.antialias, aa, 4, AA_SMAA, d.c_str());
     }
 #endif
 #ifndef __APPLE__

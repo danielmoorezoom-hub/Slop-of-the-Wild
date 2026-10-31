@@ -21,7 +21,7 @@ extern "C" bool vk_imgui_backend_init(void) {
     ii.Device = g_vk.dev;
     ii.QueueFamily = g_vk.qfam;
     ii.Queue = g_vk.queue;
-    ii.DescriptorPoolSize = 64;
+    ii.DescriptorPoolSize = 256;  // (a set per texture: the achievements page alone has about 70)
     ii.MinImageCount = 2;
     // vertex buffers rotate per image: cover frames in flight, twice over
     ii.ImageCount = 2 * (g_vk.sc_count > 3 ? g_vk.sc_count : 3) + 1;
