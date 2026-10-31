@@ -42,7 +42,9 @@
 typedef void (*PktFn)(const void *args);
 typedef struct { PktFn fn; uint32_t size; uint32_t pad; } PktHdr;  // fn NULL: skip to the ring's start
 #define PKT_ALIGN 16
-#define PUBLISH_EVERY (4u << 10)  // bytes queued before T publishes them (and at every submission and wait)
+// bytes queued before T publishes them (and at every submission and wait). (4 KB: 33000 wakes of the recorder a second
+// at Kakariko, a system call each, 7% of T's time)
+#define PUBLISH_EVERY (16u << 10)
 
 static uint8_t *ring;
 static uint64_t ring_cap;  // (a power of two)

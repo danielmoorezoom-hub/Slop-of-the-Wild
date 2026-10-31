@@ -13,9 +13,43 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <psapi.h>
 
 #define MAX_THREADS 128
 #define MAX_DEPTH 48
+
+// Unwinding a thread stopped anywhere can read past its stack (a guest stack has no limits the unwinder knows, and a
+// frame caught half built gives it nonsense): such a stack ends there instead of ending the run.
+static DWORD unwind_tid;
+static volatile LONG unwinding;
+static void *unwind_jb[5];
+static void unwind_recover(void) { __builtin_longjmp(unwind_jb, 1); }
+static LONG WINAPI unwind_fault(EXCEPTION_POINTERS *e) {
+    if (GetCurrentThreadId() != unwind_tid || !unwinding || e->ExceptionRecord->ExceptionCode != EXCEPTION_ACCESS_VIOLATION)
+        return EXCEPTION_CONTINUE_SEARCH;
+    e->ContextRecord->Rsp = (e->ContextRecord->Rsp & ~(DWORD64)15) - 8;  // (as if called)
+    e->ContextRecord->Rip = (DWORD64)(uintptr_t)unwind_recover;
+    return EXCEPTION_CONTINUE_EXECUTION;
+}
+
+static volatile int unwind_depth;
+__attribute__((noinline)) static void unwind_stack(CONTEXT *ctx, uint64_t *out, int depth) {
+    for (; unwind_depth < depth && ctx->Rip; unwind_depth++) {
+        out[unwind_depth] = ctx->Rip;
+        if (unwind_depth + 1 == depth) { unwind_depth++; break; }
+        DWORD64 base = 0;
+        PRUNTIME_FUNCTION f = RtlLookupFunctionEntry(ctx->Rip, &base, NULL);
+        if (!f) {  // a leaf without unwind data: the return address is on top of the stack
+            if (!ctx->Rsp || IsBadReadPtr((void *)ctx->Rsp, 8)) { unwind_depth++; break; }
+            ctx->Rip = *(DWORD64 *)ctx->Rsp;
+            ctx->Rsp += 8;
+            continue;
+        }
+        void *hd = NULL;
+        DWORD64 fr = 0;
+        RtlVirtualUnwind(UNW_FLAG_NHANDLER, base, ctx->Rip, f, ctx, &hd, &fr, NULL);
+    }
+}
 
 static void *sampler_main(void *arg) {
     double start = 0, secs = 0, us = 1000;
@@ -24,7 +58,9 @@ static void *sampler_main(void *arg) {
     if (secs <= 0) return NULL;
     if (depth < 1 || depth > MAX_DEPTH) depth = MAX_DEPTH;
     plat_sleep_until_ns(plat_now_ns() + (uint64_t)(start * 1e9));
-    size_t cap = 12u << 20, used = 0;  // words (96 MB), allocated up front: nothing may allocate while a thread is suspended
+    unwind_tid = GetCurrentThreadId();
+    AddVectoredExceptionHandler(1, unwind_fault);
+    size_t cap = 48u << 20, used = 0;  // words (384 MB), allocated up front: nothing may allocate while a thread is suspended
     uint64_t *buf = malloc(cap * sizeof *buf);
     if (!buf) return NULL;
     pthread_t host[MAX_THREADS];
@@ -51,23 +87,14 @@ static void *sampler_main(void *arg) {
                 size_t at = used;
                 buf[used++] = handle[i];
                 buf[used++] = 0;  // depth, filled below
-                int d = 0;
-                for (; d < depth && ctx.Rip; d++) {
-                    buf[used++] = ctx.Rip;
-                    if (d + 1 == depth) { d++; break; }
-                    DWORD64 base = 0;
-                    PRUNTIME_FUNCTION f = RtlLookupFunctionEntry(ctx.Rip, &base, NULL);
-                    if (!f) {  // a leaf without unwind data: the return address is on top of the stack
-                        if (!ctx.Rsp || IsBadReadPtr((void *)ctx.Rsp, 8)) break;
-                        ctx.Rip = *(DWORD64 *)ctx.Rsp;
-                        ctx.Rsp += 8;
-                        continue;
-                    }
-                    void *hd = NULL;
-                    DWORD64 fr = 0;
-                    RtlVirtualUnwind(UNW_FLAG_NHANDLER, base, ctx.Rip, f, &ctx, &hd, &fr, NULL);
+                unwind_depth = 0;
+                if (!__builtin_setjmp(unwind_jb)) {
+                    unwinding = 1;
+                    unwind_stack(&ctx, buf + used, depth);
                 }
-                buf[at + 1] = (uint64_t)d;
+                unwinding = 0;
+                used += (size_t)unwind_depth;
+                buf[at + 1] = (uint64_t)unwind_depth;
                 nsamples++;
             }
             ResumeThread(h);
@@ -80,6 +107,15 @@ static void *sampler_main(void *arg) {
     if (f) {
         fprintf(f, "M exe %llx\nM swgame %llx\n", (unsigned long long)(uintptr_t)GetModuleHandleA(NULL),
                 (unsigned long long)(uintptr_t)GetModuleHandleA("swgame.dll"));
+        HMODULE mods[512];  // (every module, for addresses outside those two: "L <base> <size> <name>")
+        DWORD got = 0;
+        if (K32EnumProcessModules(GetCurrentProcess(), mods, sizeof mods, &got))
+            for (DWORD i = 0; i < got / sizeof mods[0] && i < 512; i++) {
+                MODULEINFO mi;
+                char nm[128] = "";
+                if (K32GetModuleInformation(GetCurrentProcess(), mods[i], &mi, sizeof mi) && K32GetModuleBaseNameA(GetCurrentProcess(), mods[i], nm, sizeof nm))
+                    fprintf(f, "L %llx %lx %s\n", (unsigned long long)(uintptr_t)mi.lpBaseOfDll, (unsigned long)mi.SizeOfImage, nm);
+            }
         int n = kernel_running_threads(host, handle, entry, MAX_THREADS);
         for (int i = 0; i < n; i++) fprintf(f, "T %u %llx\n", handle[i], (unsigned long long)entry[i]);
         for (size_t p = 0; p < used;) {

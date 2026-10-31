@@ -162,12 +162,29 @@ static GuestFn dispatch_slow(Cpu *c) {
 }
 
 // Always tail-calls, so chains of indirect jumps don't grow the host stack.
-void rt_dispatch(Cpu *c) {
-    KThread *t = c->thread;  // (a better thread waiting for this one's core gets it: kernel.c kernel_preempt)
-    if (t && t->core_held >= 0 && __builtin_expect(g_core_best_wait[t->core_held].v < t->prio, 0)) kernel_preempt(t);
+// (The calls are out here so that the usual way through rt_dispatch saves no registers: it runs on every indirect jump.)
+__attribute__((noinline)) static void dispatch_miss(Cpu *c) {
+    GuestFn f = dispatch_slow(c);
+    __attribute__((musttail)) return f(c);
+}
+
+__attribute__((noinline)) static void dispatch_preempted(Cpu *c) {
+    kernel_preempt(c->thread);
     unsigned h = (unsigned)(c->pc >> 2) & (DCACHE - 1);
     GuestFn f = dcache[h].addr == c->pc ? dcache[h].fn : dispatch_slow(c);
     __attribute__((musttail)) return f(c);
+}
+
+void rt_dispatch(Cpu *c) {
+    KThread *t = c->thread;  // (a better thread waiting for this one's core gets it: kernel.c kernel_preempt)
+    if (t && t->core_held >= 0 && __builtin_expect(g_core_best_wait[t->core_held].v < t->prio, 0)) {
+        __attribute__((musttail)) return dispatch_preempted(c);
+    }
+    unsigned h = (unsigned)(c->pc >> 2) & (DCACHE - 1);
+    if (__builtin_expect(dcache[h].addr != c->pc, 0)) {
+        __attribute__((musttail)) return dispatch_miss(c);
+    }
+    __attribute__((musttail)) return dcache[h].fn(c);
 }
 
 void guest_call(Cpu *c, uint64_t addr) {
