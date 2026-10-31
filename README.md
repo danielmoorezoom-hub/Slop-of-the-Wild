@@ -52,6 +52,14 @@ options.
 | **Controller camera speed** (Controls, off by default, beta) | The game's top camera speed is 85 degrees a second, over four seconds for a full turn. This goes past it with separate left/right and up/down sliders, up to 600%, measured at exactly 2x and 4x. |
 | **Extended draw distance** (its own Draw Distance page, off by default, beta) | Overall distance moves everything at once, with sliders under it for Draw distance (to 1000%), Grass density (to 1500%, farthest reach at 250%) and Object distance (to 140%; past that the game drops parts of Rito Village). They change live. See [Known issues](#known-issues). |
 | **Benchmark** (Video, and the start screen) | Three set walks with your settings, on a copy of your save. The results stay in `benchmark/results.txt`. |
+| **Cheats** (their own page) | Infinite health, stamina and arrows, unbreakable weapons. Off by default. |
+| **Teleport** (its own page, in game) | Four bookmarks and the main places. The game restarts and Continue lands you there, from your last save. |
+| **Photo mode** (F6, or both sticks pressed in) | The world stops and the HUD goes. Sticks fly the camera, L and R go up and down, ZR is faster, B leaves, F7 saves a picture in `screenshots/`. |
+| **Saves** (Settings, start screen) | Import a Wii U or Cemu save, back up your saves. |
+| **Achievements** (their own page) | 63, read from your saves, with a notice as they unlock. |
+| **Mouse pointer** (Controls, on by default) | Point and click in menus, inventory and map, and aim the bow with the right button. Esc pauses and goes back, F2 frees the cursor. |
+| **AMD FSR 4** (Video > Anti-aliasing) | On a Radeon on Windows. Anti-aliasing at full size, with no upscaling. Elsewhere it acts as TAA. |
+| **Confirm button** (Controller) | Confirm on the bottom button, as on Xbox and PlayStation pads. The prompts follow. |
 | **Home button menu** | The settings overlay opens from a controller's Home button, or Back + Start. Esc frees the mouse. The game's own pause menu has the options too. |
 | **Straight into the game** | Once set up, starting the game goes to the title with a splash, not a launcher and not a black screen. `Slop of the Wild Configuration.exe` opens the settings. |
 | **A single installer** | One exe, in place of 0.0's drop-in zip that needed Savage Wind's release first. |

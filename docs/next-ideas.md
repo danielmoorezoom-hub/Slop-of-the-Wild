@@ -23,32 +23,74 @@ Partly here:
 - **Install folder check**: the program tests whether its folder can be written to, but gives no warning.
 - **GPU readings** (roadmap): the F10 overlay reads NVIDIA on Windows and AMD on Linux, not AMD or Intel on Windows.
 
-## Chosen next, easiest first
+## The work list, easiest to hardest (2026-10-31)
 
-An estimate from the size of each pull request and what is already here, before reading their code.
+An estimate before reading the code each needs. Speed items are theories: each gets a benchmark on the three routes, and stays only if it shows a gain.
 
-| # | Idea | Where | Why it sits here |
-|---|---|---|---|
-| 1 | Cheat menu: infinite health, stamina and arrows, unbreakable weapons | #25, #296 | There is none now, only their closed pull request. 85 lines over 5 files, and I can test it with routes. Its addresses may need redoing for 1.9.0. Goes in the menus as a page, like Draw Distance |
-| 2 | Wii U and Cemu save import | `6cf491e` | Finished on their side. Three files conflict with ours (Makefile, README, menus). Needs a real Wii U or Cemu save to test |
-| 3 | Menu pointer, mouse in menus | #234, #183 | One piece of work: #234 is the fix for #183. 1,600 lines over 21 files, in menus we have changed |
-| 4 | Teleport bookmarks | roadmap | No code to take. Our warp only works while a save loads, so either restart to warp or find the game's own warp call |
-| 5 | Achievements | #236 | The biggest pull request: 3,900 lines over 39 files, and many triggers to test |
-| 6 | FSR 4 | #308 | 1,600 lines, but we removed FSR and they build on it. Needs AMD's SDK. May help shimmer, worth comparing with TAA |
-| 7 | Native controller support, more customization | #143, #180 | No code to take and a broad request: settle what is missing first, since rebinding already exists |
-| 8 | Free camera and photo mode | roadmap | No code to take. Needs control of the game's camera while the world is paused, and the HUD hidden |
-| 9 | How shadows look | #300 | Open-ended, the cause isn't known. The first try at shadow distance changed nothing visible |
+| # | Item | Kind |
+|---|---|---|
+| 1 | Cache the per-frame `getenv` calls | Speed |
+| 2 | Read only the game flags achievements use | Speed |
+| 3 | Compile test hooks out of release builds | Speed |
+| 4 | Automatic save backups before each game start | Feature |
+| 5 | FPS and frame-time graph in the F10 overlay | Feature |
+| 6 | Skip intro logos and unskippable text | Feature |
+| 7 | More cheats: rupees, one-hit kills, moon jump, rune cooldowns | Feature |
+| 8 | Durability multiplier | Feature |
+| 9 | Settings profiles | Feature |
+| 10 | One-click problem report, with no game files or saves | Feature |
+| 11 | GPU readings on AMD for Windows | Feature |
+| 12 | Recommended preset from a first-run benchmark | Feature |
+| 13 | Smaller installer, FSR 4 files as an optional download | Install |
+| 14 | Difficulty sliders for damage dealt and taken | Feature |
+| 15 | Time of day and weather in photo mode | Feature |
+| 16 | Depth of field and filters in photo mode | Feature |
+| 17 | Fast-travel to any map marker | Feature |
+| 18 | Teleport bookmarks inside shrines | Feature |
+| 19 | Smarter CPU core placement | Speed |
+| 20 | Skip shadow draws that don't matter | Speed |
+| 21 | Higher optimization on the hottest game code | Speed |
+| 22 | Large memory pages for the game's heap, optional | Speed |
+| 23 | Native versions of hot game routines | Speed |
+| 24 | Less guest memory kept committed | Speed |
+| 25 | Skip descriptor and state changes that haven't changed | Speed |
+| 26 | Read ahead for the next area | Speed |
+| 27 | Pre-warm pipelines at the title screen | Speed |
+| 28 | Cache indirect call targets | Speed |
+| 29 | Less waiting for emulated cores | Speed |
+| 30 | Cheaper far grass | Speed |
+| 31 | Draw distance that holds a target frame rate | Feature |
+| 32 | Incremental setup, so updates don't rebuild everything | Install |
+| 33 | Better horse steering on keyboard (#290) | Feature |
+| 34 | Update checks and in-place updates | Feature |
+| 35 | Per-action remapping (#180) | Feature |
+| 36 | XeSS and DLSS | Feature |
+| 37 | Community language packs (#265) | Feature |
+| 38 | Mod loader for file replacements | Feature |
+| 39 | Parallel draw translation | Speed |
+| 40 | Randomizer | Feature |
+
+## Chosen list, done on 2026-10-31
+
+| Idea | Where | State |
+|---|---|---|
+| Cheat menu | #25, #296 | In. Health, stamina and weapons tested; arrows not yet |
+| Wii U and Cemu save import | `6cf491e` | In, not tested here |
+| Menu pointer, mouse in menus, mouse bow aiming | #234, #183 | In, on by default, not tried with a real mouse yet |
+| Teleport bookmarks | roadmap | In. Restarts the game and lands on Continue, from the last save |
+| Achievements | #236 | In, the save reading tested |
+| FSR 4 | #308 | In as an anti-aliasing mode at native size, Radeon on Windows |
+| Confirm button (Xbox and PlayStation layout) | #143, #180 | In. Actions can't be moved one by one beyond the rebinding that already exists |
+| Photo mode | roadmap | In, F6. The game still chooses what to draw from its own camera, so far from it the world is cut off |
+| How shadows look | #300 | Not changed. The report's stripes are on an Intel GPU and don't show on AMD here. Needs an Intel PC to test |
 
 ## Savage Wind: work in progress
 
 | Idea | Where | Note |
 |---|---|---|
-| FSR 4 | #308 | We removed FSR earlier: only worth it if it stops the artefacts that made us drop it |
 | DLSS | #111 | |
-| Menu pointer | #234 | A mouse cursor in the game's own menus |
 | Profiler you can turn on while playing | #309 | Useful to us for reports |
 | Online | #294 | Large, and a lot could go wrong |
-| Achievements | #236 | |
 | Control commands | #284-286 | Buttons that run actions |
 | NaN-aware min/max in shaders | #153 | May fix some rendering glitches: read before the next graphics bug hunt |
 | Sparse heap | #197 | Memory |
@@ -68,15 +110,11 @@ An estimate from the size of each pull request and what is already here, before 
 
 ## Savage Wind: their roadmap
 
-- Free camera and photo mode
 - Effects on and off, one at a time, including the three grass layers
 - GPU readings on AMD and Intel
 - Mods
 - Accessibility and assists
-- Teleport bookmarks
 - amiibo rewards
-- Import Wii U and Cemu saves (`6cf491e`, already done on their side)
-- Vertices and indices from a copy of the game's memory in video memory (`4af9757`, a speed-up, needs a timing test)
 
 ## Our own
 
