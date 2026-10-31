@@ -321,7 +321,7 @@ static void add_cflags(Args *a, const Tools *t) {
             add(a, f);
         }
     }
-    if (t->zig) add_split(a, GAMELIB_ZIGFLAGS);  // (after them: the last -O that reaches clang wins)
+    if (t->zig) add_split(a, getenv("SAVAGEWIND_GAMELIB_ZIG") ? getenv("SAVAGEWIND_GAMELIB_ZIG") : GAMELIB_ZIGFLAGS);  // (after them: the last -O that reaches clang wins)
 }
 
 static PlatProc start_compile(const Tools *t, const Unit *u) {

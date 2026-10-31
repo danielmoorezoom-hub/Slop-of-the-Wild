@@ -27,19 +27,19 @@ Partly here:
 
 An estimate before reading the code each needs. Speed items are theories: each gets a benchmark on the three routes, and stays only if it shows a gain.
 
-| # | Item | Kind |
+| # | Item | Kind or state |
 |---|---|---|
-| 1 | Cache the per-frame `getenv` calls | Speed |
-| 2 | Read only the game flags achievements use | Speed |
-| 3 | Compile test hooks out of release builds | Speed |
-| 4 | Automatic save backups before each game start | Feature |
-| 5 | FPS and frame-time graph in the F10 overlay | Feature |
+| 1 | Cache the per-frame `getenv` calls | Done |
+| 2 | Read only the game flags achievements use | Not needed: moving the check outside the lock took the stall away |
+| 3 | Compile test hooks out of release builds | Not needed: nearly all are read once and kept |
+| 4 | Automatic save backups before each game start | Done |
+| 5 | FPS and frame-time graph in the F10 overlay | Done |
 | 6 | Skip intro logos and unskippable text | Feature |
-| 7 | More cheats: rupees, one-hit kills, moon jump, rune cooldowns | Feature |
-| 8 | Durability multiplier | Feature |
+| 7 | More cheats: rupees, one-hit kills, moon jump, rune cooldowns | Partly: infinite rupees done; one-hit kills, moon jump and rune cooldowns not |
+| 8 | Durability multiplier | Done, as Weapon wear |
 | 9 | Settings profiles | Feature |
 | 10 | One-click problem report, with no game files or saves | Feature |
-| 11 | GPU readings on AMD for Windows | Feature |
+| 11 | GPU readings on AMD for Windows | Already there: the F10 overlay reads an AMD GPU on Windows |
 | 12 | Recommended preset from a first-run benchmark | Feature |
 | 13 | Smaller installer, FSR 4 files as an optional download | Install |
 | 14 | Difficulty sliders for damage dealt and taken | Feature |
@@ -47,9 +47,9 @@ An estimate before reading the code each needs. Speed items are theories: each g
 | 16 | Depth of field and filters in photo mode | Feature |
 | 17 | Fast-travel to any map marker | Feature |
 | 18 | Teleport bookmarks inside shrines | Feature |
-| 19 | Smarter CPU core placement | Speed |
+| 19 | Smarter CPU core placement | Nothing to gain on a 7800X3D (one die); untested on other CPUs |
 | 20 | Skip shadow draws that don't matter | Speed |
-| 21 | Higher optimization on the hottest game code | Speed |
+| 21 | Higher optimization on the hottest game code | Dropped: all game code at -O2 gave 243 to 255 fps on the field route and nothing at Hateno, for 70 s more setup |
 | 22 | Large memory pages for the game's heap, optional | Speed |
 | 23 | Native versions of hot game routines | Speed |
 | 24 | Less guest memory kept committed | Speed |
