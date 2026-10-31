@@ -154,8 +154,9 @@ TRANSLATOR_ID := $(shell cat $(TRANSLATOR_SRCS) | (shasum -a 256 2>/dev/null || 
 SPIRV_ID := $(shell cat runtime/nvn/vulkan/spirv.c | (shasum -a 256 2>/dev/null || sha256sum) | cut -c1-16)
 
 RT_OBJ   := $(patsubst runtime/%.c,$(B)/rt/%.o,$(RT_SRC))
-RTFLAGS  := -O2 -g -fno-strict-aliasing -Wall -Wno-unused-function -Iruntime -Iruntime/nvn -isystem third_party -isystem third_party/stb $(DEPINC) $(OSFLAGS)
-CXXFLAGS := -O2 -g -std=c++17 -I$(IMGUI) -I$(IMGUI)/backends -Iruntime -Iruntime/nvn -isystem third_party -Ithird_party/stb $(DEPINC)
+RTOPT ?= -O2
+RTFLAGS  := $(RTOPT) -g -fno-strict-aliasing -Wall -Wno-unused-function -Iruntime -Iruntime/nvn -isystem third_party -isystem third_party/stb $(DEPINC) $(OSFLAGS)
+CXXFLAGS := $(RTOPT) -g -std=c++17 -I$(IMGUI) -I$(IMGUI)/backends -Iruntime -Iruntime/nvn -isystem third_party -Ithird_party/stb $(DEPINC)
 
 .DEFAULT_GOAL := all
 
@@ -205,7 +206,7 @@ $(B)/rt/%.o: runtime/%.m $(RT_HDRS)
 # (in a folder of its own): on Windows the import library records the name the game code library loads it by.
 $(EXE): $(RT_OBJ) $(BACKEND_OBJ) $(UI_OBJ) $(IMGUI_OBJ)
 	@mkdir -p $(dir $@)link
-	$(CXX) -o $(dir $@)link/$(notdir $@) $^ $(LDFLAGS)
+	$(CXX) -o $(dir $@)link/$(notdir $@) $^ $(LDFLAGS) $(RTLD)
 	mv -f $(dir $@)link/$(notdir $@) $@
 
 # its id file (<library>.id) says what it was built from without loading it (runtime/gamelib.c)

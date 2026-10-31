@@ -5149,13 +5149,12 @@ static VkDescriptorSet stage_set(Prog *p, VkDescriptorSetLayout layout, uint32_t
                                  uint32_t *dyn, int *ndyn) {
     struct { uint32_t binding, off; } dv[32];
     int nd = 0;
-    VkWriteDescriptorSet w[MAX_BIND];
-    VkDescriptorBufferInfo bi[MAX_BIND];
-    VkDescriptorImageInfo ii[MAX_BIND];
+    // (static, this thread's alone: twice a draw, and 10 KB on the stack cost a stack probe each time)
+    static VkWriteDescriptorSet w[MAX_BIND];
+    static VkDescriptorBufferInfo bi[MAX_BIND];
+    static VkDescriptorImageInfo ii[MAX_BIND];
     int n = 0;
     int sg = stage == 1 ? 1 : 0;
-    float rs[65][4] = {{1, 1, 0, 0}};
-    if (rscale_row0) memcpy(rs[0], rscale_row0, 16);
     for (int i = 0; i < p->nbinds; i++) {
         VkBindingInfo *b = &p->binds[i];
         if (b->set != set) continue;
@@ -5200,6 +5199,10 @@ static VkDescriptorSet stage_set(Prog *p, VkDescriptorSetLayout layout, uint32_t
         w[n] = (VkWriteDescriptorSet){.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .dstSet = VK_NULL_HANDLE, .dstBinding = b->binding,
                                       .descriptorCount = 1, .descriptorType = b->type};
         if (b->binding == 18) {
+            static float rs[65][4];  // (filled only for a shader that reads it)
+            memset(rs, 0, sizeof rs);
+            rs[0][0] = rs[0][1] = 1;
+            if (rscale_row0) memcpy(rs[0], rscale_row0, 16);
             for (int t = 0; t < si->ntex && t < 64; t++) { rs[1 + t][0] = tex_sc[sg][t][0]; rs[1 + t][1] = tex_sc[sg][t][1]; }
             bi[n] = ubo_span(copy_dedupe(sg ? DEDUPE_RSCALE_F : DEDUPE_RSCALE_V, rs, sizeof rs, 256), sizeof rs);
         } else {
