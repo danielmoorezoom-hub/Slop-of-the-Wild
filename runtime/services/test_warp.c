@@ -110,9 +110,13 @@ void test_warp_patch(uint8_t *d, uint64_t size) {
             set_f32(d, size, "PlayerSavePos", pos, 3);
             set_str(d, size, "PlayerSavePosMapType", p.map_type);
             set_str(d, size, "PlayerSavePosMapName", p.map_name);
-            set_u32(d, size, "IsGet_PlayerStole2", 1);
+            if (!getenv("SAVAGEWIND_WARP_ONCE")) set_u32(d, size, "IsGet_PlayerStole2", 1);  // (not for a player's teleport)
             LOG("[warp] Link starts at %.1f, %.1f, %.1f on %s/%s\n", p.x, p.y, p.z, p.map_type, p.map_name);
         }
+    }
+    if (w && getenv("SAVAGEWIND_WARP_ONCE")) {  // (a player's teleport: this one load)
+        extern void teleport_done(void);
+        teleport_done();
     }
     const char *t = getenv("SAVAGEWIND_TEST_TIME");
     if (t && *t) {

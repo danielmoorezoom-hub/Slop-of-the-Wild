@@ -38,6 +38,7 @@ extern "C" {
 #include "../game_sites.h"
 #include "../nvn/output_scale.h"
 #include "../benchmark.h"
+#include "../teleport.h"
 #include "../settings.h"
 #include "../color_grade.h"
 #include "../pc_cursor.h"
@@ -90,8 +91,8 @@ static_assert(sizeof(Entry) == 0x30);
 enum { KIND_TOGGLE = 0, KIND_CHOICE = 1, KIND_BUTTON = 2 };
 
 enum Page { P_MAIN, P_GAMEPLAY, P_VIDEO, P_COLOUR, P_AUDIO, P_CONTROLS, P_KEYS, P_STICKS, P_PAD, P_LANGUAGE, P_DISTANCE, P_CHEATS,
-            P_ACHIEVEMENTS, P_COUNT };
-enum Action { A_NONE, A_PAGE, A_BIND_KEY, A_BIND_PAD, A_RESET_KEYS, A_RESET_PAD, A_RESTART, A_QUIT, A_SIZE_LIST, A_BENCHMARK };
+            P_ACHIEVEMENTS, P_TELEPORT, P_COUNT };
+enum Action { A_NONE, A_PAGE, A_BIND_KEY, A_BIND_PAD, A_RESET_KEYS, A_RESET_PAD, A_RESTART, A_QUIT, A_SIZE_LIST, A_BENCHMARK, A_TELEPORT_MARK, A_TELEPORT_SAVE, A_TELEPORT_PLACE };
 
 struct Item {
     int page;
@@ -276,6 +277,7 @@ void build_items(void) {
     v.push_back(button(P_MAIN, "Controller", "Which controller button does each button.", "Open", A_PAGE, P_PAD));
     v.push_back(button(P_MAIN, "Language", "Language of the texts and of the voices.", "Open", A_PAGE, P_LANGUAGE));
     v.push_back(button(P_MAIN, "Cheats", "Infinite health, stamina and arrows, unbreakable weapons.", "Open", A_PAGE, P_CHEATS));
+    v.push_back(button(P_MAIN, "Teleport", "Bookmarks and the main places. Restarts the game.", "Open", A_PAGE, P_TELEPORT));
     v.push_back(button(P_MAIN, "Quit game", "To the desktop, or back to the Savage Wind start screen.", "Quit",
                        A_QUIT, 0));
 
@@ -433,6 +435,18 @@ void build_items(void) {
                    (*benchmark_last(i) ? std::string(" Last: ") + benchmark_last(i) : std::string());
         v.push_back(button(P_VIDEO, names[i].c_str(), descs[i].c_str(), "Run", A_BENCHMARK, i));
     }
+    // Teleport (runtime/teleport.c)
+    for (int i = 0; i < TELEPORT_BOOKMARKS; i++) {
+        static std::string go[TELEPORT_BOOKMARKS], save[TELEPORT_BOOKMARKS];
+        go[i] = "Go to bookmark " + std::to_string(i + 1);
+        save[i] = "Save here as bookmark " + std::to_string(i + 1);
+        Item g = button(P_TELEPORT, go[i].c_str(), "Restarts the game: press Continue and you land there. Unsaved progress is lost.", nullptr, A_TELEPORT_MARK, i);
+        g.label = [](const Item &it, int) { return teleport_bookmark_set(it.arg) ? teleport_bookmark_text(it.arg) : tr("Empty"); };
+        v.push_back(g);
+        v.push_back(button(P_TELEPORT, save[i].c_str(), "Remembers where Link is standing. Outdoors only.", "Save", A_TELEPORT_SAVE, i));
+    }
+    for (int i = 0; i < teleport_place_count(); i++)
+        v.push_back(button(P_TELEPORT, teleport_place_name(i), "Restarts the game: press Continue and you land there. Unsaved progress is lost.", "Go", A_TELEPORT_PLACE, i));
     // Cheats (runtime/cheats.c)
     v.push_back(toggle(P_CHEATS, "Infinite health", "You lose no hearts and can't die. Healing still works.",
                        [](const Item &) { return (int)g_settings.cheat_health; },
@@ -1085,6 +1099,16 @@ extern "C" int rt_opt_decide(uint64_t row) {
             settings_save();
             rt_request_reboot(1);
         }
+        return 2;
+    case A_TELEPORT_MARK:
+        teleport_go_bookmark(it->arg);  // (nothing if it's empty)
+        return 2;
+    case A_TELEPORT_SAVE:
+        teleport_save_here(it->arg);
+        mark_all_rows(rd64(row));
+        return 2;
+    case A_TELEPORT_PLACE:
+        teleport_go_place(it->arg);
         return 2;
     case A_BENCHMARK:
         benchmark_run(it->arg);  // (only comes back if it can't start)

@@ -30,6 +30,7 @@ extern "C" void rec_drain(void);              // runtime/nvn/vulkan/record.c
 extern "C" {
 #include "../hle.h"
 #include "../benchmark.h"
+#include "../teleport.h"
 #include "../settings.h"
 #include "../color_grade.h"
 #include "../window_size.h"
@@ -914,6 +915,25 @@ static void tab_cheats(void) {
     opt_end();
 }
 
+static void tab_teleport(void) {
+    opt_begin("##teleport", ImGui::GetFontSize() / 34);
+    static const char *const go = "The game restarts: press Continue and you land there, from your last save. Unsaved progress is lost.";
+    opt_section("Bookmarks");
+    for (int i = 0; i < TELEPORT_BOOKMARKS; i++) {
+        char l[32];
+        snprintf(l, sizeof l, "Go to bookmark %d", i + 1);
+        bool set = teleport_bookmark_set(i);
+        if (!set) opt_disable_next();
+        if (opt_action(l, set ? teleport_bookmark_text(i) : tr("Empty"), tr(go), false)) teleport_go_bookmark(i);
+        snprintf(l, sizeof l, "Save here as bookmark %d", i + 1);
+        if (opt_action(l, "", tr("Remembers where Link is standing. Outdoors only: inside a shrine it leads somewhere else."), false)) teleport_save_here(i);
+    }
+    opt_section("Places");
+    for (int i = 0; i < teleport_place_count(); i++)
+        if (opt_action(teleport_place_name(i), "", tr(go), false)) teleport_go_place(i);
+    opt_end();
+}
+
 static void tab_audio(void) {
     opt_begin("##audio", ImGui::GetFontSize() / 34);
     opt_section("Sound");
@@ -1260,12 +1280,12 @@ static void tabs_body(float scale, bool in_game, void (*prelaunch)(float)) {
     Tab tabs[11];
     int ntabs = 0;
     if (prelaunch) tabs[ntabs++] = {"Prelaunch", -1, true};
-    // (ids 7 was Link's Awakening's; the ids stay: test hooks)
-    static const char *names[] = {"Video", "Audio", "Language", "Draw Distance", "Cheats", "Saves", "Achievements", "", "Controls", "Quit"};
-    static const int order[] = {8, 0, 3, 1, 2, 5, 6, 4, 9};  // Controls, Video, Draw Distance, Audio, Language, Saves, Achievements, Cheats, Quit
+    static const char *names[] = {"Video", "Audio", "Language", "Draw Distance", "Cheats", "Saves", "Achievements", "Teleport", "Controls", "Quit"};
+    static const int order[] = {8, 0, 3, 1, 2, 5, 6, 4, 7, 9};  // Controls, Video, Draw Distance, Audio, Language, Saves, Achievements, Cheats, Teleport, Quit
     for (int i : order) {  // (Quit: in game only - the start screen has its own QUIT; Saves: on the start screen only
         if (i == 9 && prelaunch) continue;  //  the game must not be running while its saves change)
         if (i == 5 && !prelaunch) continue;
+        if (i == 7 && prelaunch) continue;  // (Teleport: in game only)
         tabs[ntabs++] = {names[i], i, true};
     }
     int cur = 0;  // g_tab / g_tab_request hold ids
@@ -1349,6 +1369,7 @@ static void tabs_body(float scale, bool in_game, void (*prelaunch)(float)) {
                 case 2: tab_language(in_game); break;
                 case 5: saves_tab_draw(); break;
                 case 6: ach_ui_tab(); break;
+                case 7: tab_teleport(); break;
                 case 8: tab_about(); break;
                 case 9: tab_quit(scale, in_game); break;
                 }
