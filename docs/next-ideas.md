@@ -42,7 +42,7 @@ An estimate before reading the code each needs. Speed items are theories: each g
 | 11 | GPU readings on AMD for Windows | Already there: the F10 overlay reads an AMD GPU on Windows |
 | 12 | Recommended preset from a first-run benchmark | Done, on the Benchmark page |
 | 13 | Smaller installer, FSR 4 files as an optional download | Partly: debug data stripped from the program. The FSR 4 files stay in the installer, as a separate download they would only trade size for a failure at first use |
-| 14 | Difficulty sliders for damage dealt and taken | Partly: Damage taken done. Damage dealt not, because the same code hurts Link and enemies |
+| 14 | Difficulty sliders for damage dealt and taken | Done |
 | 15 | Time of day and weather in photo mode | Tried and cut: the game keeps the clock, and holding the d-pad barely moved the sun |
 | 16 | Depth of field and filters in photo mode | Filters done: black and white, faded, vivid, golden, cold (F8 in photo mode). Depth of field not done: new shader work |
 | 17 | Fast-travel to any map marker | Not started |
@@ -60,7 +60,7 @@ An estimate before reading the code each needs. Speed items are theories: each g
 | 29 | Less waiting for emulated cores | Tried and dropped: spinning before sleep cut 210 fps to 120 |
 | 30 | Cheaper far grass | Done: removing my older patches took draw distance on from 149 to 211 fps with no visible change |
 | 31 | Draw distance that holds a target frame rate | Done as Hold the frame rate, grass only |
-| 32 | Incremental setup, so updates don't rebuild everything | Not started |
+| 32 | Incremental setup, so updates don't rebuild everything | Done: compiled pieces kept in cache/gamecode |
 | 33 | Better horse steering on keyboard (#290) | Not started: needs testing on a horse with a keyboard |
 | 34 | Update checks and in-place updates | Done up to the last step: checks GitHub, downloads the Setup.exe, compares it with the digest GitHub lists. Tried against the 0.1 release. Running the downloaded installer not tried |
 | 35 | Per-action remapping (#180) | Not started |
