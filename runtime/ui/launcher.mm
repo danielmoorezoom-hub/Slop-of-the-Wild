@@ -1318,6 +1318,7 @@ extern "C" void launcher_run(const char *root, int mode) {
             update_download_start();
             while (update_download_state() == 1) SDL_Delay(100);
             fprintf(stderr, "[launcher] update download: state %d, %s\n", update_download_state(), update_download_path());
+            if (strstr(act, "install")) update_run_installer();
         }
         exit(0);
     }

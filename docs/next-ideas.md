@@ -15,63 +15,62 @@ The current tasks and the ideas together, easiest to hardest, as of 2026-11-01. 
 6. Port the six items from 0aa6f04, all checked as missing here: wide pause menu, map stretching, start screen freeze, Alt-Tab controller, unbound arrow keys, overlay coordinates. Together a medium job (46 files upstream, with monitor choice)
 7. Map panning off its lower edge (#319)
 8. Linux overlay reads the GPU that renders (#315), only once there is a Linux build
-9. Finish the update flow: try running the downloaded installer
-10. Adjustable dialogue text speed (#338)
+9. Adjustable dialogue text speed (#338)
 
 ### Medium: an afternoon or so
 
-11. Test Alpha 3, then find and port what brings back the time and weather tile
-12. Garbled Game Over title: retest with the text fix on, then look into it if it's still there
-13. OBS Game Capture black frames, and frames on the game's own queue (#293)
-14. Cheaper write watch (f1f2d28), which may help the 35 to 47 ms slow lists
-15. Monitor and fullscreen mode choices (#245)
-16. Hitch log for players: the overlay names what caused the last long frame
-17. Video > Haze: less of the milky veil over distances (their PR #317)
-18. Frame rates above 240 fps, and the game's clock limit that goes with them (their PR #323)
-19. Frame recorder, then use it on the shadow flashes and Link's glitch, trying GPU overlap off first
-20. Grass shimmer and artifacts in sunlight, now that the weather can be held
-21. Better horse steering on keyboard (#290, their open #343 may do it)
-22. Unskippable text
-23. Item spawner, from what `promosave.py` learned. First find which item sets off cutscene Demo200_0
-24. Draw distance by area: less Object distance in dense places
-25. Sharper text: the game's bitmap fonts enlarged (their PR #325)
-26. Choose the order of the HUD's button prompts (#321)
+10. Test Alpha 3, then find and port what brings back the time and weather tile
+11. Garbled Game Over title: retest with the text fix on, then look into it if it's still there
+12. OBS Game Capture black frames, and frames on the game's own queue (#293)
+13. Cheaper write watch (f1f2d28), which may help the 35 to 47 ms slow lists
+14. Monitor and fullscreen mode choices (#245)
+15. Hitch log for players: the overlay names what caused the last long frame
+16. Video > Haze: less of the milky veil over distances (their PR #317)
+17. Frame rates above 240 fps, and the game's clock limit that goes with them (their PR #323)
+18. Frame recorder, then use it on the shadow flashes and Link's glitch, trying GPU overlap off first
+19. Grass shimmer and artifacts in sunlight, now that the weather can be held
+20. Better horse steering on keyboard (#290, their open #343 may do it)
+21. Unskippable text
+22. Item spawner, from what `promosave.py` learned. First find which item sets off cutscene Demo200_0
+23. Draw distance by area: less Object distance in dense places
+24. Sharper text: the game's bitmap fonts enlarged (their PR #325)
+25. Choose the order of the HUD's button prompts (#321)
 
 ### Harder: a day or more
 
-27. In-game console and control commands (#284-286, 24 files conflict), then Link's position in the log (752d72f)
-28. Geometry copy for 4-6 GB cards (f1f2d28)
-29. Teleport bookmarks inside shrines
-30. Fast travel to any map marker
-31. Per-action remapping (#180, their draft #329)
-32. Gyro on ROG Ally X (#221): needs the hardware
-33. Depth of field in photo mode
-34. Effects on and off, one at a time, including the three grass layers
-35. Accessibility and assists: text size, colour-blind filters, toggles for held buttons
-36. Profiler you can turn on while playing (#309)
-37. NaN-aware min/max in shaders (#153), which may fix some rendering glitches
-38. Less guest memory kept committed
-39. Skip shadow draws that don't matter (risks shadow flicker)
-40. Read ahead for the next area
-41. 16:10 screens (#303), older Vulkan (#250), sparse heap (#197), how shadows look on Intel (#300): each needs hardware we don't have
+26. In-game console and control commands (#284-286, 24 files conflict), then Link's position in the log (752d72f)
+27. Geometry copy for 4-6 GB cards (f1f2d28)
+28. Teleport bookmarks inside shrines
+29. Fast travel to any map marker
+30. Per-action remapping (#180, their draft #329)
+31. Gyro on ROG Ally X (#221): needs the hardware
+32. Depth of field in photo mode
+33. Effects on and off, one at a time, including the three grass layers
+34. Accessibility and assists: text size, colour-blind filters, toggles for held buttons
+35. Profiler you can turn on while playing (#309)
+36. NaN-aware min/max in shaders (#153), which may fix some rendering glitches
+37. Less guest memory kept committed
+38. Skip shadow draws that don't matter (risks shadow flicker)
+39. Read ahead for the next area
+40. 16:10 screens (#303), older Vulkan (#250), sparse heap (#197), how shadows look on Intel (#300): each needs hardware we don't have
 
 ### Hard: days to weeks, and may not work
 
-42. Linux build (Ubuntu, Arch)
-43. Port Cemu's shadow draw distance and reflection packs
-44. Fix or upgrade textures that don't scale, like the menu UI
-45. Raise detail on flowers, far trees and textures, and fix the grass edges
-46. Friendlier setup and launcher explanations for anyone
-47. amiibo rewards without figures
-48. XeSS and DLSS (vendor SDKs; their #111 for DLSS)
-49. Steam Deck gyro through DSU (#281), which needs the Linux build first
-50. Smarter CPU core placement, untested on other CPUs: needs other PCs
-51. Parallel draw translation, the riskiest item
-52. Randomizer
-53. Online (their #294)
-54. macOS
+41. Linux build (Ubuntu, Arch)
+42. Port Cemu's shadow draw distance and reflection packs
+43. Fix or upgrade textures that don't scale, like the menu UI
+44. Raise detail on flowers, far trees and textures, and fix the grass edges
+45. Friendlier setup and launcher explanations for anyone
+46. amiibo rewards without figures
+47. XeSS and DLSS (vendor SDKs; their #111 for DLSS)
+48. Steam Deck gyro through DSU (#281), which needs the Linux build first
+49. Smarter CPU core placement, untested on other CPUs: needs other PCs
+50. Parallel draw translation, the riskiest item
+51. Randomizer
+52. Online (their #294)
+53. macOS
 
-**Done from the top of this list, 2026-11-01:** Savage Wind's AMD fix (#341) with the text fix back on; the white grass fix matching the game's code; the log's first line; the install folder check (already there); the stale shader notice; the feature requests, added above; the colour shot; the first-run popup removed.
+**Done from the top of this list, 2026-11-01:** the update flow starting the downloaded installer (stopped at its first page, not run through); benchmark history; Savage Wind's AMD fix (#341) with the text fix back on; the white grass fix matching the game's code; the log's first line; the install folder check (already there); the stale shader notice; the feature requests, added above; the colour shot; the first-run popup removed.
 
 **Needs you, not ranked:** your checks of the real mouse, save import and Confirm button on a controller; merging and releases.
 
