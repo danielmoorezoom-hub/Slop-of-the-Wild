@@ -7,7 +7,7 @@
 //       A warp also hands Link the paraglider (IsGet_PlayerStole2), which opens the Great Plateau.
 //   SAVAGEWIND_TEST_TIME=<hour 0-24>         the hour of the day, held there: the game takes no time of day from
 //                                            the save on Continue (WM_Time is ignored), so test_warp_frame writes
-//                                            TimeMgr's time (0..360 = 24 h) every frame
+//                                            both WM_Time buffers and stops TimeMgr's native clock (0..360 = 24 h)
 //   SAVAGEWIND_TEST_WEATHER=<n>              the weather, held, and every forecast (climateWeather*): 0 clear, 1 cloudy,
 //                                            2 rain, 3 heavy rain, 4 snow, 5 heavy snow, 6 thunderstorm, 7 thunder rain,
 //                                            8 rain in sunshine (the forecasts alone change nothing at load)
@@ -145,6 +145,86 @@ void test_warp_patch(uint8_t *d, uint64_t size) {
     }
 }
 
+// From Savage Wind (ed9279a): TimeMgr::calc reloads WM_Time from GameDataMgr each update, so writing TimeMgr's own time
+// every frame fought it: for a frame now and then the sun stood where the game's clock said, and every shadow jumped.
+// Instead both WM_Time buffers are written once and TimeMgr's native clock is stopped.
+static bool mem_ok(uint64_t addr, size_t n) { return addr >= GUEST_LO && addr + n <= GUEST_HI; }
+static bool mem_peek(uint64_t addr, void *buf, size_t n) { return mem_ok(addr, n) && (memcpy(buf, (const void *)(uintptr_t)addr, n), true); }
+static bool mem_poke(uint64_t addr, const void *buf, size_t n) { return mem_ok(addr, n) && (memcpy((void *)(uintptr_t)addr, buf, n), true); }
+static uint64_t read_pointer(uint64_t addr) {
+    uint64_t p = 0;
+    return mem_peek(addr, &p, sizeof p) ? p : 0;
+}
+
+// TimeMgr::calc reloads WM_Time from GameDataMgr each update. Its vtable's calc slot starts with an ADRP/ADD reference
+// to that singleton: decoded here rather than pinning a 1.9.0 address. The whole load/branch sequence is required, and a
+// singleton in main's data segment.
+static uint64_t time_data_site(uint64_t tm) {
+    static uint64_t sampled_manager, game_data_site;
+    if (tm == sampled_manager && game_data_site) return game_data_site;
+    uint64_t calc = read_pointer(read_pointer(tm) + 0x30);
+    uint32_t code[32];
+    if (calc < MAIN_BASE || calc >= g_site.main_data || !mem_peek(calc, code, sizeof code)) return 0;
+    for (unsigned i = 0; i + 3 < sizeof code / sizeof *code; i++) {
+        if ((code[i] & 0x9f00001f) != 0x90000008 || (code[i + 1] & 0xffc003ff) != 0x91000108 ||
+            code[i + 2] != 0xf9400114 || (code[i + 3] & 0xff00001f) != 0xb5000014) continue;
+        uint32_t imm = ((code[i] >> 5) & 0x7ffff) << 2 | ((code[i] >> 29) & 3);
+        int64_t pages = (int64_t)(imm ^ 0x100000) - 0x100000;
+        uint64_t site = ((calc + 4 * i) & ~0xfffull) + pages * 4096 + ((code[i + 1] >> 10) & 0xfff);
+        if (site < g_site.main_data || site + 8 > g_site.main_end) continue;
+        sampled_manager = tm;
+        return game_data_site = site;
+    }
+    return 0;
+}
+
+// The pending-write buffer uses proxy flags (value at +0x10, primary flag at +8); the current-read buffer uses primary
+// flags (value at +0x18, name hash at +0x1c). Each float getter and the primary's WM_Time hash are checked.
+static bool time_flags(uint64_t tm, uint64_t flags[2]) {
+    uint64_t site = time_data_site(tm), mgr = site ? read_pointer(site) : 0;
+    uint32_t handle;
+    if (!mgr || !mem_peek(tm + 0xd4, &handle, sizeof handle) || handle == UINT32_MAX) return false;
+    handle &= 0xffffff;
+    for (int i = 0; i < 2; i++) {
+        uint64_t buffer = read_pointer(read_pointer(mgr + 0xbd8 + 8 * i));
+        uint32_t count, hash;
+        if (!buffer || !mem_peek(buffer + 0x28, &count, sizeof count) || handle >= count) return false;
+        uint64_t array = read_pointer(buffer + 0x30);
+        uint64_t flag = array ? read_pointer(array + 8 * handle) : 0;
+        uint64_t getter = read_pointer(read_pointer(flag) + 0x88), primary = flag;
+        uint32_t code[2], value_offset;
+        if (!getter || !mem_peek(getter, code, sizeof code) || code[1] != 0xd65f03c0) return false;
+        if (code[0] == 0xbd401800) value_offset = 0x18;  // ldr s0, [x0, #0x18]; ret
+        else if (code[0] == 0xbd401000) {               // ldr s0, [x0, #0x10]; ret
+            value_offset = 0x10;
+            primary = read_pointer(flag + 8);
+        } else return false;
+        if (!primary || !mem_peek(primary + 0x1c, &hash, sizeof hash) || hash != crc32_of("WM_Time")) return false;
+        flags[i] = flag + value_offset;
+    }
+    return true;
+}
+
+// Once per TimeMgr: its clock stopped (+0xc4, what calc adds each frame), the hour in both WM_Time buffers and in TimeMgr.
+// The world may expose its TimeMgr before the game-data handles are ready: then again next frame. Before the paraglider
+// TimeMgr caps its clock at 11:00: this also lifts that cached gate (+0x14e), so any hour holds; the quest's flag stays.
+static uint64_t frozen_manager;
+static void hold_time(uint64_t tm, float tod) {
+    if (frozen_manager == tm) return;
+    uint64_t flags[2];
+    float *now = (float *)(uintptr_t)(tm + 0xb8), stopped = 0, value = tod >= 360 ? 0 : tod;
+    if (!time_flags(tm, flags)) return;
+    mem_poke(tm + 0xc4, &stopped, sizeof stopped);
+    mem_poke(flags[0], &value, sizeof value);
+    mem_poke(flags[1], &value, sizeof value);
+    uint8_t running = 1;
+    mem_poke(tm + 0x14e, &running, sizeof running);
+    LOG("[warp] time of day %.1f -> %.1f (clock stopped)\n", *now, value);
+    *now = value;
+    frozen_manager = tm;
+}
+RT_ON_RESET(test_warp_time_reset) { frozen_manager = 0; }
+
 // Every frame (SAVAGEWIND_TEST_TIME): TimeMgr's time of day held at the hour. ksys::world::Manager [world_mgr]
 // (+0x5c0 count, +0x5c8 its managers; [0] = TimeMgr, the time at +0xb8), as SAVAGEWIND_CLOCK_PROBE reads it
 // (runtime/hle/framepace.c).
@@ -193,11 +273,5 @@ void test_warp_frame(uint64_t frame) {
     if (tod < 0) return;
     uint64_t mgrs = *(uint64_t *)(uintptr_t)(wm + 0x5c8), tm = mgrs ? *(uint64_t *)(uintptr_t)mgrs : 0;
     if (!tm) return;
-    float *now = (float *)(uintptr_t)(tm + 0xb8);
-    static bool logged;
-    if (!logged && *now != tod) {
-        LOG("[warp] time of day %.1f -> %.1f at frame %llu (held)\n", *now, tod, (unsigned long long)frame);
-        logged = true;
-    }
-    *now = tod;
+    hold_time(tm, tod);
 }

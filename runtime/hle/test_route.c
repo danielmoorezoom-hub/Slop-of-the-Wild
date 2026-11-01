@@ -16,6 +16,7 @@
 //   press <button> [seconds]  hold a button (names as in savagewind.ini's bind_* lines: east, south, west, north,
 //                             lshoulder, ltrigger...); default a tenth of a second
 //   fight <seconds>           lock on (left trigger), walk in, attack (west) twice a second
+//   record <0|1>              SAVAGEWIND_FRAME_RECORD off or on (vulkan/device.c)
 //   hold <seconds>            stand still
 //   sprint <seconds>          run ahead, holding the sprint button
 //   photo                     photo mode on or off (runtime/photo.c)
@@ -239,8 +240,11 @@ void test_route_frame(int32_t *lx, int32_t *ly, int32_t *rx, int32_t *ry, uint32
     if (!strcmp(s->op, "goto")) {
         if (!have_pos) return;
         double dx = s->v[0] - p[0], dz = s->v[1] - p[2], d = hypot(dx, dz), tol = s->n > 2 && s->v[2] > 0 ? s->v[2] : 4;
+        // The stick stays as it was for the frame the step changes: a frame of zero made Link's animation drop for that frame.
+        static int32_t held_lx, held_ly;
         if (d < tol) {
             LOG("[route] reached %.0f %.0f in %.1f s (%.1f %.1f %.1f)\n", s->v[0], s->v[1], t, p[0], p[1], p[2]);
+            *lx = held_lx, *ly = held_ly;
             NEXT();
         }
         if (d < best - 0.5) best = d, best_t = now;
@@ -253,7 +257,7 @@ void test_route_frame(int32_t *lx, int32_t *ly, int32_t *rx, int32_t *ry, uint32
         if (!have_cam) return;
         dx /= d, dz /= d;
         double df = dx * f[0] + dz * f[1], dr = dx * r[0] + dz * r[1];
-        *lx = axis(dr * 0.92), *ly = axis(df * 0.92);
+        *lx = held_lx = axis(dr * 0.92), *ly = held_ly = axis(df * 0.92);
         *rx = s->n > 3 ? axis(s->v[3]) : yaw_stick(atan2(dr, df));
         return;
     }
@@ -379,6 +383,11 @@ void test_route_frame(int32_t *lx, int32_t *ly, int32_t *rx, int32_t *ry, uint32
 #ifdef _WIN32
         VirtualProtect(a, sizeof v, old, &old);
 #endif
+        NEXT();
+    }
+    if (!strcmp(s->op, "record")) {
+        extern void frame_record_set(bool on);  // (vulkan/device.c: SAVAGEWIND_FRAME_RECORD)
+        frame_record_set(s->v[0] != 0);
         NEXT();
     }
     if (!strcmp(s->op, "hold")) {
