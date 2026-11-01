@@ -319,6 +319,51 @@ void vk_devlost_dump(void) {
     LOG("[vk] last GPU operations before the device loss (oldest first):\n");
     for (unsigned i = dl_n > 64 ? dl_n - 64 : 0; i < dl_n; i++) LOG("[vk]   %s\n", dl_ring[i & 63]);
 }
+// ---- GPU checkpoints (VK_NV_device_diagnostic_checkpoints, NVIDIA): a marker at each pass, dispatch and post step, so
+// that after a device loss the log says which of them the GPU had begun and finished (#252, #307: "address write
+// invalid" and nothing else to go on). The marker is the count of marks made: a record is still in the ring while fewer
+// than CK_N marks came after it. Records hold numbers only, written out by the report (text for ~200 marks a frame cost
+// ~0.2 ms of the render thread). SAVAGEWIND_VK_CHECKPOINTS=0 (device.c): none.
+#define CK_N 4096
+typedef struct { const char *what; uint32_t a, b, c, d, e; uint64_t code; } CkRec;  // what: "pass", "dispatch", a post shader
+static CkRec ck_rec[CK_N];
+static uint32_t ck_n;
+static void ck_mark(VkCommandBuffer cb, const char *what, uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e, uint64_t code) {
+    if (!g_vk.nv_checkpoints) return;
+    uint32_t n = ++ck_n;
+    ck_rec[n & (CK_N - 1)] = (CkRec){what, a, b, c, d, e, code};
+    rec_CmdSetCheckpointNV(cb, (const void *)(uintptr_t)n);
+}
+void vk_checkpoints_report(void) {  // (device.c vk_device_fault_report, after the loss)
+    if (!g_vk.nv_checkpoints) return;
+    PFN_vkGetQueueCheckpointDataNV get = (PFN_vkGetQueueCheckpointDataNV)vkGetDeviceProcAddr(g_vk.dev, "vkGetQueueCheckpointDataNV");
+    if (!get) return;
+    VkQueue qs[2] = {g_vk.queue, g_vk.present_queue};
+    for (int q = 0; q < (g_vk.present_queue != g_vk.queue ? 2 : 1); q++) {
+        uint32_t n = 0;
+        get(qs[q], &n, NULL);
+        VkCheckpointDataNV d[16];
+        if (n > 16) n = 16;
+        for (uint32_t i = 0; i < n; i++) d[i] = (VkCheckpointDataNV){.sType = VK_STRUCTURE_TYPE_CHECKPOINT_DATA_NV};
+        get(qs[q], &n, d);
+        LOG("[vk] GPU checkpoints of the %s queue (%u marks made in all):\n", q ? "present" : "game", ck_n);
+        for (uint32_t i = 0; i < n; i++) {
+            uint32_t m = (uint32_t)(uintptr_t)d[i].pCheckpointMarker;
+            const char *stage = d[i].stage == VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT ? "begun" :
+                                d[i].stage == VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT ? "finished" : "reached";
+            const CkRec *r = m && ck_n - m < CK_N ? &ck_rec[m & (CK_N - 1)] : NULL;
+            if (!r) LOG("[vk]   %s mark %u (stage %#x): (record gone)\n", stage, m, (unsigned)d[i].stage);
+            else if (!strcmp(r->what, "pass"))
+                LOG("[vk]   %s mark %u (stage %#x): pass %u color %ux%u fmt %#x, depth %ux%u, fs %016llx\n", stage, m,
+                    (unsigned)d[i].stage, r->a, r->b, r->c, r->d, r->e >> 16, r->e & 0xffff, (unsigned long long)r->code);
+            else if (!strcmp(r->what, "dispatch"))
+                LOG("[vk]   %s mark %u (stage %#x): dispatch %ux%ux%u cs %016llx\n", stage, m, (unsigned)d[i].stage, r->a,
+                    r->b, r->c, (unsigned long long)r->code);
+            else LOG("[vk]   %s mark %u (stage %#x): post %s %ux%u\n", stage, m, (unsigned)d[i].stage, r->what, r->a, r->b);
+        }
+    }
+}
+
 static void gp_mark(VkCommandBuffer cb, const char *fmt, ...) {
     if (!g_gpuprof_frame || gp_n >= GP_MAX - 1) return;
     if (!gp_qp) {
@@ -1670,6 +1715,9 @@ static void begin_pass(void) {
         NvnTexture *t0n = st.rt.ncolor ? st.rt.color[0] : NULL;
         dl_note("pass %d color %ux%u fmt %#x depth %p", st.rt.ncolor, t0n ? t0n->width : 0, t0n ? t0n->height : 0, t0n ? t0n->format : 0,
                 (void *)st.rt.depth);
+        ck_mark(cb, "pass", (uint32_t)st.rt.ncolor, t0n ? t0n->width : 0, t0n ? t0n->height : 0, t0n ? t0n->format : 0,
+                st.rt.depth ? st.rt.depth->width << 16 | (st.rt.depth->height & 0xffff) : 0,
+                st.program ? st.program->stages[1].code_addr : 0);
     }
     if (g_gpuprof_frame) {
         NvnTexture *t0 = st.rt.ncolor ? st.rt.color[0] : NULL;
@@ -5845,6 +5893,7 @@ static void dispatch_compute(uint32_t gx, uint32_t gy, uint32_t gz) {
     VkCommandBuffer cb = vk_cmd();
     vk_full_barrier(cb);
     gp_mark(cb, "dispatch %ux%ux%u (local %ux%ux%u)", gx, gy, gz, cp->local[0], cp->local[1], cp->local[2]);
+    ck_mark(cb, "dispatch", gx, gy, gz, 0, 0, st.program->stages[5].code_addr);
     dl_note("dispatch %ux%ux%u cs %llx gmem %d", gx, gy, gz, (unsigned long long)st.program->stages[5].code_addr, cp->si->uses_gmem);
     if (g_debug_frame) {
         LOG("[dispatch] %ux%ux%u cs %llx gmem %d cb %#x sbuf:", gx, gy, gz, (unsigned long long)st.program->stages[5].code_addr,
@@ -7454,6 +7503,7 @@ static void post_pass_pc(VkCommandBuffer cb, const char *fs, const VkImageView *
     VkPipeline pipe = post_pipeline(fs, dst->format);  // (before the rendering begins: created inside it, the NVIDIA driver crashed)
     vk_full_barrier(cb);
     gp_mark(cb, "post %s %ux%u", fs, dst->width, dst->height);
+    ck_mark(cb, fs, dst->width, dst->height, 0, 0, 0, 0);
     VkRenderingAttachmentInfo ca = {.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO, .imageView = post_view(dst),
                                     .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
                                     .loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_DONT_CARE,
@@ -7521,6 +7571,7 @@ static void cpost_pass(VkCommandBuffer cb, const char *cs, const VkImageView *sr
     }
     vk_full_barrier(cb);
     gp_mark(cb, "post %s %ux%u", cs, w, h);
+    ck_mark(cb, cs, w, h, 0, 0, 0, 0);
     VkDescriptorSet ds = vk_alloc_set(cpost_set_layout);
     VkDescriptorImageInfo ii[16];
     VkWriteDescriptorSet wr[16];
