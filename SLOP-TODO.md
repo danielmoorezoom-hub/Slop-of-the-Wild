@@ -1,20 +1,49 @@
-# Slop of the Wild — to do
+# Slop of the Wild: to do
 
-## Done (0.0)
-- Start screen art from the player's own game (captured from the title screen on the first play).
-- "Savage Wind" -> "Slop of the Wild" in menus (tr), window titles, dialogs, release packaging.
-- Version numbers no longer split when text wraps ("1.\n8.2").
-- Setup: one fewer walk of the game files, a live file count, "clearing the earlier copy" step; lands on the start
-  screen when done; no 14 GB romfs.bin (romfs.idx).
+Current as of **0.3** (2026-11-01). The whole list of tasks and ideas, ranked easiest to hardest, is at the top of [docs/next-ideas.md](docs/next-ideas.md). This page is the short version.
 
-## Left
-- A Slop of the Wild icon (the exe still has Savage Wind's sword-in-stone).
-- A full `make dist` release (LGPL FFmpeg, frozen generator, slimmed zig) from this tree; 0.0 ships as a drop-in
-  update over Savage Wind 0.3.1-alpha.3.
+## Known issues
 
-## Optimization
-- Graphics pipeline libraries crash on AMD: GPU page fault reading 0x13f800000 every run, with or without the guest
-  heap import or feedback loops. TotK uses the same feature on the same GPU: our bug. Next: Vulkan validation layers.
-- From the TotK port: a VRAM mirror of buffer-bound guest memory on discrete GPUs (we copy ~1.7 GB/s), GPU work
-  submitted in parts (every 64 draws), dropping only full-screen draws while their pipeline builds, VMA blocks
-  allocated ahead on a thread, shipped shader seeds.
+- Weather > Snow and Heavy snow (beta) look like night at noon in cold areas, though the snow does fall. Compare with snow the game picks itself, then fix or accept it
+- Blocky steps at the edges of the System page's background at 21:9. Check whether Savage Wind does it too
+- Snow may look like dark rain in warm areas
+- Grass shimmers and shows artifacts in sunlight
+- The white grass fix may still look a little pale, and has only been tested standing still in three places
+- Object distance changes how the game plays: enemies can notice you sooner
+- Distant detail shimmers, most with SMAA. TAA and a higher render scale help
+- Shadows stay crunchy at a distance
+- Uninstalling keeps saves, settings and game files
+- The first play after setup can be rougher while Windows and the driver cache things
+
+## Not tested yet
+
+- A real mouse with the new pointer: Game Over, the quick selector and panning the map
+- Arrow keys and Enter in menus in the running game
+- Alt-Tab with a real controller, and the start screen freeze fix on a slow drive. Both only passed automated tests
+- Moving the game to a second monitor
+- The wide pause menu and map beyond one 2560x1080 window
+- Save import, and the Confirm button on a controller
+- Moving platforms, shield surf and the Kohga freeze in real play
+- No rain and No thunderstorms against real weather
+- Updating from 0.2.1 with the built-in updater
+- Any hardware but an AMD Radeon RX 9070 XT with a Ryzen 7 7800X3D
+- Frame rate on 0.3
+
+## Next, easiest first
+
+- Tune the white grass sheen; Clarity's shadows and noon saturation
+- Play-test the ported fixes
+- Video > Haze from Savage Wind (#317), and frame rates above 240 fps (#323)
+- OBS Game Capture black frames (#293), and the cheaper write watch
+- A hitch log for players
+- Grass shimmer in sunlight
+- Teleport in real time, with no restart and no dependence on saves
+- On hold: adjustable dialogue text speed (#338)
+
+## Done
+
+- **0.3:** Fullscreen mode and Monitor (beta); Savage Wind's newer mouse pointer; wide pause menu and map; start screen freeze, Alt-Tab controller and map panning fixes; unbound arrow keys and Enter in menus; coordinates in the overlay; a frame recorder for tests; the benchmark's shadow flashes and Link's pose glitch
+- **0.2.1:** the first-run popup removed; the AMD fix for jumping text letters; a sturdier white grass fix; a notice for out-of-date shaders
+- **0.2:** the updater, and what's listed in its [release notes](https://github.com/devall96/Slop-of-the-Wild/releases/tag/0.2)
+- **0.1:** a single installer and a new front page
+- **0.0:** the fork: Slop of the Wild's name and menus, render scale, Clarity, the start screen
