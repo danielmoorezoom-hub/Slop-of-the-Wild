@@ -67,6 +67,7 @@ Settings g_settings = {
     .wide_view = true,
     .fov = 100,
     .color_lut_strength = 100,
+    .haze = 100,
 };
 
 static const char *const k_vsync[VSYNC_COUNT] = {"on", "fast", "adaptive", "off"};  // (VSYNC_*: the ini's words)
@@ -223,6 +224,7 @@ void settings_load(void) {
             g_settings.hdr_white = n >= 80 && n <= 1000 ? n : 0;
         }
         else if (!strcmp(key, "field_of_view")) g_settings.fov = atoi(val);  // (percent)
+        else if (!strcmp(key, "haze")) { int v = atoi(val); g_settings.haze = v < 0 ? 0 : v > 100 ? 100 : v; }  // (percent)
         else if (!strcmp(key, "colour_exposure")) g_settings.color_exposure = (int)lroundf((float)atof(val) * 10);  // (EV)
         else if (!strcmp(key, "colour_contrast")) g_settings.color_contrast = atoi(val);  // (percent)
         else if (!strcmp(key, "colour_saturation")) g_settings.color_saturation = atoi(val);
@@ -396,6 +398,7 @@ void settings_save(void) {
     fprintf(f, "hdr = %s\n", k_hdr[g_settings.hdr >= 0 && g_settings.hdr < HDR_COUNT ? g_settings.hdr : HDR_AUTO]);
     if (g_settings.hdr_white) fprintf(f, "hdr_paper_white = %d\n", g_settings.hdr_white);
     fprintf(f, "field_of_view = %d\n", g_settings.fov);
+    fprintf(f, "haze = %d\n", g_settings.haze);
     fprintf(f, "colour_exposure = %.1f\n", g_settings.color_exposure / 10.0);
     fprintf(f, "colour_contrast = %d\n", g_settings.color_contrast);
     fprintf(f, "colour_saturation = %d\n", g_settings.color_saturation);
