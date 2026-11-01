@@ -26,7 +26,7 @@ body:
       label: Slop of the Wild version
       description: Shown on the game's title screen and in its settings menu Configuration.
       options:
-        - "0.3 (latest)"
+        - "0.4 (latest)"
         - "Built from source"
         - "An older release (please update and try again first)"
     validations:

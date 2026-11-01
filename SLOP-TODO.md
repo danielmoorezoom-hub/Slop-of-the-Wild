@@ -1,6 +1,6 @@
 # Slop of the Wild: to do
 
-Current as of **0.3** (2026-11-01). The whole list of tasks and ideas, ranked easiest to hardest, is at the top of [docs/next-ideas.md](docs/next-ideas.md). This page is the short version.
+Current as of **0.4** (2026-11-01). The whole list of tasks and ideas, ranked easiest to hardest, is at the top of [docs/next-ideas.md](docs/next-ideas.md). This page is the short version.
 
 ## Known issues
 
@@ -17,6 +17,10 @@ Current as of **0.3** (2026-11-01). The whole list of tasks and ideas, ranked ea
 
 ## Not tested yet
 
+- Riding with the new keyboard steering
+- Game speed and physics at 360 fps
+- Sharper menus and text in shops and other screens
+- The overlay's AMD numbers on any card but one RX 9070 XT
 - A real mouse with the new pointer: Game Over, the quick selector and panning the map
 - Arrow keys and Enter in menus in the running game
 - Alt-Tab with a real controller, and the start screen freeze fix on a slow drive. Both only passed automated tests
@@ -27,21 +31,20 @@ Current as of **0.3** (2026-11-01). The whole list of tasks and ideas, ranked ea
 - No rain and No thunderstorms against real weather
 - Updating from 0.2.1 with the built-in updater
 - Any hardware but an AMD Radeon RX 9070 XT with a Ryzen 7 7800X3D
-- Frame rate on 0.3
+- Frame rate on 0.4
 
 ## Next, easiest first
 
 - Tune the white grass sheen; Clarity's shadows and noon saturation
 - Play-test the ported fixes
-- Video > Haze from Savage Wind (#317), and frame rates above 240 fps (#323)
-- OBS Game Capture black frames (#293), and the cheaper write watch
-- A hitch log for players
+- The cheaper write watch
 - Grass shimmer in sunlight
 - Teleport in real time, with no restart and no dependence on saves
 - On hold: adjustable dialogue text speed (#338)
 
 ## Done
 
+- **0.4:** Sharper text and Sharper menus (beta); Haze (beta); 360 fps; the DLC status on the start screen; Last hitch in the overlay; the overlay's GPU numbers on AMD; the OBS capture fix; keyboard horse steering
 - **0.3:** Fullscreen mode and Monitor (beta); Savage Wind's newer mouse pointer; wide pause menu and map; start screen freeze, Alt-Tab controller and map panning fixes; unbound arrow keys and Enter in menus; coordinates in the overlay; a frame recorder for tests; the benchmark's shadow flashes and Link's pose glitch
 - **0.2.1:** the first-run popup removed; the AMD fix for jumping text letters; a sturdier white grass fix; a notice for out-of-date shaders
 - **0.2:** the updater, and what's listed in its [release notes](https://github.com/devall96/Slop-of-the-Wild/releases/tag/0.2)
