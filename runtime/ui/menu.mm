@@ -950,6 +950,15 @@ static void tab_display(void) {
                "The size of the maps the sun's shadows are drawn from. Console: the game's own, 896 x 896. High (2048), "
                "Ultra (4096) and Extreme (8192) give sharper shadow edges (Link, trees, buildings) for more GPU time "
                "and video memory (Ultra: about 100 MB, Extreme: about 400 MB).");
+    {   // the menus' one-channel textures enlarged (runtime/nvn/text_upscale.c): read when the game starts
+        static const char *menus[] = {"Off", "2x", "4x"};
+        int cur = g_settings.sharper_menus / 2;
+        if (opt_choice("Sharper menus (beta)", &cur, menus, 3, 0,
+                       "Makes the shapes and frames of the game's menus sharper on 1440p and 4K screens. It takes effect the next "
+                       "time you start the game. This is an upscale made on your computer from the game's own art, not "
+                       "Nintendo's original art.", false))
+            g_settings.sharper_menus = cur * 2;
+    }
     {   // the game's font sheets enlarged (runtime/nvn/text_upscale.c): read when the game starts
         static const char *text[] = {"Off", "2x", "4x"};
         int cur = g_settings.sharper_text / 2;

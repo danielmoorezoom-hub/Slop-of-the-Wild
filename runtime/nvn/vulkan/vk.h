@@ -121,6 +121,7 @@ typedef struct TexBackend {
     uint8_t astc_bw, astc_bh;  // ASTC without GPU support: decoded to RGBA8 on upload (runtime/nvn/astc.c)
     bool astc_srgb;
     bool bc4_cpu;                // BC4 decoded to R8 on upload (SAVAGEWIND_VK_BC4_CPU=1: Mali text / sprites test)
+    bool menu_tex;               // text_scale on one of the menus' textures, not a font sheet: its own wrap modes stay
     uint8_t text_scale;          // a font sheet enlarged by this much on upload (runtime/nvn/text_upscale.c); 0: not one
     uint32_t glyph_gen;          // a button glyph sheet (runtime/nvn/glyphs.c): the icons it was uploaded with
     // textures.c: one image per memory and shape, shared by every texture made there

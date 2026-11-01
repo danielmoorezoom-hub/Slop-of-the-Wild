@@ -64,20 +64,19 @@ The current tasks and the ideas together, easiest to hardest, as of 0.3, 2026-11
 
 47. Linux build (Ubuntu, Arch). On hold: can't be tested here. Reddit asks: Steam Deck game mode, Quiver Launcher on Linux
 48. Port Cemu's shadow draw distance and reflection packs
-49. Fix or upgrade textures that don't scale, like the menu UI. **In progress**, picked by the user
-50. Raise detail on flowers, far trees and textures, and fix the grass edges
-51. Friendlier setup and launcher explanations for anyone
-52. amiibo rewards without figures
-53. XeSS and DLSS (vendor SDKs; their #111 for DLSS). DLSS is the most requested feature on Reddit, but needs an NVIDIA card to test
-54. Steam Deck gyro through DSU (#281), which needs the Linux build first
-55. Smarter CPU core placement, untested on other CPUs: needs other PCs
-56. Parallel draw translation, the riskiest item
-57. Randomizer
-58. Online (their #294)
-59. macOS
-60. Replace distant assets and foliage, and better distant shadows, for modders and players. After texture packs
+49. Raise detail on flowers, far trees and textures, and fix the grass edges
+50. Friendlier setup and launcher explanations for anyone
+51. amiibo rewards without figures
+52. XeSS and DLSS (vendor SDKs; their #111 for DLSS). DLSS is the most requested feature on Reddit, but needs an NVIDIA card to test
+53. Steam Deck gyro through DSU (#281), which needs the Linux build first
+54. Smarter CPU core placement, untested on other CPUs: needs other PCs
+55. Parallel draw translation, the riskiest item
+56. Randomizer
+57. Online (their #294)
+58. macOS
+59. Replace distant assets and foliage, and better distant shadows, for modders and players. After texture packs
 
-**Done from the top of this list, 2026-11-01:** the update flow starting the downloaded installer (stopped at its first page, not run through); benchmark history; Savage Wind's AMD fix (#341) with the text fix back on; the white grass fix matching the game's code; the log's first line; the install folder check (already there); the stale shader notice; the feature requests, added above; the colour shot; the first-run popup removed. Alpha 4.1's mouse fixes, the six 0aa6f04 items and the map pan limit: ported, not yet tried with a real mouse, and the arrow keys not tried at all. The shadow flashes: `SAVAGEWIND_TEST_TIME` was fighting the game's clock, fixed from upstream's ed9279a; 0 flashes on both PCs with all settings on. Link's one-frame pose glitch: `goto` in the test routes left the stick at zero for a frame, fixed; none seen in the user's own play test with a controller. Video > Sharper text (beta) from their PR #325: 2x and 4x, tested on one PC.
+**Done from the top of this list, 2026-11-01:** the update flow starting the downloaded installer (stopped at its first page, not run through); benchmark history; Savage Wind's AMD fix (#341) with the text fix back on; the white grass fix matching the game's code; the log's first line; the install folder check (already there); the stale shader notice; the feature requests, added above; the colour shot; the first-run popup removed. Alpha 4.1's mouse fixes, the six 0aa6f04 items and the map pan limit: ported, not yet tried with a real mouse, and the arrow keys not tried at all. The shadow flashes: `SAVAGEWIND_TEST_TIME` was fighting the game's clock, fixed from upstream's ed9279a; 0 flashes on both PCs with all settings on. Link's one-frame pose glitch: `goto` in the test routes left the stick at zero for a frame, fixed; none seen in the user's own play test with a controller. Video > Sharper text (beta) from their PR #325: 2x and 4x, tested on one PC. Video > Sharper menus (beta): the UI's one-channel shapes, frames and lines enlarged on the player's PC, with no game art shipped; tested on the pause screens, Options and map on one PC, and colour art like item icons is left as it is.
 
 **Not tested yet, as of 0.3:** a real mouse with the new pointer (Game Over, quick selector, map panning); arrow keys and Enter in menus in the running game; Alt-Tab with a real controller; the start screen freeze fix on a slow drive; a second monitor; the wide pause menu and map beyond one 2560x1080 window; save import; the Confirm button on a controller; moving platforms, shield surf and the Kohga freeze in real play; No rain and No thunderstorms against real weather; updating from 0.2.1 with the built-in updater; any other hardware; frame rate.
 

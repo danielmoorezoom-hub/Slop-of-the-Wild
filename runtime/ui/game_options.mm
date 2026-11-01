@@ -608,6 +608,10 @@ void build_items(void) {
                        [](const Item &) { return g_settings.shadow_res; },
                        [](const Item &, int x) { g_settings.shadow_res = x; }, SHADOW_CONSOLE));
     // the game's font sheets enlarged (runtime/nvn/text_upscale.c): read when the game starts
+    v.push_back(choice(P_VIDEO, "Sharper menus (beta)", "Upscales the shapes and frames of the menus, after a restart. Not the original art.",
+                       [](const Item &) { return N(k_text); }, [](const Item &, int x) { return tr(k_text[x]); },
+                       [](const Item &) { return g_settings.sharper_menus / 2; },
+                       [](const Item &, int x) { g_settings.sharper_menus = x * 2; }, 0));
     v.push_back(choice(P_VIDEO, "Sharper text (beta)", "Upscales the game's letters for 1440p and 4K, after a restart. Not the original art.",
                        [](const Item &) { return N(k_text); }, [](const Item &, int x) { return tr(k_text[x]); },
                        [](const Item &) { return g_settings.sharper_text / 2; },
