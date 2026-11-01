@@ -217,6 +217,77 @@ static void pdh_open(void) {
     LOG("[perf] PDH GPU engine counters (any vendor)\n");
 }
 
+// AMD on Windows: AMD's Vulkan driver submits past what the GPU Engine counters above see (they read about 0% at full
+// load), so the load, clock, temperature and power come from AMD's own display library, when it's there. Without it an
+// AMD GPU's load shows as unknown, not as 0%.
+#define ADL_SENSOR_MAX 256
+#define ADL_GFXCLK 1
+#define ADL_TEMP_EDGE 8
+#define ADL_ACTIVITY_GFX 19
+#define ADL_ASIC_POWER 23
+typedef struct { int supported, value; } AdlSensor;
+typedef struct { int size; AdlSensor sensor[ADL_SENSOR_MAX]; char reserved[4096]; } AdlPmLog;
+typedef struct {
+    int size, index;
+    char udid[256];
+    int bus, device, function, vendor;
+    char name[256], display[256];
+    int present, exist;
+    char driver[256], driver_ext[256], pnp[256];
+    int os_display;
+} AdlAdapter;
+static struct {
+    bool tried, ok;
+    void *ctx;
+    int adapter;
+    int (*pmlog)(void *, int, AdlPmLog *);
+} adl;
+static void *__stdcall adl_alloc(int n) { return malloc((size_t)n); }
+
+static void adl_open(void) {
+    adl.tried = true;
+    void *lib = lib_open("atiadlxx.dll");
+    if (!lib) return;
+    int (*create)(void *(__stdcall *)(int), int, void **) = lib_sym(lib, "ADL2_Main_Control_Create");
+    int (*count)(void *, int *) = lib_sym(lib, "ADL2_Adapter_NumberOfAdapters_Get");
+    int (*info)(void *, AdlAdapter *, int) = lib_sym(lib, "ADL2_Adapter_AdapterInfo_Get");
+    adl.pmlog = lib_sym(lib, "ADL2_New_QueryPMLogData_Get");
+    int n = 0;
+    if (!create || !count || !info || !adl.pmlog || create(adl_alloc, 1, &adl.ctx) != 0 || count(adl.ctx, &n) != 0 || n <= 0 || n > 256) {
+        LOG("[perf] AMD display library: can't be used\n");
+        return;
+    }
+    AdlAdapter *a = calloc((size_t)n, sizeof *a);
+    if (a && info(adl.ctx, a, n * (int)sizeof *a) == 0)
+        for (int i = 0; i < n && !adl.ok; i++)  // (the one Vulkan renders on: a CPU's own graphics has a name too)
+            if (a[i].present && a[i].vendor == 1002 && (!g_gpu_hint[0] || strstr(g_gpu_hint, a[i].name) || strstr(a[i].name, g_gpu_hint))) {
+                adl.adapter = a[i].index;
+                adl.ok = true;
+                LOG("[perf] AMD display library: %s (adapter %d)\n", a[i].name, a[i].index);
+            }
+    free(a);
+    if (!adl.ok) LOG("[perf] AMD display library: no adapter named \"%s\"\n", g_gpu_hint);
+}
+
+static void adl_sample(PerfStats *s) {
+    if (!strstr(g_gpu_hint, "AMD") && !strstr(g_gpu_hint, "Radeon")) return;
+    s->gpu_pct = -1;  // (see above)
+    if (!adl.tried) adl_open();
+    if (!adl.ok) return;
+    static AdlPmLog log;
+    memset(&log, 0, sizeof log);
+    if (adl.pmlog(adl.ctx, adl.adapter, &log) != 0) return;
+    const AdlSensor *v = log.sensor;
+    if (v[ADL_ACTIVITY_GFX].supported) s->gpu_pct = (float)v[ADL_ACTIVITY_GFX].value;
+    if (v[ADL_GFXCLK].supported) s->gpu_clock_mhz = (float)v[ADL_GFXCLK].value;
+    if (v[ADL_TEMP_EDGE].supported) s->gpu_temp_c = (float)v[ADL_TEMP_EDGE].value;
+    if (v[ADL_ASIC_POWER].supported) s->gpu_power_w = (float)v[ADL_ASIC_POWER].value;
+    static int shown;
+    if (shown++ < 12 && shown % 4 == 0)
+        LOG("[perf] AMD sensors: load %d, clock %d, temperature %d, power %d\n", v[ADL_ACTIVITY_GFX].value, v[ADL_GFXCLK].value,
+            v[ADL_TEMP_EDGE].value, v[ADL_ASIC_POWER].value);
+}
+
 static void pdh_sample(PerfStats *s) {
     if (!wp.tried) pdh_open();
     if (!wp.ok || nv.ok) return;  // NVML above is the richer source when it is there
@@ -514,6 +585,7 @@ static void *sampler(void *arg) {
         nvml_sample(&s);
 #ifdef _WIN32
         pdh_sample(&s);
+        adl_sample(&s);
 #endif
         last = now;
         pthread_mutex_lock(&g_lock);
