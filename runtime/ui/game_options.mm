@@ -438,7 +438,7 @@ void build_items(void) {
         v.push_back(button(P_VIDEO, names[i].c_str(), descs[i].c_str(), "Run", A_BENCHMARK, i));
     }
     // Profiles (settings.c)
-    v.push_back(choice(P_CHEATS, "Weather", "Holds the weather you pick, or keeps out rain or thunderstorms. Cutscenes keep theirs.",
+    v.push_back(choice(P_CHEATS, "Weather", "Holds the weather you pick, or keeps out rain or thunderstorms.",
                        [](const Item &) { return 12; },
                        [](const Item &, int x) {
                            static const char *const w[] = {"Automatic", "No rain", "No thunderstorms", "Clear", "Cloudy", "Rain", "Heavy rain",
