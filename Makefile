@@ -265,7 +265,7 @@ $(B)/savagewind-config.exe: $(B)/rt/platform/windows_config.o $(B)/rt/platform/w
 	$(CC) -o $@ $^ -fuse-ld=lld -Wl,--subsystem,windows
 
 # Slop of the Wild's own version (VERSION stays Savage Wind's: the game code's id uses it)
-SLOP_VERSION := 0.2
+SLOP_VERSION := 0.2.1
 VERSION  := $(shell sed -n 's/^\#define SAVAGEWIND_VERSION "\(.*\)"/\1/p' runtime/ui/launcher.mm)
 
 # macOS: build/Savage Wind.app, runs on macOS $(APP_MIN)+: the game rebuilt for that in build/mac15 against build/deps
