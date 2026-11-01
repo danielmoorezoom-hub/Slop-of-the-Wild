@@ -1859,7 +1859,7 @@ extern "C" void launcher_run(const char *root, int mode) {
             if (page != SETTINGS) {
             ImGui::PushFont(g_font_small);
             if (page == MAIN) {
-            ImGui::SetCursorPos(ImVec2(x0, ds.y - 104 * s));
+            ImGui::SetCursorPos(ImVec2(x0, ds.y - 130 * s));
             static std::string main_id;  // (read again after the game files change)
             if (!status.empty()) main_id.clear();
             if (status.empty()) {
@@ -1875,6 +1875,14 @@ extern "C" void launcher_run(const char *root, int mode) {
                 ImGui::SetCursorPosX(x0);
                 if (main_id.empty() && !nso_build_id(g_root + "/exefs/main", &main_id)) main_id = "?";
                 ImGui::TextColored(ImVec4(0.62f, 0.67f, 0.61f, 1), tr("main build id %s"), main_id.c_str());
+                {   // the DLC set up, in plain sight: players can't otherwise tell (looked up now and then: it only changes in a setup)
+                    static std::string dlc;
+                    static int age;
+                    if (age++ % 120 == 0) dlc = dlc_installed(g_root);
+                    ImGui::SetCursorPosX(x0);
+                    if (dlc.empty()) ImGui::TextColored(ImVec4(0.62f, 0.67f, 0.61f, 1), tr("DLC: not set up"));
+                    else ImGui::TextColored(ImVec4(0.45f, 0.95f, 0.55f, 1), tr("DLC: %s"), dlc.c_str());
+                }
 #ifndef __APPLE__
                 {   // (asked once: a new driver or translator makes the first play stutter until the shaders are made again)
                     static int stale = -1;

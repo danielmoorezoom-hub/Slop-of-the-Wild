@@ -6,77 +6,74 @@ The current tasks and the ideas together, easiest to hardest, as of 0.3, 2026-11
 
 1. Tune the white grass sheen's strength, if it looks too pale in play
 2. Clarity: lift the shadows and pull back noon saturation
-3. Say what we already have, on the front page and in the game: supersampling (Render scale up to 200%), faster camera speed, cheats, how to update and add the DLC, precompiled shaders
-4. Clearer setup wording for players stuck on game version 1.6.0, who can't update to 1.9.0
 
 ### Easy: an hour or two
 
-5. Weather: Snow and Heavy snow hold and fall in cold areas, but the place looks like night at noon (Hebra, -3558,578,-3441; normal weather is bright, Cloudy is dim). Compare with snow the game picks itself, then fix or accept it
-6. Play-test the ported fixes: moving platforms, shield surf, the Kohga freeze
-7. Linux overlay reads the GPU that renders (#315), only once there is a Linux build
-8. Adjustable dialogue text speed (#338). On hold since 2026-11-01. NPC text only: cutscene subtitles follow the voice
-9. Blocky steps at the edges of the System page's background at 21:9, seen with the wide pause menu port. Check whether Alpha 4 does it too
-10. A clear "DLC: on" in the launcher, and which folder to pick: players can't tell if it's working
-11. Horse names accepting only some letters, and an odd background on floating text over the character: check in ours, fix what's there
-12. Some textures missing with the DLC installed: try to reproduce
-13. Blocky purple or magenta textures on some AMD GPUs: try to reproduce on our RX 9070 XT
-14. Test Cemu save import with a real Cemu save, since people ask. Needs one from the user
+3. Weather: Snow and Heavy snow hold and fall in cold areas, but the place looks like night at noon (Hebra, -3558,578,-3441; normal weather is bright, Cloudy is dim). Compare with snow the game picks itself, then fix or accept it
+4. Play-test the ported fixes: moving platforms, shield surf, the Kohga freeze
+5. Linux overlay reads the GPU that renders (#315), only once there is a Linux build
+6. Adjustable dialogue text speed (#338). On hold since 2026-11-01. NPC text only: cutscene subtitles follow the voice
+7. Blocky steps at the edges of the System page's background at 21:9, seen with the wide pause menu port. Check whether Alpha 4 does it too
+8. Horse names accepting only some letters, and an odd background on floating text over the character: check in ours, fix what's there
+9. Some textures missing with the DLC installed: try to reproduce
+10. Blocky purple or magenta textures on some AMD GPUs: try to reproduce on our RX 9070 XT
+11. Test Cemu save import with a real Cemu save, since people ask. Needs one from the user
 
 ### Medium: an afternoon or so
 
-15. OBS Game Capture black frames, and frames on the game's own queue (#293)
-16. Cheaper write watch (f1f2d28), which may help the 35 to 47 ms slow lists
-17. Hitch log for players: the overlay names what caused the last long frame
-18. Video > Haze: less of the milky veil over distances (their PR #317)
-19. Frame rates above 240 fps, and the game's clock limit that goes with them (their PR #323)
-20. Grass shimmer and artifacts in sunlight, now that the weather can be held
-21. Better horse steering on keyboard (#290, their open #343 may do it)
-22. Unskippable text
-23. Item spawner, from what `promosave.py` learned. First find which item sets off cutscene Demo200_0
-24. Draw distance by area: less Object distance in dense places
-25. Choose the order of the HUD's button prompts (#321)
-26. Smooth Sheikah Slate gyro aiming: it snaps to a coarse grid in the original, unlike the bow. The feel needs a real gyro controller to judge
-27. Do Dark Army Resurrection and Second Wind work with our mods folder? Needs those mods downloaded, with the user's OK
-28. 16:10 without distortion at 1920x1200 and 2560x1600 (#303): testable in a window
-29. Low-end: why a GTX 1650 laptop sat at 30 fps at 720p with its GPU at 23%. No such card here, so causes only. Overlaps the paused optimization pass, and Savage Wind's next "Potato" update (Vulkan 1.2, older GPUs): port what helps when it lands
+12. OBS Game Capture black frames, and frames on the game's own queue (#293)
+13. Cheaper write watch (f1f2d28), which may help the 35 to 47 ms slow lists
+14. Hitch log for players: the overlay names what caused the last long frame
+15. Video > Haze: less of the milky veil over distances (their PR #317)
+16. Frame rates above 240 fps, and the game's clock limit that goes with them (their PR #323)
+17. Grass shimmer and artifacts in sunlight, now that the weather can be held
+18. Better horse steering on keyboard (#290, their open #343 may do it)
+19. Unskippable text
+20. Item spawner, from what `promosave.py` learned. First find which item sets off cutscene Demo200_0
+21. Draw distance by area: less Object distance in dense places
+22. Choose the order of the HUD's button prompts (#321)
+23. Smooth Sheikah Slate gyro aiming: it snaps to a coarse grid in the original, unlike the bow. The feel needs a real gyro controller to judge
+24. Do Dark Army Resurrection and Second Wind work with our mods folder? Needs those mods downloaded, with the user's OK
+25. 16:10 without distortion at 1920x1200 and 2560x1600 (#303): testable in a window
+26. Low-end: why a GTX 1650 laptop sat at 30 fps at 720p with its GPU at 23%. No such card here, so causes only. Overlaps the paused optimization pass, and Savage Wind's next "Potato" update (Vulkan 1.2, older GPUs): port what helps when it lands
 
 ### Harder: a day or more
 
-30. In-game console and control commands (#284-286, 24 files conflict), then Link's position in the log (752d72f)
-31. Geometry copy for 4-6 GB cards (f1f2d28)
-32. Teleport bookmarks inside shrines
-33. Fast travel to any map marker
-34. Teleport in real time: Link moves at once, with no restart and no dependence on saves (their `goto`, #284-286, may show how)
-35. Per-action remapping (#180, their draft #329)
-36. Gyro on ROG Ally X (#221): needs the hardware
-37. Depth of field in photo mode
-38. Effects on and off, one at a time, including the three grass layers
-39. Accessibility and assists: text size, colour-blind filters, toggles for held buttons
-40. Profiler you can turn on while playing (#309)
-41. NaN-aware min/max in shaders (#153), which may fix some rendering glitches
-42. Less guest memory kept committed
-43. Skip shadow draws that don't matter (risks shadow flicker)
-44. Read ahead for the next area
-45. Older Vulkan (#250), sparse heap (#197), how shadows look on Intel (#300): each needs hardware we don't have
-46. Texture pack support, alongside the blurry textures: check first what the mods folder can already replace
+27. In-game console and control commands (#284-286, 24 files conflict), then Link's position in the log (752d72f)
+28. Geometry copy for 4-6 GB cards (f1f2d28)
+29. Teleport bookmarks inside shrines
+30. Fast travel to any map marker
+31. Teleport in real time: Link moves at once, with no restart and no dependence on saves (their `goto`, #284-286, may show how)
+32. Per-action remapping (#180, their draft #329)
+33. Gyro on ROG Ally X (#221): needs the hardware
+34. Depth of field in photo mode
+35. Effects on and off, one at a time, including the three grass layers
+36. Accessibility and assists: text size, colour-blind filters, toggles for held buttons
+37. Profiler you can turn on while playing (#309)
+38. NaN-aware min/max in shaders (#153), which may fix some rendering glitches
+39. Less guest memory kept committed
+40. Skip shadow draws that don't matter (risks shadow flicker)
+41. Read ahead for the next area
+42. Older Vulkan (#250), sparse heap (#197), how shadows look on Intel (#300): each needs hardware we don't have
+43. Texture pack support, alongside the blurry textures: check first what the mods folder can already replace
 
 ### Hard: days to weeks, and may not work
 
-47. Linux build (Ubuntu, Arch). On hold: can't be tested here. Reddit asks: Steam Deck game mode, Quiver Launcher on Linux
-48. Port Cemu's shadow draw distance and reflection packs
-49. Raise detail on flowers, far trees and textures, and fix the grass edges
-50. Friendlier setup and launcher explanations for anyone
-51. amiibo rewards without figures
-52. XeSS and DLSS (vendor SDKs; their #111 for DLSS). DLSS is the most requested feature on Reddit, but needs an NVIDIA card to test
-53. Steam Deck gyro through DSU (#281), which needs the Linux build first
-54. Smarter CPU core placement, untested on other CPUs: needs other PCs
-55. Parallel draw translation, the riskiest item
-56. Randomizer
-57. Online (their #294)
-58. macOS
-59. Replace distant assets and foliage, and better distant shadows, for modders and players. After texture packs
+44. Linux build (Ubuntu, Arch). On hold: can't be tested here. Reddit asks: Steam Deck game mode, Quiver Launcher on Linux
+45. Port Cemu's shadow draw distance and reflection packs
+46. Raise detail on flowers, far trees and textures, and fix the grass edges
+47. Friendlier setup and launcher explanations for anyone
+48. amiibo rewards without figures
+49. XeSS and DLSS (vendor SDKs; their #111 for DLSS). DLSS is the most requested feature on Reddit, but needs an NVIDIA card to test
+50. Steam Deck gyro through DSU (#281), which needs the Linux build first
+51. Smarter CPU core placement, untested on other CPUs: needs other PCs
+52. Parallel draw translation, the riskiest item
+53. Randomizer
+54. Online (their #294)
+55. macOS
+56. Replace distant assets and foliage, and better distant shadows, for modders and players. After texture packs
 
-**Done from the top of this list, 2026-11-01:** the update flow starting the downloaded installer (stopped at its first page, not run through); benchmark history; Savage Wind's AMD fix (#341) with the text fix back on; the white grass fix matching the game's code; the log's first line; the install folder check (already there); the stale shader notice; the feature requests, added above; the colour shot; the first-run popup removed. Alpha 4.1's mouse fixes, the six 0aa6f04 items and the map pan limit: ported, not yet tried with a real mouse, and the arrow keys not tried at all. The shadow flashes: `SAVAGEWIND_TEST_TIME` was fighting the game's clock, fixed from upstream's ed9279a; 0 flashes on both PCs with all settings on. Link's one-frame pose glitch: `goto` in the test routes left the stick at zero for a frame, fixed; none seen in the user's own play test with a controller. Video > Sharper text (beta) from their PR #325: 2x and 4x, tested on one PC. Video > Sharper menus (beta): the UI's one-channel shapes, frames and lines enlarged on the player's PC, with no game art shipped; tested on the pause screens, Options and map on one PC, and colour art like item icons is left as it is.
+**Done from the top of this list, 2026-11-01:** the update flow starting the downloaded installer (stopped at its first page, not run through); benchmark history; Savage Wind's AMD fix (#341) with the text fix back on; the white grass fix matching the game's code; the log's first line; the install folder check (already there); the stale shader notice; the feature requests, added above; the colour shot; the first-run popup removed. Alpha 4.1's mouse fixes, the six 0aa6f04 items and the map pan limit: ported, not yet tried with a real mouse, and the arrow keys not tried at all. The shadow flashes: `SAVAGEWIND_TEST_TIME` was fighting the game's clock, fixed from upstream's ed9279a; 0 flashes on both PCs with all settings on. Link's one-frame pose glitch: `goto` in the test routes left the stick at zero for a frame, fixed; none seen in the user's own play test with a controller. Video > Sharper text (beta) from their PR #325: 2x and 4x, tested on one PC. Video > Sharper menus (beta): the UI's one-channel shapes, frames and lines enlarged on the player's PC, with no game art shipped; tested on the pause screens, Options and map on one PC, and colour art like item icons is left as it is. The front page says what we already have: supersampling, camera speeds, shaders, adding the DLC. Setup's wording for other game versions was already right: the front page now says it too. The start screen says which DLC is set up (DLC: 1 + 2 (3.0), or not set up). The line isn't translated yet.
 
 **Not tested yet, as of 0.3:** a real mouse with the new pointer (Game Over, quick selector, map panning); arrow keys and Enter in menus in the running game; Alt-Tab with a real controller; the start screen freeze fix on a slow drive; a second monitor; the wide pause menu and map beyond one 2560x1080 window; save import; the Confirm button on a controller; moving platforms, shield surf and the Kohga freeze in real play; No rain and No thunderstorms against real weather; updating from 0.2.1 with the built-in updater; any other hardware; frame rate.
 

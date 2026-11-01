@@ -32,7 +32,8 @@ I started this for myself. I wanted to play Breath of the Wild the way I'd alway
 - Extended draw distance, with sliders for distance, grass and objects
 - Graphics presets from Potato to High
 - Clarity, a port of Cemu's BOTW graphics pack, plus colour grading with LUTs and HDR10
-- TAA, SMAA and AMD FSR 4 anti-aliasing, FSR 1 upscaling, and render scale up to 200%
+- TAA, SMAA and AMD FSR 4 anti-aliasing, FSR 1 upscaling, and render scale up to 200%: supersampling, so a 1080p screen can show a 4K image
+- Sharper text and sharper menus for 1440p and 4K, upscaled on your own PC from your own game files
 - Higher resolution shadows, field of view options, and wide screen support
 - Fullscreen mode and monitor choice
 - A fix for grass blowing out to white when it rains in sunshine
@@ -40,7 +41,7 @@ I started this for myself. I wanted to play Breath of the Wild the way I'd alway
 **Play**
 - High frame rates, with an option that pulls the grass in when the game can't keep up
 - Mouse and keyboard, a mouse pointer in the menus, mouse bow aiming, and full rebinding
-- Controller support with Xbox, PlayStation and Nintendo prompts, gyro aiming, and a choice of Confirm button and faster camera speeds
+- Controller support with Xbox, PlayStation and Nintendo prompts, gyro aiming, and a choice of Confirm button, and camera speeds faster than the game's fastest
 - A cheats page: health, stamina, arrows, weapons, damage, rupees and weather
 - Photo mode with filters
 - Teleport bookmarks
@@ -51,7 +52,7 @@ I started this for myself. I wanted to play Breath of the Wild the way I'd alway
 - A real installer and uninstaller
 - A built-in updater: it checks for new releases, downloads the installer, verifies it, and starts it
 - A settings menu from the controller's Home button, and a performance overlay with a frame-time graph
-- Shaders prepared ahead of time to cut stutter, with a notice when they're out of date
+- Shaders prepared ahead of time, so there's very little shader stutter, with a notice when they're out of date
 - Fast re-setup: compiled game code is kept, so a small update takes seconds, not minutes
 - A built-in benchmark and a recommended preset
 - Settings profiles and save backups
@@ -68,7 +69,7 @@ The exact state of each is in the [release notes](../../releases).
 - Windows 10 or newer, 64-bit
 - A graphics card with a Vulkan 1.3 driver
 - About 16 GB of free disk space
-- Your own copy of the game: version 1.9.0 with the update merged, dumped from your own Switch. The DLC is optional, dumped the same way.
+- Your own copy of the game: version 1.9.0 with the update merged, dumped from your own Switch. Other versions, like 1.6.0, won't work: update the game on your Switch first, then dump it. The DLC is optional, dumped the same way.
 
 **1. Download the installer.** Get `SlopOfTheWild-<version>-Setup.exe` from the newest entry on the [Releases page](../../releases). It holds only the program and its tools, no game files.
 
@@ -84,7 +85,7 @@ The exact state of each is in the [release notes](../../releases).
 
 <img src="docs/images/installer-4finish.png" alt="The installer's last page" width="520">
 
-**5. Point it at your game.** Under **Game Files**, choose the folder that holds your dump: `exefs` and `romfs` folders, a few folders down at most. `.nsp` and `.xci` files won't work, so extract them first. If you own the DLC, add its folder too. Then press **Set up game files**.
+**5. Point it at your game.** Under **Game Files**, choose the folder that holds your dump: `exefs` and `romfs` folders, a few folders down at most. `.nsp` and `.xci` files won't work, so extract them first. If you own the DLC, add its folder too: the start screen then says **DLC: 1 + 2 (3.0)**, and you can add it later the same way. Then press **Set up game files**.
 
 <img src="docs/images/setup-game-files.jpg" alt="The Game Files page" width="720">
 
