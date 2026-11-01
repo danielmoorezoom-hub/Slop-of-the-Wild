@@ -56,6 +56,7 @@ typedef struct {
     bool lod_extended;   // Draw Distance > Extended draw distance: the sliders below apply (off: the game's own)
     bool cheat_health, cheat_stamina, cheat_arrows, cheat_weapons, cheat_rupees;  // Cheats (runtime/cheats.c)
     int weapon_wear;     // Cheats > Weapon wear: how fast weapons lose durability, percent of the game's: 10..300
+    int weather;         // Cheats > Weather: 0 the game's, 1 no rain, 2 no thunderstorms, 3.. the game's weather type + 3, held (services/test_warp.c)
     bool cheat_onehit;   // Cheats > One-hit kills
     int damage_dealt;    // Cheats > Damage dealt, percent of the game's: 25..1000
     bool auto_continue;  // Gameplay > Start at Continue: past the title screen by itself (hle/input.c)

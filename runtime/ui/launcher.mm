@@ -1369,7 +1369,7 @@ extern "C" void launcher_run(const char *root, int mode) {
         exit(0);
     }
     if (const char *t = getenv("SAVAGEWIND_LAUNCHER_SETUP")) {  // (test) <folder>: Set up started on the start screen
-        g_src = t;
+        g_src = !strcmp(t, "-") ? "" : t;  // ("-": none, the game code alone)
         g_busy = true;
         page = SETUP;
         pthread_t th;

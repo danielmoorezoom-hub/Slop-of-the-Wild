@@ -438,6 +438,15 @@ void build_items(void) {
         v.push_back(button(P_VIDEO, names[i].c_str(), descs[i].c_str(), "Run", A_BENCHMARK, i));
     }
     // Profiles (settings.c)
+    v.push_back(choice(P_CHEATS, "Weather", "Holds the weather you pick, or keeps out rain or thunderstorms. Cutscenes keep theirs.",
+                       [](const Item &) { return 12; },
+                       [](const Item &, int x) {
+                           static const char *const w[] = {"Automatic", "No rain", "No thunderstorms", "Clear", "Cloudy", "Rain", "Heavy rain",
+                                                           "Snow", "Heavy snow", "Thunderstorm", "Thunder rain", "Rain in sunshine"};
+                           return tr(w[x]);
+                       },
+                       [](const Item &) { return g_settings.weather; },
+                       [](const Item &, int x) { g_settings.weather = x; }, 0));
     v.push_back(toggle(P_GAMEPLAY, "Start at Continue", "Past the title screen by itself, into your latest save. Any button stops it.",
                        [](const Item &) { return (int)g_settings.auto_continue; },
                        [](const Item &, int x) { g_settings.auto_continue = x; }, 0));

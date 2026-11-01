@@ -4952,7 +4952,14 @@ static int gsnap_mode(void) {
     static int m = -1;
     if (m < 0) {
         const char *e = getenv("SAVAGEWIND_VK_GSNAP");
-        m = !gpu_overlap() ? 0 : !e ? 1 : !strcmp(e, "all") ? 2 : atoi(e) ? 1 : 0;
+        // (AMD's Windows driver: a GPU page fault and the device lost seconds in on an RX 9070 XT, also Alpha 4's #331. Off there.
+        // The vendor: this first runs in vk_translator_setup, before the driver's id is read.)
+#ifdef _WIN32
+        bool amd_win = g_vk.props.vendorID == 0x1002;
+#else
+        bool amd_win = false;
+#endif
+        m = !gpu_overlap() ? 0 : !e ? !amd_win : !strcmp(e, "all") ? 2 : atoi(e) ? 1 : 0;
         LOG("[vk] global memory the HUD reads: %s\n",
             m == 2 ? "copied at translation (every pass, vertex data the HUD's)" : m ? "copied at translation (final image)" : "in place");
     }

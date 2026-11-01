@@ -8,9 +8,9 @@
 //   SAVAGEWIND_TEST_TIME=<hour 0-24>         the hour of the day, held there: the game takes no time of day from
 //                                            the save on Continue (WM_Time is ignored), so test_warp_frame writes
 //                                            TimeMgr's time (0..360 = 24 h) every frame
-//   SAVAGEWIND_TEST_WEATHER=<n>              every forecast (climateWeather*): 0 clear, 1 cloudy, 2 rain,
-//                                            3 heavy rain, 4 snow, 5 heavy snow, 6 thunderstorm, 7 thunder rain
-//                                            (the weather at load does not follow them either)
+//   SAVAGEWIND_TEST_WEATHER=<n>              the weather, held, and every forecast (climateWeather*): 0 clear, 1 cloudy,
+//                                            2 rain, 3 heavy rain, 4 snow, 5 heavy snow, 6 thunderstorm, 7 thunder rain,
+//                                            8 rain in sunshine (the forecasts alone change nothing at load)
 //   SAVAGEWIND_TEST_FLAGS=<name>=<value>[,...]  any other s32 / bool (integer) or f32 (with a '.') value
 //
 // game_data.sav: a 0xC-byte header, then 8-byte entries (crc32 of the flag name, 32-bit value). Vectors, arrays and
@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "settings.h"
 #include "../game_sites.h"
 #include "../hle.h"
 
@@ -149,13 +150,37 @@ void test_warp_patch(uint8_t *d, uint64_t size) {
 // (runtime/hle/framepace.c).
 void test_warp_frame(uint64_t frame) {
     static float tod = -2;
+    static int weather = -2;
     if (tod == -2) {
         const char *t = getenv("SAVAGEWIND_TEST_TIME");
         tod = t && *t ? (float)atof(t) * 15.0f : -1;
+        const char *w = getenv("SAVAGEWIND_TEST_WEATHER");
+        weather = w && *w && atoi(w) >= 0 && atoi(w) <= 8 ? atoi(w) : -1;
     }
-    if (tod < 0 || !g_site.world_mgr) return;
+    int hold = weather >= 0 ? weather : g_settings.weather >= 3 ? g_settings.weather - 3 : -1;  // (Cheats > Weather)
+    int avoid = weather >= 0 ? 0 : g_settings.weather;  // (1 no rain, 2 no thunderstorms: what the game picks, but for those)
+    if ((tod < 0 && hold < 0 && avoid != 1 && avoid != 2) || !g_site.world_mgr) return;
     uint64_t wm = *(uint64_t *)(uintptr_t)g_site.world_mgr;
     if (!wm || !*(uint32_t *)(uintptr_t)(wm + 0x5c0)) return;
+    // world::Manager::setWeatherType, each frame: mWeatherType at +0x7d1, mWeatherTypeTimer at +0x794; a cutscene's own
+    // weather (mWeatherSetForDemo at +0x7d6) stays
+    if (avoid == 1 || avoid == 2) {  // 0 clear, 1 cloudy, 2 rain, 3 heavy rain, 4 snow, 5 heavy snow, 6 thunderstorm, 7 thunder rain, 8 rain in sunshine
+        uint8_t cur = *(volatile uint8_t *)(uintptr_t)(wm + 0x7d1);
+        if (avoid == 1 && (cur == 2 || cur == 3 || cur == 6 || cur == 7 || cur == 8)) hold = 1;
+        if (avoid == 2 && cur == 6) hold = 1;
+        if (avoid == 2 && cur == 7) hold = 2;
+    }
+    if (hold >= 0 && !*(volatile uint8_t *)(uintptr_t)(wm + 0x7d6)) {
+        volatile uint8_t *now = (volatile uint8_t *)(uintptr_t)(wm + 0x7d1);
+        static bool logged;
+        if (!logged && *now != hold) {
+            LOG("[warp] weather %d -> %d at frame %llu (held)\n", *now, hold, (unsigned long long)frame);
+            logged = true;
+        }
+        *now = (uint8_t)hold;
+        *(volatile int32_t *)(uintptr_t)(wm + 0x794) = 4;
+    }
+    if (tod < 0) return;
     uint64_t mgrs = *(uint64_t *)(uintptr_t)(wm + 0x5c8), tm = mgrs ? *(uint64_t *)(uintptr_t)mgrs : 0;
     if (!tm) return;
     float *now = (float *)(uintptr_t)(tm + 0xb8);

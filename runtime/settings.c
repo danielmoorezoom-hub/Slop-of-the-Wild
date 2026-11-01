@@ -69,6 +69,7 @@ Settings g_settings = {
 };
 
 static const char *const k_vsync[VSYNC_COUNT] = {"on", "fast", "adaptive", "off"};  // (VSYNC_*: the ini's words)
+static const char *const k_weather[12] = {"game", "no_rain", "no_storms", "clear", "cloudy", "rain", "heavy_rain", "snow", "heavy_snow", "thunderstorm", "thunder_rain", "sun_shower"};
 static const char *const k_hdr[HDR_COUNT] = {"auto", "on", "off"};             // (HDR_*)
 
 // settings_version 2 (2026-10-19): the upscaler's mode, the window size and the 300% mouse default. Older files: their
@@ -148,6 +149,11 @@ void settings_load(void) {
         else if (!strcmp(key, "stick_camera_y")) g_settings.stick_cam_y = atoi(val);  // (percent)
         else if (!strcmp(key, "lod_extended")) g_settings.lod_extended = atoi(val) != 0;
         else if (!strcmp(key, "cheat_onehit")) g_settings.cheat_onehit = atoi(val) != 0;
+        else if (!strcmp(key, "weather")) {
+            g_settings.weather = 0;
+            for (int i = 0; i < 12; i++)
+                if (!strcmp(val, k_weather[i])) g_settings.weather = i;
+        }
         else if (!strcmp(key, "damage_dealt")) g_settings.damage_dealt = atoi(val);
         else if (!strcmp(key, "auto_continue")) g_settings.auto_continue = atoi(val) != 0;
         else if (!strcmp(key, "damage_taken")) g_settings.damage_taken = atoi(val);
@@ -348,6 +354,7 @@ void settings_save(void) {
     fprintf(f, "lod_extended = %d\n", g_settings.lod_extended);
     fprintf(f, "cheat_health = %d\ncheat_stamina = %d\ncheat_arrows = %d\ncheat_weapons = %d\n", g_settings.cheat_health,
             g_settings.cheat_stamina, g_settings.cheat_arrows, g_settings.cheat_weapons);
+    fprintf(f, "weather = %s\n", k_weather[g_settings.weather >= 0 && g_settings.weather < 12 ? g_settings.weather : 0]);
     fprintf(f, "auto_continue = %d\ndamage_taken = %d\ncheat_onehit = %d\ndamage_dealt = %d\n", g_settings.auto_continue, g_settings.damage_taken, g_settings.cheat_onehit, g_settings.damage_dealt);
     fprintf(f, "cheat_rupees = %d\nweapon_wear = %d\nsave_backups = %d\n", g_settings.cheat_rupees, g_settings.weapon_wear, g_settings.save_backups);
     fprintf(f, "lod_auto = %d\n", g_settings.lod_auto);
