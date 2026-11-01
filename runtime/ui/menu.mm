@@ -1593,7 +1593,7 @@ void menu_render(void *cmd, uint32_t target_w, uint32_t target_h) {
         ImFont *f1 = g_menu_font_big ? g_menu_font_big : g_font, *f2 = g_menu_font ? g_menu_font : g_font;
         const char *l1 = slop_title(), *l2 = "a fork of Savage Wind";
         ImVec2 s1 = f1->CalcTextSizeA(fh, FLT_MAX, 0, l1), s2 = f2->CalcTextSizeA(fh * 0.8f, FLT_MAX, 0, l2);
-        float y1 = H * 0.9142f - pitch, y2 = H * 0.9142f + fh * 0.1f;
+        float y1 = H * 0.9142f - 2 * pitch, y2 = H * 0.9142f - pitch + fh * 0.1f;  // (clear of the line the game keeps for the DLC version)
         int a = (int)(255 * title_a), sh = (int)(110 * title_a);
         float o = fmaxf(1.0f, H / 1080.0f);
         dl->AddText(f1, fh, ImVec2(xr - s1.x + o, y1 + o), IM_COL32(0, 0, 0, sh), l1);
