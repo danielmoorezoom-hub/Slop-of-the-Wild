@@ -20,6 +20,8 @@
 //   sprint <seconds>          run ahead, holding the sprint button
 //   photo                     photo mode on or off (runtime/photo.c)
 //   photoshot                 what F7 does
+//   photofilter               what F8 does
+//   flag <name> <value>       a game data flag, in the game's memory, within 5 s (runtime/achievements_live.c)
 //   mark <n>, gomark <n>      save a teleport bookmark here, go to one (runtime/teleport.c; then `play` again)
 //   confirm <0|1>             Controller > Confirm button: right, bottom
 //   teleport <x> <y> <z>      as the Teleport page does: the game restarts (runtime/teleport.c); then `play` again
@@ -88,7 +90,7 @@ static void read_steps(void) {  // (only whole lines: one being added is read wh
         Step s = {{0}};
         int used = 0;
         if (sscanf(line, "%11s%n", s.op, &used) != 1 || s.op[0] == '#') continue;
-        if (!strcmp(s.op, "press") || !strcmp(s.op, "shot") || !strcmp(s.op, "bench")) {
+        if (!strcmp(s.op, "press") || !strcmp(s.op, "shot") || !strcmp(s.op, "bench") || !strcmp(s.op, "flag")) {
             int u2 = 0;
             sscanf(line + used, "%63s%n", s.name, &u2);
             used += u2;
@@ -294,6 +296,16 @@ void test_route_frame(int32_t *lx, int32_t *ly, int32_t *rx, int32_t *ry, uint32
         cur++;
         teleport_to((float)s->v[0], (float)s->v[1], (float)s->v[2]);
         return;
+    }
+    if (!strcmp(s->op, "flag")) {
+        extern void ach_live_set(const char *name, uint32_t value);
+        ach_live_set(s->name, (uint32_t)s->v[0]);
+        NEXT();
+    }
+    if (!strcmp(s->op, "photofilter")) {
+        extern void photo_filter_next(void);
+        photo_filter_next();
+        NEXT();
     }
     if (!strcmp(s->op, "photoshot")) {
         extern void photo_shot(void);

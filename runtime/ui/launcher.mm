@@ -954,6 +954,10 @@ extern "C" const char *report_make(void);  // (runtime/report.c)
 extern "C" void update_check_start(void);  // (runtime/update_check.c)
 extern "C" int update_check_state(void);
 extern "C" const char *update_check_tag(void);
+extern "C" void update_download_start(void);
+extern "C" int update_download_state(void);
+extern "C" const char *update_download_path(void);
+extern "C" void update_run_installer(void);
 static SDL_Window *g_launcher_win;
 static bool g_files_deleted;  // set here: the start screen goes back to setting the game files up
 static void prelaunch_tab(float sc) {
@@ -1020,6 +1024,12 @@ static void prelaunch_tab(float sc) {
             ImGui::Text(tr("%s is out."), update_check_tag());
             ImGui::SameLine();
             if (ImGui::Button(tr("Open the release page"))) SDL_OpenURL("https://github.com/devall96/Slop-of-the-Wild/releases/latest");
+            int dl = update_download_state();
+            if (dl == 0 || dl == 3) {
+                if (ImGui::Button(tr("Download and install"))) update_download_start();
+                if (dl == 3) { ImGui::SameLine(); ImGui::TextDisabled("%s", tr("The download failed or didn't match: nothing was run.")); }
+            } else if (dl == 1) ImGui::TextDisabled("%s", tr("Downloading..."));
+            else if (ImGui::Button(tr("Close the game and run the installer"))) update_run_installer();
         }
     }
     ImGui::Spacing();
@@ -1321,6 +1331,23 @@ extern "C" void launcher_run(const char *root, int mode) {
     const char *ap = getenv("SAVAGEWIND_LAUNCHER_AUTOPLAY");
     if (ap && status.empty() && !(runs && !strcmp(ap, "once"))) play = true;  // (test: PLAY at once)
     runs++;
+    if (const char *act = getenv("SAVAGEWIND_LAUNCHER_ACT")) {  // (test) report, preset, update: what those buttons do, logged; then exit
+        if (strstr(act, "report")) fprintf(stderr, "[launcher] report: %s\n", report_make());
+        if (strstr(act, "preset")) {
+            int rec = benchmark_recommended();
+            fprintf(stderr, "[launcher] recommended preset %d\n", rec);
+            if (rec >= 0) { settings_preset_apply(rec); settings_save(); }
+        }
+        if (strstr(act, "update")) {
+            update_check_start();
+            while (update_check_state() == 1) SDL_Delay(50);
+            fprintf(stderr, "[launcher] update check: state %d, tag %s\n", update_check_state(), update_check_tag());
+            update_download_start();
+            while (update_download_state() == 1) SDL_Delay(100);
+            fprintf(stderr, "[launcher] update download: state %d, %s\n", update_download_state(), update_download_path());
+        }
+        exit(0);
+    }
     if (const char *t = getenv("SAVAGEWIND_LAUNCHER_EXTRACT")) {  // (test) <folder>: set the game files up, log, exit
         g_src = !strcmp(t, "-") ? "" : t;  // ("-": none: SAVAGEWIND_LAUNCHER_DLC alone)
         if (const char *d = getenv("SAVAGEWIND_LAUNCHER_DLC")) g_dlc_src = d;

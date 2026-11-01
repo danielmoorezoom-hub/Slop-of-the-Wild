@@ -119,7 +119,7 @@ IMGUI_OBJ += $(B)/imgui/imgui_impl_vulkan.o
 UIFLAGS  := -x c++ $(OSFLAGS)  # the .mm UI sources are plain C++ apart from __APPLE__ blocks
 GAMELIB  := $(B)/swgame.dll
 # the runtime functions it calls: exported by the .exe, linked through its import library
-LDFLAGS  += -lwinhttp -Wl,--export-all-symbols -Wl,--out-implib,$(B)/savagewind.dll.a
+LDFLAGS  += -lwinhttp -lbcrypt -Wl,--export-all-symbols -Wl,--out-implib,$(B)/savagewind.dll.a
 GAMELIB_LDFLAGS := -shared -fuse-ld=lld $(B)/savagewind.dll.a
 GAMELIB_SHARED := -shared  # (+ the import library: runtime/gamebuild.c)
 # "Savage Wind Configuration.exe" in the release: starts savagewind.exe --config (runtime/platform/windows_config.c)
@@ -304,6 +304,7 @@ dist:
 	cp -R build/zig-slim "$(DIST)/zig"
 	cp runtime/cpu.h runtime/simd.h runtime/simd_fp.h runtime/simd_softfma.h runtime/gamelib.h tools/gamelib_entry.c \
 	    runtime/hle/hle_symbols.txt "$(DIST)/gamelib-src/"
+	strip --strip-debug "$(DIST)/savagewind.exe"  # (the debug data is 1 in 5 of its bytes; a crash report still names functions)
 	cp docs/icon/icon_1024.png "$(DIST)/icon.png"
 	cp docs/art/launcher-art.png "$(DIST)/"  # (the start screen's picture: replace the file to change it)
 	cp third_party/fonts/FiraSans/FiraSans-SemiBold.ttf third_party/fonts/FiraSans/FiraSans-Medium.ttf "$(DIST)/"  # (menus, OFL)

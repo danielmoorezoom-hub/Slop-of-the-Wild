@@ -23,8 +23,28 @@ static atomic_int s_up, s_down, s_fast;
 static float yaw, pitch, off[3];
 static uint64_t last_ns;
 
+// F8 (runtime/color_grade.c applies them over the Colour page's settings, which stay as they are)
+static const struct { const char *name; int saturation, contrast, temperature, exposure; } filters[] = {
+    {"none", 0, 0, 0, 0}, {"black and white", -100, 15, 0, 0}, {"faded", -50, 15, 85, -3}, {"vivid", 45, 15, 0, 0}, {"golden", 0, 10, 55, -3}, {"cold", -10, 5, -60, 0},
+};
+static int filter;
+
+void photo_filter_next(void) {
+    if (!g_photo_on) return;
+    filter = (filter + 1) % (int)(sizeof filters / sizeof filters[0]);
+    LOG("[photo] filter: %s\n", filters[filter].name);
+}
+
+bool photo_filter_get(int *saturation, int *contrast, int *temperature, int *exposure) {
+    if (!g_photo_on || !filter) return false;
+    *saturation = filters[filter].saturation, *contrast = filters[filter].contrast;
+    *temperature = filters[filter].temperature, *exposure = filters[filter].exposure;
+    return true;
+}
+
 void photo_toggle(void) {
     g_photo_on = !g_photo_on;
+    filter = 0;
     yaw = pitch = 0, off[0] = off[1] = off[2] = 0, last_ns = 0;
     LOG("[photo] %s\n", g_photo_on ? "on" : "off");
 }

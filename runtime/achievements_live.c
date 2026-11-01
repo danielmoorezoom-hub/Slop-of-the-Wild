@@ -21,6 +21,7 @@
 #include "achievements.h"
 #include "game_sites.h"
 #include "kernel.h"
+#include "platform.h"
 #include "rt.h"
 #include "settings.h"
 
@@ -46,11 +47,13 @@ static bool in_main(uint64_t v) { return v >= 0x7000000000ull && g_site.main_end
 
 // The class of the flag named by `hash`: its object has the hash at hash_at and its class at 0
 static uint64_t class_of(uint64_t lo, uint64_t hi, uint32_t hash, uint64_t hash_at) {
-    for (uint64_t p = lo + hash_at; p + 4 <= hi; p += 4) {
-        if (rd32(p) != hash || (p - hash_at) & 7) continue;
-        uint64_t vt = rd64(p - hash_at);
-        if (in_main(vt)) return vt;
-    }
+    uint64_t a, e;
+    for (uint64_t at = lo; plat_committed_range(at, hi, &a, &e); at = e)  // (only memory that is there)
+        for (uint64_t p = a + hash_at; p + 4 <= e; p += 4) {
+            if (rd32(p) != hash || (p - hash_at) & 7) continue;
+            uint64_t vt = rd64(p - hash_at);
+            if (in_main(vt)) return vt;
+        }
     return 0;
 }
 
@@ -63,12 +66,14 @@ static bool find_flags(void) {
     if (!vt_bool || !vt_s32) return false;
     int cap = 1 << 15, n = 0;
     LiveFlag *f = malloc(sizeof *f * cap);
-    for (uint64_t p = lo; p + 0x28 <= hi && f; p += 8) {
-        uint64_t v = rd64(p);
-        if (v != vt_bool && v != vt_s32) continue;
-        if (n == cap) f = realloc(f, sizeof *f * (cap *= 2));
-        if (f) f[n++] = (LiveFlag){p, rd32(p + (v == vt_s32 ? 0x1c : 0xc)), v == vt_s32};
-    }
+    uint64_t a, e;
+    for (uint64_t at = lo; f && plat_committed_range(at, hi, &a, &e); at = e)
+        for (uint64_t p = (a + 7) & ~7ull; p + 0x28 <= e && f; p += 8) {
+            uint64_t v = rd64(p);
+            if (v != vt_bool && v != vt_s32) continue;
+            if (n == cap) f = realloc(f, sizeof *f * (cap *= 2));
+            if (f) f[n++] = (LiveFlag){p, rd32(p + (v == vt_s32 ? 0x1c : 0xc)), v == vt_s32};
+        }
     if (!f || n < 1000) { free(f); return false; }
     free(flags);
     flags = f, n_flags = n;
@@ -82,6 +87,25 @@ static bool still_flags(void) {  // (a sample: the heap may be laid out again, a
         if (rd64(f->obj) != (f->s32 ? vt_s32 : vt_bool) || rd32(f->obj + (f->s32 ? 0x1c : 0xc)) != f->hash) return false;
     }
     return n_flags > 0;
+}
+
+// (tests) a flag set from the next look on, as an event would
+static char set_name[64];
+static uint32_t set_value;
+static volatile int set_pending;
+void ach_live_set(const char *name, uint32_t value) {
+    snprintf(set_name, sizeof set_name, "%s", name);
+    set_value = value;
+    set_pending = 1;
+}
+
+static uint32_t crc32_text(const char *s) {
+    uint32_t c = 0xFFFFFFFFu;
+    for (; *s; s++) {
+        c ^= (uint8_t)*s;
+        for (int k = 0; k < 8; k++) c = c >> 1 ^ (0xEDB88320u & (0u - (c & 1)));
+    }
+    return ~c;
 }
 
 static void *live_thread(void *arg) {
@@ -107,6 +131,17 @@ static void *live_thread(void *arg) {
                 if (log_flags < 0) log_flags = getenv("SAVAGEWIND_LOG_FLAGS") && strcmp(getenv("SAVAGEWIND_LOG_FLAGS"), "0");
                 bool same = log_flags && n == cap && img_n == n_flags;
                 memset(img, 0, 0xC);
+                if (set_pending) {
+                    uint32_t hash = crc32_text(set_name);
+                    for (int i = 0; i < n_flags; i++) {
+                        const LiveFlag *f = &flags[i];
+                        if (f->hash != hash) continue;
+                        if (f->s32) *(volatile uint32_t *)(uintptr_t)(f->obj + 0x18) = set_value;
+                        else *(volatile uint8_t *)(uintptr_t)(f->obj + 0xb) = (uint8_t)((*(volatile uint8_t *)(uintptr_t)(f->obj + 0xb) & ~1) | (set_value & 1));
+                        LOG("[achievements] flag %s set to %u\n", set_name, set_value);
+                    }
+                    set_pending = 0;
+                }
                 for (int i = 0; i < n_flags; i++) {
                     const LiveFlag *f = &flags[i];
                     if (f->s32 && f->hash == RUPEE_HASH && g_settings.cheat_rupees && rd32(f->obj + 0x18) < 9999) {  // (Cheats > Infinite rupees)

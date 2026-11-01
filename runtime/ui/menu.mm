@@ -32,6 +32,7 @@ extern "C" {
 #include "../benchmark.h"
 void photo_toggle(void);
 void photo_shot(void);
+void photo_filter_next(void);
 #include "../teleport.h"
 #include "../settings.h"
 #include "../color_grade.h"
@@ -245,6 +246,10 @@ bool menu_handle_event(const SDL_Event *e) {
         }
         if (!e->key.repeat && e->key.scancode == SDL_SCANCODE_F6 && !typing) {  // photo mode (runtime/photo.c)
             photo_toggle();
+            return true;
+        }
+        if (!e->key.repeat && e->key.scancode == SDL_SCANCODE_F8 && !typing) {
+            photo_filter_next();
             return true;
         }
         if (!e->key.repeat && e->key.scancode == SDL_SCANCODE_F7 && !typing) {

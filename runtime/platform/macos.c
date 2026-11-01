@@ -166,3 +166,10 @@ static int rm_entry(const char *path, const struct stat *sb, int flag, struct FT
     return remove(path);
 }
 bool plat_remove_tree(const char *dir) { return nftw(dir, rm_entry, 16, FTW_DEPTH | FTW_PHYS) == 0; }
+
+// (no way to ask cheaply here: all of it, as before)
+bool plat_committed_range(uint64_t addr, uint64_t end, uint64_t *a, uint64_t *e) {
+    if (addr >= end) return false;
+    *a = addr, *e = end;
+    return true;
+}

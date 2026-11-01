@@ -51,7 +51,18 @@ void color_preset_apply(int i) {
 }
 
 bool color_grade_get(ColorGrade *g) {
+    Settings copy_;
     const Settings *s = &g_settings;
+    {   // (photo mode's filter: runtime/photo.c)
+        extern bool photo_filter_get(int *, int *, int *, int *);
+        int sat, con, tem, exp_;
+        if (photo_filter_get(&sat, &con, &tem, &exp_)) {
+            copy_ = g_settings;
+            copy_.color_saturation = sat, copy_.color_contrast = con, copy_.color_temperature = tem, copy_.color_exposure = exp_;
+            copy_.color_tint = 0, copy_.color_lut[0] = 0;
+            s = &copy_;
+        }
+    }
     // white balance: temperature moves red against blue, tint green against both (+: magenta), at the same brightness
     float t = s->color_temperature / 100.0f, m = s->color_tint / 100.0f;
     float wb[3] = {1 + 0.3f * t, 1 - 0.2f * m, 1 - 0.3f * t};
