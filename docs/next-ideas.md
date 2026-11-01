@@ -9,7 +9,7 @@ The current tasks and the ideas together, easiest to hardest, as of 0.3, 2026-11
 
 ### Easy: an hour or two
 
-3. Weather: Snow and Heavy snow hold and fall in cold areas, but the place looks like night at noon (Hebra, -3558,578,-3441; normal weather is bright, Cloudy is dim). Compare with snow the game picks itself, then fix or accept it
+3. Weather: Snow and Heavy snow hold and fall in cold areas, but the place looks like night at noon (Hebra, -3558,578,-3441). Tried: forecasts saying Snow with the clock free for 6 game hours: the sky stayed clear and no snow fell, so there's no game-picked snow to compare with yet. Needs snow seen in normal play, or a place where it's known to snow. Needs `FindDungeon_Activated`, or the clock stops at 11:00
 4. Play-test the ported fixes: moving platforms, shield surf, the Kohga freeze
 5. Linux overlay reads the GPU that renders (#315), only once there is a Linux build
 6. Adjustable dialogue text speed (#338). On hold since 2026-11-01. NPC text only: cutscene subtitles follow the voice

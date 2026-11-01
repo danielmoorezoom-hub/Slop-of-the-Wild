@@ -237,7 +237,7 @@ void test_warp_frame(uint64_t frame) {
         const char *w = getenv("SAVAGEWIND_TEST_WEATHER");
         weather = w && *w && atoi(w) >= 0 && atoi(w) <= 8 ? atoi(w) : -1;
     }
-    int hold = weather >= 0 ? weather : g_settings.weather >= 3 ? g_settings.weather - 3 : -1;  // (Cheats > Weather)
+    int hold = getenv("SAVAGEWIND_TEST_WEATHER_FORECAST") ? -1 : weather >= 0 ? weather : g_settings.weather >= 3 ? g_settings.weather - 3 : -1;  // (Cheats > Weather; the test switch: forecasts only, the game picks)
     int avoid = weather >= 0 ? 0 : g_settings.weather;  // (1 no rain, 2 no thunderstorms: what the game picks, but for those)
     if ((tod < 0 && hold < 0 && avoid != 1 && avoid != 2 && !getenv("SAVAGEWIND_TEST_WEATHER_ONCE")) || !g_site.world_mgr) return;
     uint64_t wm = *(uint64_t *)(uintptr_t)g_site.world_mgr;
