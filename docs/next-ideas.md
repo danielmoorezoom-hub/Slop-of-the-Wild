@@ -127,3 +127,70 @@ An estimate before reading the code each needs. Speed items are theories: each g
 - **Hitch log for players:** the overlay names what caused the last long frame (shader, file read, memory).
 - **Shader cache check:** tell the player when a driver update has made the cache stale, before the game stutters.
 - **Portable mode check:** warn at start if the install folder can't be written to.
+
+## Parity
+
+What Savage Wind 0.4.0-alpha.4 (2026-11-01, commit 02bbb0f) has that we don't. Found by looking for each change's switches and code in ours; nothing here has been ported or tried yet.
+
+### Gameplay
+
+| Change | Upstream | Note |
+|---|---|---|
+| Moving platforms at high frame rates: Link hopped on Vah Medoh's floor | #209, 6a3725d | |
+| Shield surf takeoff above 100 fps | #305, 6a3725d | |
+| Master Kohga's entrance freezing: that event held at 30 fps | #196, 232bb49 | |
+| Horse names: "Talon" showed as "n" | #271, 3512f19 | |
+| Speech and item text letters jumping above 60 fps | #263, 6a3725d | Our switch exists, off by default. Alpha 4 copies the HUD's reads on every GPU |
+
+### Crashes and setup
+
+| Change | Upstream | Note |
+|---|---|---|
+| Setup failing on some Windows 11 builds: the generator started without Control Flow Guard | #113, 93a1f18 | |
+| Setup checks for the cutscene videos: without them the game crashed at the first tower | #292, 93a1f18 | |
+| Map panning off its lower edge | #319, bb9bab9 | Some pan limit code exists in ours: check before porting |
+
+### Graphics and speed
+
+| Change | Upstream | Note |
+|---|---|---|
+| OBS Game Capture black frames: frames presented on the game's own queue | #293, 3fae40c | |
+| Geometry copy for 4-6 GB cards, in chunks, within the driver's memory budget | f1f2d28 | |
+| Cheaper write watch: 0.54 to 0.33 ms a list | f1f2d28 | Our log shows slow lists of about 35 ms |
+| Video memory blocks made ahead of need, off by default | f1f2d28 | |
+
+### Added features
+
+| Change | Upstream | Note |
+|---|---|---|
+| In-game console (F12), `report`, `pos` | #285, ed9279a | |
+| Control commands over a local socket, tools/swctl.py, tools/swbench.py | #284, #286, ed9279a | Could drive our tests: goto, time, shots |
+| Video > Monitor and Video > Fullscreen mode | #245, 0aa6f04 | |
+| Steam Deck gyro through DSU | #281, ed9279a | #281 stayed on our list when #235 and #272 came off |
+| Link's position in the log every 30 s | 752d72f | |
+| Version and source on the log's first line | 2b1db43 | |
+| Crash details after a device loss, NVIDIA only | 3fae40c | |
+| Linux overlay reads the GPU that renders | #315, 0fc5e4d | |
+
+### In a commit we don't have, not checked one by one
+
+All from 0aa6f04. Check each in ours before porting.
+
+| Change | Upstream |
+|---|---|
+| Pause menu centred on wide screens | #238 |
+| World map not stretched with Fill wide screens | #282, #253 |
+| First open of Settings or Game Files no longer freezes the start screen | #279, #276 |
+| Controller used in another program no longer acts in the game after Alt-Tab | #301 |
+| Unbound arrow keys and Enter work in menus | #275 |
+| Link's coordinates in the full overlay | #274 |
+
+### Left out on purpose
+
+Listed so the gap is on record. Not to port unless asked.
+
+| Change | Upstream | Why |
+|---|---|---|
+| Tilt puzzles with keys, mouse or sticks | #235, #272, ed9279a | Taken off our list |
+| FSR 3 frame generation | 9c02087 | Removed from ours |
+| Draw distance Original / Medium / High | efd37bd | We have sliders instead |
