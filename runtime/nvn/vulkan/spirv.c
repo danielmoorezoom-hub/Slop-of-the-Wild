@@ -181,8 +181,44 @@ static void strip_names(uint32_t *spv, size_t *nwords) {
 }
 
 extern const char *vk_clarity_override(const char *src, int stage);  // (clarity.c)
+
+// Rain in sunshine: the three lighting passes the game draws only when things are wet (their translated source, by hash,
+// [draw]'s fs 970f06ddc0d6fa0a, b19a04739cefe2b2, dae9df4164496f40) turn grass white where the sun reflects: over 9% of a
+// field at noon. Most of what all three colour channels share above k goes (0.5% white, the green and a soft sheen stay).
+// With another translation the hashes don't match and the look is the game's: the log's "[wet]" lines tell.
+// SAVAGEWIND_WET_CAP=<k>: another k, 0: off.
+static const char *wet_sheen(const char *src, int stage) {
+    static float k = -1;
+    if (k < 0) k = getenv("SAVAGEWIND_WET_CAP") ? (float)atof(getenv("SAVAGEWIND_WET_CAP")) : 0.5f;
+    if (k <= 0 || stage != 1 || !src) return src;
+    uint64_t h = 0xcbf29ce484222325ull;  // (the source without "// pc" lines, which only some runs have)
+    for (const char *l = src; *l;) {
+        const char *e = strchr(l, '\n');
+        size_t n = e ? (size_t)(e - l + 1) : strlen(l);
+        const char *t = l;
+        while (*t == ' ') t++;
+        if (strncmp(t, "// pc ", 6))
+            for (size_t i = 0; i < n; i++) h = (h ^ (uint8_t)l[i]) * 0x100000001b3ull;
+        l += n;
+    }
+    if (h != 0xf02234b428b1f28cull && h != 0x999ae21187beacd3ull && h != 0x171940655842f225ull) return src;
+    const char *end = strrchr(src, '}');
+    if (!end) return src;
+    static __thread char *buf;
+    size_t n = (size_t)(end - src);
+    free(buf);
+    buf = malloc(n + 128);
+    if (!buf) return src;
+    memcpy(buf, src, n);
+    snprintf(buf + n, 128, "  c0.rgb -= 0.9f * max(min(c0.r, min(c0.g, c0.b)) - %.3ff, 0.0f);\n}\n", k);
+    static _Atomic int nlog;
+    if (nlog++ < 3) fprintf(stderr, "[wet] the wet lighting's white reflection tamed\n");
+    return buf;
+}
+
 uint32_t *vk_glsl_to_spirv(const char *src, int stage, const char *name, size_t *nwords) {
     src = vk_clarity_override(src, stage);
+    src = wet_sheen(src, stage);
     uint64_t h = src_hash(src, stage);
     static int nocache = -1;
     if (nocache < 0) nocache = getenv("SAVAGEWIND_VK_NO_SPIRV_CACHE") != NULL;
