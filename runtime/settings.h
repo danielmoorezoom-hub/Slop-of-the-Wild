@@ -125,7 +125,7 @@ typedef struct {
 } Settings;
 
 #define STICK_DEADZONE_DEFAULT 0.10f  // (the Switch's own input service has one: the game expects 0 at rest)
-#define HAZE_CHOICES {0, 25, 50, 75, 100}  // (percent of the game's haze)
+#define HAZE_CHOICES {75, 90, 100}  // (percent of the game's haze: lower turns the whole picture teal)
 #define FOV_CHOICES {70, 80, 90, 100, 110, 120, 130, 140, 150}  // (percent; 100: the game's own)
 #define MOUSE_SENS_DEFAULT 3.0f  // (300% of the first default, 1; user, 2026-10-19)
 #define MOUSE_SENS_Y_CHOICES {50, 60, 70, 80, 90, 100, 110, 125, 150, 175, 200}  // (percent of the horizontal)
