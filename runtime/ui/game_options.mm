@@ -152,7 +152,7 @@ const char *const k_modes[] = {"Ultra Quality", "Quality", "Balanced", "Performa
 #ifdef __APPLE__
 const char *const k_aa[] = {"Off", "SMAA"};
 #else
-const char *const k_aa[] = {"Off", "SMAA", "TAA", "AMD FSR 4"};  // (settings.h AA_*)
+const char *const k_aa[] = {"Off", "SMAA", "TAA", "AMD FSR 4 (beta)"};  // (settings.h AA_*)
 #endif
 const char *const k_aniso[] = {"Off", "2x", "4x", "8x", "16x"};  // (settings anisotropy 0..4)
 const char *const k_shadow[] = {"Console (896)", "High (2048)", "Ultra (4096)", "Extreme (8192)"};  // (SHADOW_*)
@@ -265,7 +265,7 @@ void build_items(void) {
     std::vector<Item> &v = g_items;
     // first page: the sections (the game's own options are on Gameplay and Controls)
     v.push_back(button(P_MAIN, "Gameplay", "Mini-map, HUD, jump button and more.", "Open", A_PAGE, P_GAMEPLAY));
-    v.push_back(button(P_GAMEPLAY, "Photo mode", "While playing: F6, or press both sticks in. The world stops and the HUD goes. Sticks fly the camera, L and R go up and down, ZR is faster, B leaves. F7 saves a picture, F8 changes the filter.", "F6", A_NONE, 0));
+    v.push_back(button(P_GAMEPLAY, "Photo mode (beta)", "While playing: F6, or press both sticks in. Beta, may break things.", "F6", A_NONE, 0));
     v.push_back(button(P_MAIN, "Video", "Screen, resolution and image quality.", "Open", A_PAGE, P_VIDEO));
     v.push_back(button(P_MAIN, "Draw distance", "How far grass, trees and objects reach.", "Open", A_PAGE, P_DISTANCE));
 #ifndef __APPLE__
@@ -277,9 +277,9 @@ void build_items(void) {
     v.push_back(button(P_MAIN, "Keyboard (sticks)", "Keys for the sticks and for walking.", "Open", A_PAGE, P_STICKS));
     v.push_back(button(P_MAIN, "Controller", "Which controller button does each button.", "Open", A_PAGE, P_PAD));
     v.push_back(button(P_MAIN, "Language", "Language of the texts and of the voices.", "Open", A_PAGE, P_LANGUAGE));
-    v.push_back(button(P_MAIN, "Cheats", "Infinite health, stamina and arrows, unbreakable weapons.", "Open", A_PAGE, P_CHEATS));
-    v.push_back(button(P_MAIN, "Profiles", "Named sets of all your settings.", "Open", A_PAGE, P_PROFILES));
-    v.push_back(button(P_MAIN, "Teleport", "Bookmarks and the main places. Restarts the game.", "Open", A_PAGE, P_TELEPORT));
+    v.push_back(button(P_MAIN, "Cheats (beta)", "Health, arrows, damage, weather and more. Beta, may break things.", "Open", A_PAGE, P_CHEATS));
+    v.push_back(button(P_MAIN, "Profiles (beta)", "Named sets of all your settings. Beta, may break things.", "Open", A_PAGE, P_PROFILES));
+    v.push_back(button(P_MAIN, "Teleport (beta)", "Restarts the game to get there. Beta, may break things.", "Open", A_PAGE, P_TELEPORT));
     v.push_back(button(P_MAIN, "Quit game", "To the desktop, or back to the Savage Wind start screen.", "Quit",
                        A_QUIT, 0));
 
@@ -417,6 +417,9 @@ void build_items(void) {
                        [](const Item &, int x) { static const char *const c[] = {"Off", "Serfrost", "Serfrost (dim display)", "Serfrost (bright display)"}; return x ? c[x] : tr("Off"); },
                        [](const Item &) { return g_settings.clarity; },
                        [](const Item &, int x) { g_settings.clarity = x; }, 1));
+    v.push_back(toggle(P_VIDEO, "Wet grass fix (beta)", "Tames the white glare in rain and sun. Next start. Beta, may break things.",
+                       [](const Item &) { return (int)g_settings.wet_fix; },
+                       [](const Item &, int x) { g_settings.wet_fix = x; }, 1));
     v.push_back(choice(P_VIDEO, "Render scale", "Above 100%: renders bigger, then shrinks to the window. Smoothest edges.",
                        [](const Item &) { return 4; },
                        [](const Item &, int x) { static const char *const r[] = {"100%", "125%", "150%", "200%"}; return r[x]; },
@@ -438,7 +441,7 @@ void build_items(void) {
         v.push_back(button(P_VIDEO, names[i].c_str(), descs[i].c_str(), "Run", A_BENCHMARK, i));
     }
     // Profiles (settings.c)
-    v.push_back(choice(P_CHEATS, "Weather", "Holds the weather you pick, or keeps out rain or thunderstorms.",
+    v.push_back(choice(P_CHEATS, "Weather (beta)", "Holds or limits the weather. Beta, may break things.",
                        [](const Item &) { return 12; },
                        [](const Item &, int x) {
                            static const char *const w[] = {"Automatic", "No rain", "No thunderstorms", "Clear", "Cloudy", "Rain", "Heavy rain",
@@ -447,7 +450,7 @@ void build_items(void) {
                        },
                        [](const Item &) { return g_settings.weather; },
                        [](const Item &, int x) { g_settings.weather = x; }, 0));
-    v.push_back(toggle(P_GAMEPLAY, "Start at Continue", "Past the title screen by itself, into your latest save. Any button stops it.",
+    v.push_back(toggle(P_GAMEPLAY, "Start at Continue (beta)", "Straight into your latest save. Beta, may break things.",
                        [](const Item &) { return (int)g_settings.auto_continue; },
                        [](const Item &, int x) { g_settings.auto_continue = x; }, 0));
     for (int i = 0; i < 3; i++) {
@@ -472,10 +475,10 @@ void build_items(void) {
     for (int i = 0; i < teleport_place_count(); i++)
         v.push_back(button(P_TELEPORT, teleport_place_name(i), "Restarts the game: press Continue and you land there. Unsaved progress is lost.", "Go", A_TELEPORT_PLACE, i));
     // Cheats (runtime/cheats.c)
-    v.push_back(toggle(P_CHEATS, "One-hit kills", "Your hits finish any enemy.",
+    v.push_back(toggle(P_CHEATS, "One-hit kills (beta)", "Your hits finish any enemy. Beta, may break things.",
                        [](const Item &) { return (int)g_settings.cheat_onehit; },
                        [](const Item &, int x) { g_settings.cheat_onehit = x; }, 0));
-    v.push_back(choice(P_CHEATS, "Damage dealt", "How much your hits hurt enemies. 100% is the game's own.",
+    v.push_back(choice(P_CHEATS, "Damage dealt (beta)", "How much your hits hurt enemies. Beta, may break things.",
                        [](const Item &) { return 39; },
                        [](const Item &, int x) {
                            static char buf[16];
@@ -484,7 +487,7 @@ void build_items(void) {
                        },
                        [](const Item &) { return (g_settings.damage_dealt - 25) / 25; },
                        [](const Item &, int x) { g_settings.damage_dealt = 25 + x * 25; }, 3));
-    v.push_back(choice(P_CHEATS, "Damage taken", "How much the hits you take hurt. 100% is the game's own.",
+    v.push_back(choice(P_CHEATS, "Damage taken (beta)", "How much hits hurt you. Beta, may break things.",
                        [](const Item &) { return 12; },
                        [](const Item &, int x) {
                            static char buf[16];
@@ -493,10 +496,10 @@ void build_items(void) {
                        },
                        [](const Item &) { return (g_settings.damage_taken - 25) / 25; },
                        [](const Item &, int x) { g_settings.damage_taken = 25 + x * 25; }, 3));
-    v.push_back(toggle(P_CHEATS, "Infinite rupees", "Keeps you at 9999 rupees, within about 5 seconds.",
+    v.push_back(toggle(P_CHEATS, "Infinite rupees (beta)", "Keeps you at 9999 rupees. Beta, may break things.",
                        [](const Item &) { return (int)g_settings.cheat_rupees; },
                        [](const Item &, int x) { g_settings.cheat_rupees = x; }, 0));
-    v.push_back(choice(P_CHEATS, "Weapon wear", "How fast weapons, bows and shields wear out. 100% is the game's own.",
+    v.push_back(choice(P_CHEATS, "Weapon wear (beta)", "How fast weapons and shields wear out. Beta, may break things.",
                        [](const Item &) { return 30; },
                        [](const Item &, int x) {
                            static char buf[16];
@@ -505,24 +508,24 @@ void build_items(void) {
                        },
                        [](const Item &) { return (g_settings.weapon_wear - 10) / 10; },
                        [](const Item &, int x) { g_settings.weapon_wear = 10 + x * 10; }, 9));
-    v.push_back(toggle(P_CHEATS, "Infinite health", "You lose no hearts and can't die. Healing still works.",
+    v.push_back(toggle(P_CHEATS, "Infinite health (beta)", "You lose no hearts and can't die. Beta, may break things.",
                        [](const Item &) { return (int)g_settings.cheat_health; },
                        [](const Item &, int x) { g_settings.cheat_health = x; }, 0));
-    v.push_back(toggle(P_CHEATS, "Infinite stamina", "The stamina wheel doesn't go down. It still fills.",
+    v.push_back(toggle(P_CHEATS, "Infinite stamina (beta)", "The stamina wheel doesn't go down. Beta, may break things.",
                        [](const Item &) { return (int)g_settings.cheat_stamina; },
                        [](const Item &, int x) { g_settings.cheat_stamina = x; }, 0));
-    v.push_back(toggle(P_CHEATS, "Infinite arrows", "Shooting doesn't use up arrows.",
+    v.push_back(toggle(P_CHEATS, "Infinite arrows (beta)", "Shooting doesn't use up arrows. Beta, may break things.",
                        [](const Item &) { return (int)g_settings.cheat_arrows; },
                        [](const Item &, int x) { g_settings.cheat_arrows = x; }, 0));
-    v.push_back(toggle(P_CHEATS, "Unbreakable weapons", "Weapons, bows and shields lose no durability and never break.",
+    v.push_back(toggle(P_CHEATS, "Unbreakable weapons (beta)", "Weapons and shields never break. Beta, may break things.",
                        [](const Item &) { return (int)g_settings.cheat_weapons; },
                        [](const Item &, int x) { g_settings.cheat_weapons = x; }, 0));
     // Extended draw distance (runtime/draw_distance.c, nvn/output_scale.c): off by default. Overall distance sets the three under it.
-    v.push_back(toggle(P_DISTANCE, "Extended draw distance (beta)", "Grass, trees and objects farther away. Costs frame rate. Beta, may be broken.",
+    v.push_back(toggle(P_DISTANCE, "Extended draw distance (beta)", "Grass, trees and objects farther away. Costs frame rate. Beta, may break things.",
                        [](const Item &) { return (int)g_settings.lod_extended; },
                        [](const Item &, int x) { g_settings.lod_extended = x; }, 0));
     {
-        Item master = choice(P_DISTANCE, "Overall distance (beta)", "Moves the three below together. Beta, may be broken.",
+        Item master = choice(P_DISTANCE, "Overall distance (beta)", "Moves the three below together. Beta, may break things.",
                              [](const Item &) { return 21; },
                              [](const Item &, int x) {
                                  static char buf[16];
@@ -533,7 +536,7 @@ void build_items(void) {
                              [](const Item &, int x) { settings_lod_master_apply(x * 5); }, 15);
         master.value_off = [](const Item &, int) { return !g_settings.lod_extended; };
         v.push_back(master);
-        v.push_back(toggle(P_DISTANCE, "Hold the frame rate (beta)", "Pulls the grass in when the game can't keep up with your limit. Beta, may be broken.",
+        v.push_back(toggle(P_DISTANCE, "Hold the frame rate (beta)", "Pulls the grass in when the game can't keep up with your limit. Beta, may break things.",
                            [](const Item &) { return (int)g_settings.lod_auto; },
                            [](const Item &, int x) { g_settings.lod_auto = x; }, 0));
         auto pct = [](const Item &, int x) {
@@ -541,19 +544,19 @@ void build_items(void) {
             snprintf(buf, sizeof buf, "%d%%", 100 + x * 10);
             return (const char *)buf;
         };
-        Item dist = choice(P_DISTANCE, "Draw distance (beta)", "How far the distant trees draw. Beta, may be broken.",
+        Item dist = choice(P_DISTANCE, "Draw distance (beta)", "How far the distant trees draw. Beta, may break things.",
                            [](const Item &) { return 6; }, pct,
                            [](const Item &) { return (g_settings.lod_distance - 100) / 10; },
                            [](const Item &, int x) { g_settings.lod_distance = 100 + x * 10; }, 4);
         dist.value_off = [](const Item &, int) { return !g_settings.lod_extended; };
         v.push_back(dist);
-        Item grass = choice(P_DISTANCE, "Grass distance (beta)", "How far grass reaches. Beta, may be broken.",
+        Item grass = choice(P_DISTANCE, "Grass distance (beta)", "How far grass reaches. Beta, may break things.",
                             [](const Item &) { return 16; }, pct,
                             [](const Item &) { return (g_settings.lod_grass - 100) / 10; },
                             [](const Item &, int x) { g_settings.lod_grass = 100 + x * 10; }, 11);
         grass.value_off = [](const Item &, int) { return !g_settings.lod_extended; };
         v.push_back(grass);
-        Item objects = choice(P_DISTANCE, "Object distance (beta)", "Objects and enemies farther. They notice you sooner. Beta, may be broken.",
+        Item objects = choice(P_DISTANCE, "Object distance (beta)", "Objects and enemies farther. They notice you sooner. Beta, may break things.",
                               [](const Item &) { return 5; },
                               [](const Item &, int x) {
                                   static char buf[16];
@@ -676,7 +679,7 @@ void build_items(void) {
                              : [](const Item &, int x) { g_settings.stick_deadzone[0] = k_deadzone[x] / 100.0f; },
                            DEADZONE_DEFAULT));
     // Controller camera speed (runtime/hle/input.c rt_cam_stick_end): off by default, in steps of 25%
-    v.push_back(toggle(P_CONTROLS, "Controller camera speed (beta)", "A faster right stick camera. Beta, may be broken.",
+    v.push_back(toggle(P_CONTROLS, "Controller camera speed (beta)", "A faster right stick camera. Beta, may break things.",
                        [](const Item &) { return (int)g_settings.stick_cam_on; },
                        [](const Item &, int x) { g_settings.stick_cam_on = x; }, 0));
     {
@@ -685,23 +688,23 @@ void build_items(void) {
             snprintf(buf, sizeof buf, "%d%%", 100 + x * 25);
             return (const char *)buf;
         };
-        Item cx = choice(P_CONTROLS, "Left and right speed (beta)", "100%: the game's own speed. Beta, may be broken.",
+        Item cx = choice(P_CONTROLS, "Left and right speed (beta)", "100%: the game's own speed. Beta, may break things.",
                          [](const Item &) { return 21; }, cam_pct,
                          [](const Item &) { return (g_settings.stick_cam_x - 100) / 25; },
                          [](const Item &, int x) { g_settings.stick_cam_x = 100 + x * 25; }, 4);
         cx.value_off = [](const Item &, int) { return !g_settings.stick_cam_on; };
         v.push_back(cx);
-        Item cy = choice(P_CONTROLS, "Up and down speed (beta)", "100%: the game's own speed. Beta, may be broken.",
+        Item cy = choice(P_CONTROLS, "Up and down speed (beta)", "100%: the game's own speed. Beta, may break things.",
                          [](const Item &) { return 21; }, cam_pct,
                          [](const Item &) { return (g_settings.stick_cam_y - 100) / 25; },
                          [](const Item &, int x) { g_settings.stick_cam_y = 100 + x * 25; }, 4);
         cy.value_off = [](const Item &, int) { return !g_settings.stick_cam_on; };
         v.push_back(cy);
     }
-    v.push_back(toggle(P_CONTROLS, "PC mouse pointer", "Point and click in menus and map. Esc pauses/goes back; F2 frees the cursor.",
+    v.push_back(toggle(P_CONTROLS, "PC mouse pointer (beta)", "Point and click. F2 frees the cursor. Beta, may break things.",
                        [](const Item &) { return (int)g_settings.pc_cursor; },
                        [](const Item &, int x) { g_settings.pc_cursor = x; }, 1));
-    v.push_back(toggle(P_CONTROLS, "Mouse bow aiming", "Hold right mouse to aim; left click fires. Off: use your normal button bindings.",
+    v.push_back(toggle(P_CONTROLS, "Mouse bow aiming (beta)", "Hold right mouse to aim, left click fires. Beta, may break things.",
                        [](const Item &) { return (int)g_settings.pc_bow; },
                        [](const Item &, int x) { g_settings.pc_bow = x; }, 1));
     v.push_back(toggle(P_CONTROLS, "Mouse camera", "The mouse turns the camera. Pointer off: Esc frees it; pointer on: F2 frees it.",
@@ -775,7 +778,7 @@ void build_items(void) {
     v.push_back(button(P_STICKS, "Reset keyboard to defaults", "Every key back to its default.", "Reset", A_RESET_KEYS, 0));
     {   // (hle/bindings.c: the prompts follow)
         static const char *const conf[] = {"Right (Nintendo layout)", "Bottom (Xbox, PlayStation layout)"};
-        Item c = choice(P_PAD, "Confirm button", "Which button is the game's A. The prompts show the button that does it.",
+        Item c = choice(P_PAD, "Confirm button (beta)", "Which button is the game's A. Beta, may break things.",
                         [](const Item &) { return 2; }, [](const Item &, int x) { return tr(conf[x]); },
                         [](const Item &) { return (int)bind_confirm_bottom(); },
                         [](const Item &, int x) { bind_set_confirm_bottom(x != 0); }, 0);

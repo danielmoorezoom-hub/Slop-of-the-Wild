@@ -1038,7 +1038,7 @@ static void prelaunch_tab(float sc) {
             if (ImGui::Button(tr("Open the release page"))) SDL_OpenURL("https://github.com/devall96/Slop-of-the-Wild/releases/latest");
             int dl = update_download_state();
             if (dl == 0 || dl == 3) {
-                if (ImGui::Button(tr("Download and install"))) update_download_start();
+                if (ImGui::Button(tr("Download and install (beta)"))) update_download_start();
                 if (dl == 3) { ImGui::SameLine(); ImGui::TextDisabled("%s", tr("The download failed or didn't match: nothing was run.")); }
             } else if (dl == 1) ImGui::TextDisabled("%s", tr("Downloading..."));
             else if (ImGui::Button(tr("Close the game and run the installer"))) update_run_installer();

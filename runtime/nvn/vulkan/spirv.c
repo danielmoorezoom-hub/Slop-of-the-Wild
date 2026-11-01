@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 
 #include "shaders.h"
+#include "../../settings.h"
 
 #ifndef SPIRV_ID
 #define SPIRV_ID __DATE__ " " __TIME__  // (built without the Makefile's hash: valid for this build only)
@@ -186,11 +187,11 @@ extern const char *vk_clarity_override(const char *src, int stage);  // (clarity
 // [draw]'s fs 970f06ddc0d6fa0a, b19a04739cefe2b2, dae9df4164496f40) turn grass white where the sun reflects: over 9% of a
 // field at noon. Most of what all three colour channels share above k goes (0.5% white, the green and a soft sheen stay).
 // With another translation the hashes don't match and the look is the game's: the log's "[wet]" lines tell.
-// SAVAGEWIND_WET_CAP=<k>: another k, 0: off.
+// Needs further testing: one place at noon and 4 pm, two more at noon, standing still. SAVAGEWIND_WET_CAP=<k>: another k, 0: off.
 static const char *wet_sheen(const char *src, int stage) {
     static float k = -1;
     if (k < 0) k = getenv("SAVAGEWIND_WET_CAP") ? (float)atof(getenv("SAVAGEWIND_WET_CAP")) : 0.5f;
-    if (k <= 0 || stage != 1 || !src) return src;
+    if (k <= 0 || !g_settings.wet_fix || stage != 1 || !src) return src;  // (Video > Wet grass fix)
     uint64_t h = 0xcbf29ce484222325ull;  // (the source without "// pc" lines, which only some runs have)
     for (const char *l = src; *l;) {
         const char *e = strchr(l, '\n');

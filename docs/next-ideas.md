@@ -128,6 +128,16 @@ An estimate before reading the code each needs. Speed items are theories: each g
 - **Shader cache check:** tell the player when a driver update has made the cache stale, before the game stutters.
 - **Portable mode check:** warn at start if the install folder can't be written to.
 
+## Beta: not thoroughly tested
+
+Tagged (beta) in the menus, with a warning that they may break things: the white grass fix (Video > Wet grass fix; matched by the translated shader's hash, so a translator change turns it off), Cheats and every row on it including Weather, Profiles, Teleport, Start at Continue, Photo mode, AMD FSR 4, the mouse pointer and bow aiming, the Confirm button, and download and install. The distance sliders and the controller camera speed were tagged already.
+
+Not tagged because they have no row of their own: the Alpha 4 gameplay fixes (moving platforms, shield surf, the Kohga freeze), not tried in play.
+
+## Known bug: no time and weather tile
+
+Alpha 4 draws the time and forecast tile by the minimap. Ours doesn't, with or without the DLC, started the same way as Alpha 4, and with the mouse pointer, HUD letters, Clarity, wide view and GPU overlap off. Cause not found: the next step is testing older builds.
+
 ## Parity
 
 What Savage Wind 0.4.0-alpha.4 (2026-11-01, commit 02bbb0f) has that we don't. Found by looking for each change's switches and code in ours; nothing here has been ported or tried yet.
@@ -139,7 +149,7 @@ What Savage Wind 0.4.0-alpha.4 (2026-11-01, commit 02bbb0f) has that we don't. F
 | Moving platforms at high frame rates: Link hopped on Vah Medoh's floor | #209, 6a3725d | |
 | Shield surf takeoff above 100 fps | #305, 6a3725d | |
 | Master Kohga's entrance freezing: that event held at 30 fps | #196, 232bb49 | |
-| Horse names: "Talon" showed as "n" | #271, 3512f19 | |
+| Horse names: "Talon" showed as "n" | #271, 3512f19 | Already fixed here another way. Theirs also guards the buffer's end |
 | Speech and item text letters jumping above 60 fps | #263, 6a3725d | Our switch exists, off by default. Alpha 4 copies the HUD's reads on every GPU |
 
 ### Crashes and setup

@@ -47,6 +47,7 @@ Settings g_settings = {
     .anisotropy = 4,
     .antialias = AA_SMAA,
     .clarity = 1,
+    .wet_fix = true,
     .async_shaders = true,
     .volume = 1.0f,
     .reverb = true,
@@ -149,6 +150,7 @@ void settings_load(void) {
         else if (!strcmp(key, "stick_camera_y")) g_settings.stick_cam_y = atoi(val);  // (percent)
         else if (!strcmp(key, "lod_extended")) g_settings.lod_extended = atoi(val) != 0;
         else if (!strcmp(key, "cheat_onehit")) g_settings.cheat_onehit = atoi(val) != 0;
+        else if (!strcmp(key, "wet_fix")) g_settings.wet_fix = atoi(val) != 0;
         else if (!strcmp(key, "weather")) {
             g_settings.weather = 0;
             for (int i = 0; i < 12; i++)
@@ -354,6 +356,7 @@ void settings_save(void) {
     fprintf(f, "lod_extended = %d\n", g_settings.lod_extended);
     fprintf(f, "cheat_health = %d\ncheat_stamina = %d\ncheat_arrows = %d\ncheat_weapons = %d\n", g_settings.cheat_health,
             g_settings.cheat_stamina, g_settings.cheat_arrows, g_settings.cheat_weapons);
+    fprintf(f, "wet_fix = %d\n", g_settings.wet_fix);
     fprintf(f, "weather = %s\n", k_weather[g_settings.weather >= 0 && g_settings.weather < 12 ? g_settings.weather : 0]);
     fprintf(f, "auto_continue = %d\ndamage_taken = %d\ncheat_onehit = %d\ndamage_dealt = %d\n", g_settings.auto_continue, g_settings.damage_taken, g_settings.cheat_onehit, g_settings.damage_dealt);
     fprintf(f, "cheat_rupees = %d\nweapon_wear = %d\nsave_backups = %d\n", g_settings.cheat_rupees, g_settings.weapon_wear, g_settings.save_backups);
