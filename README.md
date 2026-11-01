@@ -30,19 +30,28 @@ I started this for myself. I wanted to play Breath of the Wild the way I'd alway
 
 **Picture**
 - Extended draw distance, with sliders for distance, grass and objects
+- Graphics presets from Potato to High
 - Clarity, a port of Cemu's BOTW graphics pack, plus colour grading with LUTs and HDR10
-- TAA, SMAA and AMD FSR 4 anti-aliasing, and render scale up to 200%
-- Higher resolution shadows and field of view options
+- TAA, SMAA and AMD FSR 4 anti-aliasing, FSR 1 upscaling, and render scale up to 200%
+- Higher resolution shadows, field of view options, and wide screen support
+- A fix for grass blowing out to white when it rains in sunshine
 
 **Play**
 - High frame rates, with an option that pulls the grass in when the game can't keep up
-- Mouse and keyboard, a mouse pointer in the menus, and full rebinding
+- Mouse and keyboard, a mouse pointer in the menus, mouse bow aiming, and full rebinding
+- Controller support with Xbox, PlayStation and Nintendo prompts, gyro aiming, and a choice of Confirm button and faster camera speeds
 - A cheats page: health, stamina, arrows, weapons, damage, rupees and weather
 - Photo mode with filters
 - Teleport bookmarks
 - Achievements, with a notice as they unlock
+- Start at Continue: straight into your latest save
 
 **Around the game**
+- A real installer and uninstaller
+- A built-in updater: it checks for new releases, downloads the installer, verifies it, and starts it
+- A settings menu from the controller's Home button, and a performance overlay with a frame-time graph
+- Shaders prepared ahead of time to cut stutter, with a notice when they're out of date
+- Fast re-setup: compiled game code is kept, so a small update takes seconds, not minutes
 - A built-in benchmark and a recommended preset
 - Settings profiles and save backups
 - Wii U and Cemu save import
@@ -86,7 +95,7 @@ The exact state of each is in the [release notes](../../releases).
 
 Settings are in the game's own Options menu, and in `Slop of the Wild Configuration.exe`.
 
-**Updating:** install over your old folder. Saves and settings stay, and setup runs again if the game code changed, so keep your dump handy.
+**Updating:** use **Settings > Prelaunch > Check for updates**, or download the newest installer and install over your old folder. Saves and settings stay, and setup runs again if the game code changed, so keep your dump handy.
 
 ## Help test it
 
