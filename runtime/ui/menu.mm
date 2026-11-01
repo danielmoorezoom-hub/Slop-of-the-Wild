@@ -767,14 +767,14 @@ static void tab_display(void) {
                "frame time graph. F10 switches between them while you play.");
 
     opt_section("Start");
-    opt_toggle("Start at Continue", &g_settings.auto_continue, false, "Goes past the title screen by itself, into your latest save. Press any button to stop it.");
+    opt_toggle("Start at Continue (beta)", &g_settings.auto_continue, false, "Beta, may break things. Goes past the title screen by itself, into your latest save. Press any button to stop it.");
     opt_section("Profiles");
     for (int i = 0; i < 3; i++) {
         char l[32];
-        snprintf(l, sizeof l, "Load profile %d", i + 1);
+        snprintf(l, sizeof l, "Load profile %d (beta)", i + 1);
         if (!settings_profile_exists(i)) opt_disable_next();
         if (opt_action(l, settings_profile_exists(i) ? "" : tr("Empty"), tr("Every setting as you saved it."), false)) settings_profile_load(i);
-        snprintf(l, sizeof l, "Save settings as profile %d", i + 1);
+        snprintf(l, sizeof l, "Save settings as profile %d (beta)", i + 1);
         if (opt_action(l, "", tr("Keeps all your settings under this number."), false)) settings_profile_save(i);
     }
     opt_section("Saves");
@@ -856,7 +856,7 @@ static void tab_display(void) {
                "blends only along them, so textures stay sharp. Most useful with an upscaler.");
 #else
     {   // (the TAA sentence on its own: the first one keeps its translations)
-        static const char *aa[] = {"Off", "SMAA", "TAA", "AMD FSR 4"};  // (settings.h AA_*)
+        static const char *aa[] = {"Off", "SMAA", "TAA", "AMD FSR 4 (beta)"};  // (settings.h AA_*)
         static std::string d;
         d = std::string(tr("Smooths jagged edges of the game image before it is scaled to the window. SMAA: finds the "
                            "edges and blends only along them, so textures stay sharp. Most useful with an upscaler.")) +
@@ -873,6 +873,7 @@ static void tab_display(void) {
                    "Off: the game's own filtering, as on the console. 16x is the sharpest and costs very little on a PC "
                    "graphics card. Render targets keep the game's own filtering (no dark crust on edges).", false);
         static const char *const clar[] = {"Off", "Serfrost", "Serfrost (dim display)", "Serfrost (bright display)"};
+        opt_toggle("Wet grass fix (beta)", &g_settings.wet_fix, true, "Tames the white glare on grass in rain and sun. Applies from the next start. Beta, may break things.");
         opt_choice("Clarity", &g_settings.clarity, clar, 4, 1,
                    "Cemu's Clarity for Breath of the Wild (graphic packs, presets by Serfrost) in place of the game's own "
                    "tone mapping: less bloom and haze, deeper blacks, richer color. Takes effect the next time the game "
@@ -910,26 +911,26 @@ static void tab_distance(void) {
     opt_section("Extended draw distance");
     opt_toggle("Extended draw distance (beta)", &g_settings.lod_extended, false,
                "Draws grass, ground cover, trees and objects farther away, with the sliders below. Off: as on the console. Costs frame "
-               "rate: try the Benchmark on the Video page. Grass reaches farthest if this is on when the game starts. Beta, may be broken.");
+               "rate: try the Benchmark on the Video page. Grass reaches farthest if this is on when the game starts. Beta, may break things.");
     if (g_settings.lod_extended) {
         float master = (float)g_settings.lod_master;
         if (opt_slider("Overall distance (beta)", &master, 0, 100, 5, 75, "%g%%",
                        "Moves all three sliders below together, from the game's own at 0% to the farthest at 100%. Fine-tune them "
-                       "afterwards. Beta, may be broken."))
+                       "afterwards. Beta, may break things."))
             settings_lod_master_apply((int)master);
         opt_toggle("Hold the frame rate (beta)", &g_settings.lod_auto, false,
-                   "Pulls the grass in when the game can't keep up with your frame rate limit, and lets it back out when it can. Beta, may be broken.");
+                   "Pulls the grass in when the game can't keep up with your frame rate limit, and lets it back out when it can. Beta, may break things.");
         opt_section("Fine-tune");
         float dist = (float)g_settings.lod_distance, grass = (float)g_settings.lod_grass, objects = (float)g_settings.lod_objects;
         if (opt_slider("Draw distance (beta)", &dist, 100, 150, 10, 140, "%g%%",
-                       "How far the distant trees are drawn. 100% is the game's own. Beta, may be broken."))
+                       "How far the distant trees are drawn. 100% is the game's own. Beta, may break things."))
             g_settings.lod_distance = (int)dist;
         if (opt_slider("Grass distance (beta)", &grass, 100, 250, 10, 210, "%g%%",
-                       "How far grass reaches. 100% is the game's own. Beta, may be broken."))
+                       "How far grass reaches. 100% is the game's own. Beta, may break things."))
             g_settings.lod_grass = (int)grass;
         if (opt_slider("Object distance (beta)", &objects, 100, 140, 10, 130, "%g%%",
                        "How far objects and enemies are shown and kept active. 100% is the game's own. Higher: enemies can "
-                       "notice you from farther away, and it costs more frame rate. Beta, may be broken."))
+                       "notice you from farther away, and it costs more frame rate. Beta, may break things."))
             g_settings.lod_objects = (int)objects;
     }
     opt_end();
@@ -937,26 +938,31 @@ static void tab_distance(void) {
 
 static void tab_cheats(void) {
     opt_begin("##cheats", ImGui::GetFontSize() / 34);
-    opt_section("Cheats");
-    opt_toggle("Infinite health", &g_settings.cheat_health, false, "You lose no hearts and can't die. Healing still works.");
-    opt_toggle("Infinite stamina", &g_settings.cheat_stamina, false, "The stamina wheel doesn't go down. It still fills.");
-    opt_toggle("Infinite arrows", &g_settings.cheat_arrows, false, "Shooting doesn't use up arrows.");
-    opt_toggle("Unbreakable weapons", &g_settings.cheat_weapons, false, "Weapons, bows and shields lose no durability and never break.");
-    opt_toggle("One-hit kills", &g_settings.cheat_onehit, false, "Your hits finish any enemy.");
+    opt_section("Cheats (beta): may break things");
+    {
+        static const char *wx[] = {"Automatic", "No rain", "No thunderstorms", "Clear", "Cloudy", "Rain", "Heavy rain",
+                                   "Snow", "Heavy snow", "Thunderstorm", "Thunder rain", "Rain in sunshine"};
+        opt_choice("Weather (beta)", &g_settings.weather, wx, 12, 0, "Holds the weather you pick, or keeps out rain or thunderstorms. Cutscenes keep theirs. Beta, may break things.");
+    }
+    opt_toggle("Infinite health (beta)", &g_settings.cheat_health, false, "You lose no hearts and can't die. Healing still works.");
+    opt_toggle("Infinite stamina (beta)", &g_settings.cheat_stamina, false, "The stamina wheel doesn't go down. It still fills.");
+    opt_toggle("Infinite arrows (beta)", &g_settings.cheat_arrows, false, "Shooting doesn't use up arrows.");
+    opt_toggle("Unbreakable weapons (beta)", &g_settings.cheat_weapons, false, "Weapons, bows and shields lose no durability and never break.");
+    opt_toggle("One-hit kills (beta)", &g_settings.cheat_onehit, false, "Your hits finish any enemy.");
     {
         float dd = (float)g_settings.damage_dealt;
-        if (opt_slider("Damage dealt", &dd, 25, 1000, 25, 100, "%g%%", "How much your hits hurt enemies. 100% is the game's own."))
+        if (opt_slider("Damage dealt (beta)", &dd, 25, 1000, 25, 100, "%g%%", "How much your hits hurt enemies. 100% is the game's own."))
             g_settings.damage_dealt = (int)dd;
     }
     {
         float dmg = (float)g_settings.damage_taken;
-        if (opt_slider("Damage taken", &dmg, 25, 300, 25, 100, "%g%%", "How much the hits you take hurt. 100% is the game's own."))
+        if (opt_slider("Damage taken (beta)", &dmg, 25, 300, 25, 100, "%g%%", "How much the hits you take hurt. 100% is the game's own."))
             g_settings.damage_taken = (int)dmg;
     }
-    opt_toggle("Infinite rupees", &g_settings.cheat_rupees, false, "Keeps you at 9999 rupees, within about 5 seconds.");
+    opt_toggle("Infinite rupees (beta)", &g_settings.cheat_rupees, false, "Keeps you at 9999 rupees, within about 5 seconds.");
     {
         float wear = (float)g_settings.weapon_wear;
-        if (opt_slider("Weapon wear", &wear, 10, 300, 10, 100, "%g%%", "How fast weapons, bows and shields wear out. 100% is the game's own."))
+        if (opt_slider("Weapon wear (beta)", &wear, 10, 300, 10, 100, "%g%%", "How fast weapons, bows and shields wear out. 100% is the game's own."))
             g_settings.weapon_wear = (int)wear;
     }
     opt_end();
@@ -1067,19 +1073,19 @@ static void tab_about(void) {
     header("Controller camera");
     opt_toggle("Controller camera speed (beta)", &g_settings.stick_cam_on, false,
                "Turns the camera faster with the right stick than the game allows, with the two sliders below. Off: the "
-               "game's own speed. Beta, may be broken.");
+               "game's own speed. Beta, may break things.");
     if (g_settings.stick_cam_on) {
         float cx = (float)g_settings.stick_cam_x, cy = (float)g_settings.stick_cam_y;
-        if (opt_slider("Left and right speed (beta)", &cx, 100, 600, 25, 200, "%g%%", "100% is the game's own speed. Beta, may be broken."))
+        if (opt_slider("Left and right speed (beta)", &cx, 100, 600, 25, 200, "%g%%", "100% is the game's own speed. Beta, may break things."))
             g_settings.stick_cam_x = (int)cx;
-        if (opt_slider("Up and down speed (beta)", &cy, 100, 600, 25, 200, "%g%%", "100% is the game's own speed. Beta, may be broken."))
+        if (opt_slider("Up and down speed (beta)", &cy, 100, 600, 25, 200, "%g%%", "100% is the game's own speed. Beta, may break things."))
             g_settings.stick_cam_y = (int)cy;
     }
     ImGui::Spacing();
     header("Mouse");
-    opt_toggle("PC mouse pointer", &g_settings.pc_cursor, true,
+    opt_toggle("PC mouse pointer (beta)", &g_settings.pc_cursor, true,
                "Point and click in menus and map. Esc pauses/goes back; F2 frees the cursor.");
-    opt_toggle("Mouse bow aiming", &g_settings.pc_bow, true,
+    opt_toggle("Mouse bow aiming (beta)", &g_settings.pc_bow, true,
                "Hold right mouse to aim; left click fires. Off: use your normal button bindings.");
     toggle("Mouse camera", &g_settings.mouse_camera);
     hint("The mouse turns the camera. Pointer off: Esc frees it; pointer on: F2 frees it.");

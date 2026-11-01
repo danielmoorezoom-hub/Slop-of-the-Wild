@@ -134,6 +134,10 @@ Tagged (beta) in the menus, with a warning that they may break things: the white
 
 Not tagged because they have no row of their own: the Alpha 4 gameplay fixes (moving platforms, shield surf, the Kohga freeze), not tried in play.
 
+## Known bug: garbled Game Over title
+
+Seen in play on 2026-11-01: the screen with Continue and Quit after dying read "ME HORWE" in red instead of the game's title, with a red smear to its left. Not looked into. One thing to check first: Alpha 4's fix for letters jumping above 60 fps (#263) is off on AMD's Windows driver here, and this may be the same text problem.
+
 ## Known bug: no time and weather tile
 
 Alpha 4 draws the time and forecast tile by the minimap. Ours doesn't, with or without the DLC, started the same way as Alpha 4, and with the mouse pointer, HUD letters, Clarity, wide view and GPU overlap off. Cause not found: the next step is testing older builds.

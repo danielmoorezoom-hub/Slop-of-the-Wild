@@ -109,7 +109,7 @@ static void save_png(id<MTLTexture> tex, const char *path) {
 
 // The version this build is (also names the release files; Makefile / tools/bundle_macos.sh / make_dmg.sh read it).
 #define SAVAGEWIND_VERSION "0.3.1-alpha.3"
-#define SLOP_VERSION_TEXT "0.1"  // (the release tag: Makefile SLOP_VERSION)
+#define SLOP_VERSION_TEXT "0.2"  // (the release tag: Makefile SLOP_VERSION)
 extern "C" const char *rt_version(void) { return SAVAGEWIND_VERSION; }  // (the title screen's version line: fs.c)
 
 // ------------------------------------------------------------------ game files
@@ -1941,7 +1941,7 @@ extern "C" void launcher_run(const char *root, int mode) {
             }
             if (page == MAIN) {  // the version, at the foot of the rail
                 char ver[64];
-                snprintf(ver, sizeof ver, "Slop of the Wild 0.1  \xc2\xb7  Savage Wind %s", SAVAGEWIND_VERSION);
+                snprintf(ver, sizeof ver, "Slop of the Wild " SLOP_VERSION_TEXT "  \xc2\xb7  Savage Wind %s", SAVAGEWIND_VERSION);
                 ImGui::GetWindowDrawList()->AddText(ImGui::GetFont(), 14.5f * s, ImVec2(ImGui::GetWindowPos().x + x0, ImGui::GetWindowPos().y + ds.y - 34 * s),
                                                     IM_COL32(158, 170, 156, 255), ver);
             }
