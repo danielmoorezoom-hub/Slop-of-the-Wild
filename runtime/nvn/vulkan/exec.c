@@ -442,11 +442,19 @@ uint64_t renderer_fence_seq(void) {
 static int gsnap_mode(void);
 // (device.c, before any translation) the translator's switches that depend on the device: global memory in two bindings
 // where one binding of the whole heap is past maxStorageBufferRange (Mali-G610: 2 GB, the heap 3.25 GB), and read-only
-// global memory through copied ranges where gsnap is on (with the GPU overlap, #263). The split is Mali-only: other drivers with a
-// smaller limit keep the one binding of the whole heap they had (SAVAGEWIND_VK_GMEM_SPLIT=0/1 turns it off or on).
+// global memory through copied ranges where gsnap is on (with the GPU overlap, #263). The split is for Mali and AMD's
+// Windows driver: other drivers with a smaller limit keep the one binding of the whole heap they had
+// (SAVAGEWIND_VK_GMEM_SPLIT=0/1 turns it off or on). AMD's driver (26.10, RX 9070 XT) lost the device seconds into every
+// boot with one 3 GB binding and gsnap's shaders, a "read invalid" GPU page fault (#331): it ran with both bindings
+// under 2 GB, with gsnap off, or with gsnap copying in every pass, so the in-place read of GLD, not the copies.
 void vk_translator_setup(void) {
+    VkPhysicalDeviceDriverProperties drv = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES};
+    VkPhysicalDeviceProperties2 p2 = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, .pNext = &drv};
+    vkGetPhysicalDeviceProperties2(g_vk.phys, &p2);
     const char *split = getenv("SAVAGEWIND_VK_GMEM_SPLIT");
-    maxwell_gmem_split = split ? atoi(split) != 0 : g_vk.is_mali && HEAP_MAX > g_vk.props.limits.maxStorageBufferRange;
+    maxwell_gmem_split = split ? atoi(split) != 0 : (g_vk.is_mali && HEAP_MAX > g_vk.props.limits.maxStorageBufferRange) ||
+                                                    drv.driverID == VK_DRIVER_ID_AMD_PROPRIETARY;
+    maxwell_wet_fix = g_settings.wet_fix;
     maxwell_gmem_snap = gsnap_mode() != 0;
     LOG("[vk] shader global memory: %s (storage buffer limit %u MB), the HUD's reads %s\n",
         maxwell_gmem_split ? "two bindings" : "one binding", g_vk.props.limits.maxStorageBufferRange >> 20,
@@ -4952,14 +4960,7 @@ static int gsnap_mode(void) {
     static int m = -1;
     if (m < 0) {
         const char *e = getenv("SAVAGEWIND_VK_GSNAP");
-        // (AMD's Windows driver: a GPU page fault and the device lost seconds in on an RX 9070 XT, also Alpha 4's #331. Off there.
-        // The vendor: this first runs in vk_translator_setup, before the driver's id is read.)
-#ifdef _WIN32
-        bool amd_win = g_vk.props.vendorID == 0x1002;
-#else
-        bool amd_win = false;
-#endif
-        m = !gpu_overlap() ? 0 : !e ? !amd_win : !strcmp(e, "all") ? 2 : atoi(e) ? 1 : 0;
+        m = !gpu_overlap() ? 0 : !e ? 1 : !strcmp(e, "all") ? 2 : atoi(e) ? 1 : 0;
         LOG("[vk] global memory the HUD reads: %s\n",
             m == 2 ? "copied at translation (every pass, vertex data the HUD's)" : m ? "copied at translation (final image)" : "in place");
     }

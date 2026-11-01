@@ -2199,6 +2199,22 @@ static void glsl_body(Ctx *c, Str *s, const char *body, bool any_branch, bool db
 }
 
 // Declarations + entry point around the (rewritten) body; mirrors the MSL assembly in maxwell_translate.
+// Video > Wet grass fix (vk_translator_setup; part of maxwell_translator_id, so each choice has its own cached translations).
+bool maxwell_wet_fix;
+
+// The three full-screen lighting passes the game adds only when things are wet (the [draw] log's fs hashes on 1.9.0). In
+// rain with the sun out (the game's BlueskyRain weather) their sun reflection blows grass and roofs out to white, about 9%
+// of the ground in an open field at noon. What all three colour channels share is that white: most of it above 0.5 goes,
+// and the grass keeps its colour and a soft sheen. The game's own code decides, so no GPU or translation changes the match;
+// another version's doesn't match, and keeps the game's look. Needs further testing.
+static bool wet_lighting(const Ctx *c) {
+    if (!maxwell_wet_fix) return false;
+    const uint8_t *p = c->code - 0x80 + 0x30;
+    uint64_t h = 1469598103934665603ull;
+    for (size_t i = 0; i < 0x200; i++) h = (h ^ p[i]) * 0x100000001B3ull;
+    return h == 0x970f06ddc0d6fa0aull || h == 0xb19a04739cefe2b2ull || h == 0xdae9df4164496f40ull;
+}
+
 static ShaderInfo *glsl_finish(Ctx *c, bool any_branch, bool dbg) {
     ShaderInfo *info = c->info;
     const ShaderKey *key = c->key;
@@ -2382,6 +2398,8 @@ static ShaderInfo *glsl_finish(Ctx *c, bool any_branch, bool dbg) {
         if (tint)
             sp(&s, "  if (ltint[0].w > 0.0f) { vec3 g = c0.rgb; float l = dot(g, vec3(0.299f, 0.587f, 0.114f));\n"
                    "    c0.rgb = mix(g, ltint[0].rgb * pow(l, ltint[1].w) + ltint[1].rgb * l, ltint[0].w); }\n");
+        if (stage == STAGE_FRAGMENT && !dbg && wet_lighting(c))
+            sp(&s, "  c0.rgb -= 0.9f * max(min(c0.r, min(c0.g, c0.b)) - 0.5f, 0.0f);\n");
         if (c->omap_depth) {
             if (c->reg_used[r + 1]) sp(&s, "  gl_FragDepth = as_f(r%d);\n", r + 1);
             else sp(&s, "  gl_FragDepth = gl_FragCoord.z;\n");
@@ -2438,7 +2456,7 @@ bool maxwell_gmem_split, maxwell_gmem_snap;
 // (the two switches above change translations: they name caches of their own)
 const char *maxwell_translator_id(void) {
     static __thread char id[64];  // (per thread: the precompile's workers ask for it at once)
-    snprintf(id, sizeof id, "%s%s%s", TRANSLATOR_ID, maxwell_gmem_split ? "-gs" : "", maxwell_gmem_snap ? "-gn" : "");
+    snprintf(id, sizeof id, "%s%s%s%s", TRANSLATOR_ID, maxwell_wet_fix ? "-wet" : "", maxwell_gmem_split ? "-gs" : "", maxwell_gmem_snap ? "-gn" : "");
     return id;
 }
 

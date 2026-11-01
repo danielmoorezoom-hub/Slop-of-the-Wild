@@ -101,6 +101,7 @@ extern uint64_t maxwell_gmem_base, maxwell_gmem_size;
 // Set by the Vulkan backend before translating: global memory in two bindings (maxStorageBufferRange below the heap),
 // read-only global memory through the copied ranges at GSNAP_BUFFER_INDEX (exec.c gsnap). Both change translations.
 extern bool maxwell_gmem_split, maxwell_gmem_snap;
+extern bool maxwell_wet_fix;  // Video > Wet grass fix (translate.c)
 // Debug: when translating the shader whose code starts at maxwell_dbg_code, output register
 // maxwell_dbg_reg as captured after the instruction at maxwell_dbg_pc (greyscale, all targets).
 extern const uint8_t *maxwell_dbg_code;

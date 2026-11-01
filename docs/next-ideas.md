@@ -208,7 +208,7 @@ An estimate before reading the code each needs. Speed items are theories: each g
 
 ## Beta: not thoroughly tested
 
-Tagged (beta) in the menus, with a warning that they may break things: the white grass fix (Video > Wet grass fix; matched by the translated shader's hash, so a translator change turns it off), Cheats and every row on it including Weather, Profiles, Teleport, Start at Continue, Photo mode, AMD FSR 4, the mouse pointer and bow aiming, the Confirm button, and download and install. The distance sliders and the controller camera speed were tagged already.
+Tagged (beta) in the menus, with a warning that they may break things: the white grass fix (Video > Wet grass fix; matched by the game code's hash), Cheats and every row on it including Weather, Profiles, Teleport, Start at Continue, Photo mode, AMD FSR 4, the mouse pointer and bow aiming, the Confirm button, and download and install. The distance sliders and the controller camera speed were tagged already.
 
 Not tagged because they have no row of their own: the Alpha 4 gameplay fixes (moving platforms, shield surf, the Kohga freeze), not tried in play.
 
