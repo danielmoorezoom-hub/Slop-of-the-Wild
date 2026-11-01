@@ -9,67 +9,65 @@ The current tasks and the ideas together, easiest to hardest, as of 2026-11-01. 
 
 ### Easy: an hour or two
 
-3. Weather: try snow in a cold area in play. The arrows work, and No rain and No thunderstorms step in when tested
+3. Weather: Snow and Heavy snow hold and fall in cold areas, but the place looks like night at noon (Hebra, -3558,578,-3441; normal weather is bright, Cloudy is dim). Compare with snow the game picks itself, then fix or accept it
 4. Play-test the ported fixes: moving platforms, shield surf, the Kohga freeze
-5. Alpha 4.1's mouse fixes (controller map, quick selector, Game Over mouse): they sit on upstream's newer mouse code, so this means updating ours first (a medium job). Its pointer crash fix isn't needed: ours drains the recorder before every overlay
-6. Port the six items from 0aa6f04, all checked as missing here: wide pause menu, map stretching, start screen freeze, Alt-Tab controller, unbound arrow keys, overlay coordinates. Together a medium job (46 files upstream, monitor choice already done)
-7. Map panning off its lower edge (#319)
-8. Linux overlay reads the GPU that renders (#315), only once there is a Linux build
-9. Adjustable dialogue text speed (#338)
+5. Linux overlay reads the GPU that renders (#315), only once there is a Linux build
+6. Adjustable dialogue text speed (#338). On hold since 2026-11-01. NPC text only: cutscene subtitles follow the voice
+7. Blocky steps at the edges of the System page's background at 21:9, seen with the wide pause menu port. Check whether Alpha 4 does it too
 
 ### Medium: an afternoon or so
 
-10. OBS Game Capture black frames, and frames on the game's own queue (#293)
-11. Cheaper write watch (f1f2d28), which may help the 35 to 47 ms slow lists
-12. Hitch log for players: the overlay names what caused the last long frame
-13. Video > Haze: less of the milky veil over distances (their PR #317)
-14. Frame rates above 240 fps, and the game's clock limit that goes with them (their PR #323)
-15. Frame recorder, then use it on the shadow flashes and Link's glitch, trying GPU overlap off first
-16. Grass shimmer and artifacts in sunlight, now that the weather can be held
-17. Better horse steering on keyboard (#290, their open #343 may do it)
-18. Unskippable text
-19. Item spawner, from what `promosave.py` learned. First find which item sets off cutscene Demo200_0
-20. Draw distance by area: less Object distance in dense places
-21. Sharper text: the game's bitmap fonts enlarged (their PR #325)
-22. Choose the order of the HUD's button prompts (#321)
+8. OBS Game Capture black frames, and frames on the game's own queue (#293)
+9. Cheaper write watch (f1f2d28), which may help the 35 to 47 ms slow lists
+10. Hitch log for players: the overlay names what caused the last long frame
+11. Video > Haze: less of the milky veil over distances (their PR #317)
+12. Frame rates above 240 fps, and the game's clock limit that goes with them (their PR #323)
+13. Grass shimmer and artifacts in sunlight, now that the weather can be held
+14. Better horse steering on keyboard (#290, their open #343 may do it)
+15. Unskippable text
+16. Item spawner, from what `promosave.py` learned. First find which item sets off cutscene Demo200_0
+17. Draw distance by area: less Object distance in dense places
+18. Sharper text: the game's bitmap fonts enlarged (their PR #325)
+19. Choose the order of the HUD's button prompts (#321)
 
 ### Harder: a day or more
 
-23. In-game console and control commands (#284-286, 24 files conflict), then Link's position in the log (752d72f)
-24. Geometry copy for 4-6 GB cards (f1f2d28)
-25. Teleport bookmarks inside shrines
-26. Fast travel to any map marker
-27. Per-action remapping (#180, their draft #329)
-28. Gyro on ROG Ally X (#221): needs the hardware
-29. Depth of field in photo mode
-30. Effects on and off, one at a time, including the three grass layers
-31. Accessibility and assists: text size, colour-blind filters, toggles for held buttons
-32. Profiler you can turn on while playing (#309)
-33. NaN-aware min/max in shaders (#153), which may fix some rendering glitches
-34. Less guest memory kept committed
-35. Skip shadow draws that don't matter (risks shadow flicker)
-36. Read ahead for the next area
-37. 16:10 screens (#303), older Vulkan (#250), sparse heap (#197), how shadows look on Intel (#300): each needs hardware we don't have
+20. In-game console and control commands (#284-286, 24 files conflict), then Link's position in the log (752d72f)
+21. Geometry copy for 4-6 GB cards (f1f2d28)
+22. Teleport bookmarks inside shrines
+23. Fast travel to any map marker
+24. Teleport in real time: Link moves at once, with no restart and no dependence on saves (their `goto`, #284-286, may show how)
+25. Per-action remapping (#180, their draft #329)
+26. Gyro on ROG Ally X (#221): needs the hardware
+27. Depth of field in photo mode
+28. Effects on and off, one at a time, including the three grass layers
+29. Accessibility and assists: text size, colour-blind filters, toggles for held buttons
+30. Profiler you can turn on while playing (#309)
+31. NaN-aware min/max in shaders (#153), which may fix some rendering glitches
+32. Less guest memory kept committed
+33. Skip shadow draws that don't matter (risks shadow flicker)
+34. Read ahead for the next area
+35. 16:10 screens (#303), older Vulkan (#250), sparse heap (#197), how shadows look on Intel (#300): each needs hardware we don't have
 
 ### Hard: days to weeks, and may not work
 
-38. Linux build (Ubuntu, Arch)
-39. Port Cemu's shadow draw distance and reflection packs
-40. Fix or upgrade textures that don't scale, like the menu UI
-41. Raise detail on flowers, far trees and textures, and fix the grass edges
-42. Friendlier setup and launcher explanations for anyone
-43. amiibo rewards without figures
-44. XeSS and DLSS (vendor SDKs; their #111 for DLSS)
-45. Steam Deck gyro through DSU (#281), which needs the Linux build first
-46. Smarter CPU core placement, untested on other CPUs: needs other PCs
-47. Parallel draw translation, the riskiest item
-48. Randomizer
-49. Online (their #294)
-50. macOS
+36. Linux build (Ubuntu, Arch)
+37. Port Cemu's shadow draw distance and reflection packs
+38. Fix or upgrade textures that don't scale, like the menu UI
+39. Raise detail on flowers, far trees and textures, and fix the grass edges
+40. Friendlier setup and launcher explanations for anyone
+41. amiibo rewards without figures
+42. XeSS and DLSS (vendor SDKs; their #111 for DLSS)
+43. Steam Deck gyro through DSU (#281), which needs the Linux build first
+44. Smarter CPU core placement, untested on other CPUs: needs other PCs
+45. Parallel draw translation, the riskiest item
+46. Randomizer
+47. Online (their #294)
+48. macOS
 
-**Done from the top of this list, 2026-11-01:** the update flow starting the downloaded installer (stopped at its first page, not run through); benchmark history; Savage Wind's AMD fix (#341) with the text fix back on; the white grass fix matching the game's code; the log's first line; the install folder check (already there); the stale shader notice; the feature requests, added above; the colour shot; the first-run popup removed.
+**Done from the top of this list, 2026-11-01:** the update flow starting the downloaded installer (stopped at its first page, not run through); benchmark history; Savage Wind's AMD fix (#341) with the text fix back on; the white grass fix matching the game's code; the log's first line; the install folder check (already there); the stale shader notice; the feature requests, added above; the colour shot; the first-run popup removed. Alpha 4.1's mouse fixes, the six 0aa6f04 items and the map pan limit: ported, not yet tried with a real mouse, and the arrow keys not tried at all. The shadow flashes: `SAVAGEWIND_TEST_TIME` was fighting the game's clock, fixed from upstream's ed9279a; 0 flashes on both PCs with all settings on. Link's one-frame pose glitch: `goto` in the test routes left the stick at zero for a frame, fixed; none seen in the user's own play test with a controller.
 
-**Needs you, not ranked:** your checks of the real mouse, save import and Confirm button on a controller; merging and releases.
+**Needs you, not ranked:** your checks of the real mouse (Game Over, quick selector, map panning), the arrow keys in menus, save import and Confirm button on a controller; merging and releases.
 
 # Older lists, kept for their notes
 
@@ -217,7 +215,6 @@ What Savage Wind 0.4.0-alpha.4 (2026-11-01, commit 02bbb0f) has that we don't. F
 
 | Change | Upstream | Note |
 |---|---|---|
-| Map panning off its lower edge | #319, bb9bab9 | Some pan limit code exists in ours: check before porting |
 
 ### Graphics and speed
 
@@ -238,19 +235,6 @@ What Savage Wind 0.4.0-alpha.4 (2026-11-01, commit 02bbb0f) has that we don't. F
 | Link's position in the log every 30 s | 752d72f | |
 | Crash details after a device loss, NVIDIA only | 3fae40c | |
 | Linux overlay reads the GPU that renders | #315, 0fc5e4d | |
-
-### In a commit we don't have, not checked one by one
-
-All from 0aa6f04. Check each in ours before porting.
-
-| Change | Upstream |
-|---|---|
-| Pause menu centred on wide screens | #238 |
-| World map not stretched with Fill wide screens | #282, #253 |
-| First open of Settings or Game Files no longer freezes the start screen | #279, #276 |
-| Controller used in another program no longer acts in the game after Alt-Tab | #301 |
-| Unbound arrow keys and Enter work in menus | #275 |
-| Link's coordinates in the full overlay | #274 |
 
 ### Left out on purpose
 
