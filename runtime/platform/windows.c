@@ -456,7 +456,28 @@ PlatProc plat_spawn(const char *const argv[], const char *log_path, bool append_
     MultiByteToWideChar(CP_UTF8, 0, argv[0], -1, wprog, MAX_PATH);
     for (wchar_t *p = wprog; *p; p++) if (*p == L'/') *p = L'\\';
     const wchar_t *app = GetFullPathNameW(wprog, MAX_PATH, wfull, NULL) ? wfull : NULL;
-    BOOL ok = CreateProcessW(app, wcmd, NULL, NULL, TRUE, CREATE_NO_WINDOW | CREATE_SUSPENDED, NULL, NULL, &si, &pi);
+    // The game code generator (swgen.exe, PyInstaller) without Control Flow Guard, whatever its header says: its code
+    // generator longjmps out of the code it generated, which CFG ends the process for. Clearing the header bit
+    // (tools/pe_no_cfg.py) isn't enough on some Windows 11 builds (#113); this is what Exploit protection's per-program
+    // "CFG: off" does, for this process only. Without the attribute (older Windows), started as before.
+    const char *base = strrchr(argv[0], '\\') > strrchr(argv[0], '/') ? strrchr(argv[0], '\\') : strrchr(argv[0], '/');
+    base = base ? base + 1 : argv[0];
+    BOOL ok = FALSE;
+    if (!_stricmp(base, "swgen.exe")) {
+        static __thread uint8_t attrs[256];
+        LPPROC_THREAD_ATTRIBUTE_LIST list = (LPPROC_THREAD_ATTRIBUTE_LIST)attrs;
+        SIZE_T size = sizeof attrs;
+        DWORD64 policy = PROCESS_CREATION_MITIGATION_POLICY_CONTROL_FLOW_GUARD_ALWAYS_OFF;
+        if (InitializeProcThreadAttributeList(list, 1, 0, &size)) {
+            STARTUPINFOEXW six = {.StartupInfo = si, .lpAttributeList = list};
+            six.StartupInfo.cb = sizeof six;
+            if (UpdateProcThreadAttribute(list, 0, PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY, &policy, sizeof policy, NULL, NULL))
+                ok = CreateProcessW(app, wcmd, NULL, NULL, TRUE, CREATE_NO_WINDOW | CREATE_SUSPENDED | EXTENDED_STARTUPINFO_PRESENT,
+                                    NULL, NULL, &six.StartupInfo, &pi);
+            DeleteProcThreadAttributeList(list);
+        }
+    }
+    if (!ok) ok = CreateProcessW(app, wcmd, NULL, NULL, TRUE, CREATE_NO_WINDOW | CREATE_SUSPENDED, NULL, NULL, &si, &pi);
     if (!ok) fprintf(stderr, "[plat] could not start %s (error %lu)\n", argv[0], GetLastError());
     CloseHandle(log);
     if (!ok) return 0;
