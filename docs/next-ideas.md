@@ -1,6 +1,6 @@
 # The list
 
-The current tasks and the ideas together, easiest to hardest, as of 2026-11-01. The order is an estimate, mostly made before reading the code each one needs. Numbers are pull requests and issues on [Revivedx/SavageWindRecomp](https://github.com/Revivedx/SavageWindRecomp). The sections after this one are the older lists, kept for their notes.
+The current tasks and the ideas together, easiest to hardest, as of 0.3, 2026-11-01. The order is an estimate, mostly made before reading the code each one needs. Numbers are pull requests and issues on [Revivedx/SavageWindRecomp](https://github.com/Revivedx/SavageWindRecomp). The sections after this one are the older lists, kept for their notes.
 
 ### Very easy: minutes to an hour
 
@@ -67,7 +67,11 @@ The current tasks and the ideas together, easiest to hardest, as of 2026-11-01. 
 
 **Done from the top of this list, 2026-11-01:** the update flow starting the downloaded installer (stopped at its first page, not run through); benchmark history; Savage Wind's AMD fix (#341) with the text fix back on; the white grass fix matching the game's code; the log's first line; the install folder check (already there); the stale shader notice; the feature requests, added above; the colour shot; the first-run popup removed. Alpha 4.1's mouse fixes, the six 0aa6f04 items and the map pan limit: ported, not yet tried with a real mouse, and the arrow keys not tried at all. The shadow flashes: `SAVAGEWIND_TEST_TIME` was fighting the game's clock, fixed from upstream's ed9279a; 0 flashes on both PCs with all settings on. Link's one-frame pose glitch: `goto` in the test routes left the stick at zero for a frame, fixed; none seen in the user's own play test with a controller.
 
-**Needs you, not ranked:** your checks of the real mouse (Game Over, quick selector, map panning), the arrow keys in menus, save import and Confirm button on a controller; merging and releases.
+**Not tested yet, as of 0.3:** a real mouse with the new pointer (Game Over, quick selector, map panning); arrow keys and Enter in menus in the running game; Alt-Tab with a real controller; the start screen freeze fix on a slow drive; a second monitor; the wide pause menu and map beyond one 2560x1080 window; save import; the Confirm button on a controller; moving platforms, shield surf and the Kohga freeze in real play; No rain and No thunderstorms against real weather; updating from 0.2.1 with the built-in updater; any other hardware; frame rate.
+
+**Known issues, as of 0.3:** items 3, 7 and 13 above, and the rest in the 0.3 release notes.
+
+**Needs you, not ranked:** the play tests above that need a person, merging and releases.
 
 # Older lists, kept for their notes
 

@@ -81,7 +81,12 @@ static void push(const QEvent &e) {
 }
 
 bool menu_is_open(void) { return g_open.load(); }
-#define SLOP_VERSION "0.1"
+extern "C" const char *rt_slop_version(void);  // (runtime/ui/launcher.mm)
+static const char *slop_title(void) {
+    static char t[48];
+    if (!t[0]) snprintf(t, sizeof t, "Slop of the Wild %s", rt_slop_version());
+    return t;
+}
 static std::atomic<uint64_t> g_title_tick{0};  // SDL_GetTicks() of the title menu's last update (game thread)
 extern "C" void menu_title_tick(void) { g_title_tick.store(SDL_GetTicks()); }
 extern "C" bool menu_title_visible(void) {  // (vulkan/device.c: the title art capture)
@@ -732,7 +737,7 @@ static void tab_display(void) {
     }
     {   // Fill wide screens (runtime/nvn/output_scale.c rt_persp)
         bool wv = g_settings.wide_view;
-        if (opt_toggle("Fill wide screens", &wv, true,
+        if (opt_toggle("Fill wide screens (beta)", &wv, true,
                        "On a window or screen that isn't 16:9 the game shows more of the world instead of black bars: "
                        "to the sides when it's wider (21:9, 32:9), above and below when it's taller (16:10, 4:3). "
                        "The HUD stays 16:9 in the middle; the pause menu, the map and the start screen are shown "
@@ -1586,7 +1591,7 @@ void menu_render(void *cmd, uint32_t target_w, uint32_t target_h) {
         float W = io.DisplaySize.x, H = io.DisplaySize.y, fh = H * 0.0185f, pitch = H * 0.0285f, xr = W * 0.9553f;
         ImDrawList *dl = ImGui::GetBackgroundDrawList();
         ImFont *f1 = g_menu_font_big ? g_menu_font_big : g_font, *f2 = g_menu_font ? g_menu_font : g_font;
-        const char *l1 = "Slop of the Wild " SLOP_VERSION, *l2 = "a fork of Savage Wind";
+        const char *l1 = slop_title(), *l2 = "a fork of Savage Wind";
         ImVec2 s1 = f1->CalcTextSizeA(fh, FLT_MAX, 0, l1), s2 = f2->CalcTextSizeA(fh * 0.8f, FLT_MAX, 0, l2);
         float y1 = H * 0.9142f - pitch, y2 = H * 0.9142f + fh * 0.1f;
         int a = (int)(255 * title_a), sh = (int)(110 * title_a);
@@ -1622,7 +1627,7 @@ void menu_render(void *cmd, uint32_t target_w, uint32_t target_h) {
         ImGui::PushFont(g_font_big);
         ImGui::TextColored(ImVec4(0.745f, 0.886f, 0.33f, 1), "%s", tr("Settings"));
         ImGui::SameLine();
-        ImGui::TextDisabled("Slop of the Wild " SLOP_VERSION);
+        ImGui::TextDisabled("%s", slop_title());
         ImGui::PopFont();
         {
             float bx = 44 * scale;

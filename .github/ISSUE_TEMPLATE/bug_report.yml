@@ -23,11 +23,11 @@ body:
   - type: dropdown
     id: version
     attributes:
-      label: Savage Wind version
-      description: Shown on the game's title screen and in Savage Wind Configuration.
+      label: Slop of the Wild version
+      description: Shown on the game's title screen and in its settings menu Configuration.
       options:
-        - "0.3.1-alpha.3 (latest)"
-        - "Built from the test branch"
+        - "0.3 (latest)"
+        - "Built from source"
         - "An older release (please update and try again first)"
     validations:
       required: true

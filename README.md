@@ -34,6 +34,7 @@ I started this for myself. I wanted to play Breath of the Wild the way I'd alway
 - Clarity, a port of Cemu's BOTW graphics pack, plus colour grading with LUTs and HDR10
 - TAA, SMAA and AMD FSR 4 anti-aliasing, FSR 1 upscaling, and render scale up to 200%
 - Higher resolution shadows, field of view options, and wide screen support
+- Fullscreen mode and monitor choice
 - A fix for grass blowing out to white when it rains in sunshine
 
 **Play**

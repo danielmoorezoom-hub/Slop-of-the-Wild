@@ -57,8 +57,8 @@ jobs:
               missing.push('- **savagewind.log** of the run where it happened. On Windows it is next to `savagewind.exe`, in ' +
                            'the Savage Wind folder; on Linux, in `~/.local/share/savagewind/`. The game writes a new one ' +
                            'each time it starts, so take it right after the bug, before starting the game again.');
-            const version = section(body, 'Savage Wind version');
-            if (/older release/i.test(version) && !/0\.3\.1|latest|re-?tested/i.test(authorText))
+            const version = section(body, 'Slop of the Wild version');
+            if (/older release/i.test(version) && !/\b0\.3\b|latest|re-?tested/i.test(authorText))
               missing.push('- **The latest release**: please check whether the bug still happens there, and say so here.');
             if (/1\.8\.2/.test(section(body, 'Game version')) && !/1\.9\.0/.test(authorText))
               missing.push('- **Game version 1.9.0**: 1.8.2 is not supported. Please check whether it also happens on 1.9.0.');
