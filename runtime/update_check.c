@@ -23,7 +23,7 @@ static void *ask(void *arg) {
     DWORD total = 0, got = 0;
     HINTERNET s = WinHttpOpen(L"SlopOfTheWild", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, NULL, NULL, 0);
     HINTERNET c = s ? WinHttpConnect(s, L"api.github.com", INTERNET_DEFAULT_HTTPS_PORT, 0) : NULL;
-    HINTERNET r = c ? WinHttpOpenRequest(c, L"GET", L"/repos/devall96/Slop-of-the-Wild/releases/latest", NULL, NULL, NULL, WINHTTP_FLAG_SECURE) : NULL;
+    HINTERNET r = c ? WinHttpOpenRequest(c, L"GET", L"/repos/devall96/Slop-of-the-Wild/releases?per_page=1", NULL, NULL, NULL, WINHTTP_FLAG_SECURE) : NULL;
     if (r && WinHttpSendRequest(r, L"Accept: application/vnd.github+json\r\n", (DWORD)-1, NULL, 0, 0, 0) && WinHttpReceiveResponse(r, NULL)) {
         while (total < sizeof buf - 1 && WinHttpReadData(r, buf + total, sizeof buf - 1 - total, &got) && got) total += got;
         buf[total] = 0;
@@ -65,7 +65,7 @@ static bool get_json(char *buf, size_t cap) {
     DWORD total = 0, got = 0;
     HINTERNET s = WinHttpOpen(L"SlopOfTheWild", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, NULL, NULL, 0);
     HINTERNET c = s ? WinHttpConnect(s, L"api.github.com", INTERNET_DEFAULT_HTTPS_PORT, 0) : NULL;
-    HINTERNET r = c ? WinHttpOpenRequest(c, L"GET", L"/repos/devall96/Slop-of-the-Wild/releases/latest", NULL, NULL, NULL, WINHTTP_FLAG_SECURE) : NULL;
+    HINTERNET r = c ? WinHttpOpenRequest(c, L"GET", L"/repos/devall96/Slop-of-the-Wild/releases?per_page=1", NULL, NULL, NULL, WINHTTP_FLAG_SECURE) : NULL;
     if (r && WinHttpSendRequest(r, L"Accept: application/vnd.github+json\r\n", (DWORD)-1, NULL, 0, 0, 0) && WinHttpReceiveResponse(r, NULL)) {
         while (total < cap - 1 && WinHttpReadData(r, buf + total, (DWORD)(cap - 1 - total), &got) && got) total += got;
         buf[total] = 0;

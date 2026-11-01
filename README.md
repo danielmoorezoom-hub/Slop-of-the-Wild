@@ -2,7 +2,7 @@
 
 **Slop of the Wild** is a native Windows version of *The Legend of Zelda: Breath of the Wild* (Switch version 1.9.0), with a lot of extra options for how it looks and plays. It's a fork of [Savage Wind Recomp](https://github.com/Revivedx/SavageWindRecomp), which does the hard part: turning the game's code into a PC program.
 
-**[Download the latest release](../../releases/latest)** · [Install it](#how-to-install) · [What's new and known issues](../../releases) · [Help test it](#help-test-it)
+**[Download the newest release](../../releases)** · [Install it](#how-to-install) · [What's new and known issues](../../releases) · [Help test it](#help-test-it)
 
 > [!CAUTION]
 > **No game files are included, and none ever will be**: not in the code, the releases, the issues or the wiki. You need your own copy, dumped from your own Switch. Please don't post game files, dumps, keys or an installed copy here.
@@ -60,7 +60,7 @@ The exact state of each is in the [release notes](../../releases).
 - About 16 GB of free disk space
 - Your own copy of the game: version 1.9.0 with the update merged, dumped from your own Switch. The DLC is optional, dumped the same way.
 
-**1. Download the installer.** Get `SlopOfTheWild-<version>-Setup.exe` from the [latest release](../../releases/latest). It holds only the program and its tools, no game files.
+**1. Download the installer.** Get `SlopOfTheWild-<version>-Setup.exe` from the newest entry on the [Releases page](../../releases). It holds only the program and its tools, no game files.
 
 **2. Run it.** Windows may warn you, because the installer isn't signed.
 

@@ -1035,7 +1035,7 @@ static void prelaunch_tab(float sc) {
         else if (st == 2) {
             ImGui::Text(tr("%s is out."), update_check_tag());
             ImGui::SameLine();
-            if (ImGui::Button(tr("Open the release page"))) SDL_OpenURL("https://github.com/devall96/Slop-of-the-Wild/releases/latest");
+            if (ImGui::Button(tr("Open the release page"))) SDL_OpenURL("https://github.com/devall96/Slop-of-the-Wild/releases");
             int dl = update_download_state();
             if (dl == 0 || dl == 3) {
                 if (ImGui::Button(tr("Download and install (beta)"))) update_download_start();
