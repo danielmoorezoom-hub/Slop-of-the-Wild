@@ -171,6 +171,16 @@ $(B)/obj/tools/gamelib_entry.o: tools/gamelib_entry.c $(GAMELIB_SRCS) Makefile  
 	@mkdir -p $(dir $@)
 	$(CC) $(GENFLAGS) -DGAMELIB_ID='"$(GAMELIB_ID)"' -c $< -o $@
 $(B)/rt/nvn/maxwell/translate.o: RTFLAGS += -DTRANSLATOR_ID='"$(TRANSLATOR_ID)"'
+
+# SW_SOURCE: the source this build is made from, in the log's first line (runtime/main.c): its commit and tree, and
+# "modified" when the runtime, the tools or this Makefile differ from them ("unknown" outside a git checkout).
+# $(B)/source_id follows it, so main.o is rebuilt when it changes.
+comma    := ,
+SW_SOURCE := $(or $(shell git log -1 --format='commit %h$(comma) tree %t' 2>/dev/null),unknown)$(if $(shell git status --porcelain --untracked-files=no -- runtime tools Makefile 2>/dev/null),$(comma) modified)
+$(shell mkdir -p $(B) && [ "$$(cat $(B)/source_id 2>/dev/null)" = '$(SW_SOURCE)' ] || echo '$(SW_SOURCE)' > $(B)/source_id)
+
+$(B)/rt/main.o: $(B)/source_id
+$(B)/rt/main.o: RTFLAGS += -DSW_SOURCE='"$(SW_SOURCE)"'
 $(B)/rt/nvn/vulkan/spirv.o: RTFLAGS += -DSPIRV_ID='"$(SPIRV_ID)"'
 $(B)/rt/gamelib.o: $(GAMELIB_SRCS) Makefile
 $(B)/rt/gamelib.o: RTFLAGS += -DGAMELIB_ID='"$(GAMELIB_ID)"' $(GAMELIB_TARGETS)

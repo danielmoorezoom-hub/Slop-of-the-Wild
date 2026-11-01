@@ -7,7 +7,7 @@ The current tasks and the ideas together, easiest to hardest, as of 2026-11-01. 
 1. Port Savage Wind's AMD fix (#341, about 13 lines), then turn the HUD copies back on, which should stop text letters jumping
 2. Correct the white grass fix's match: use the game code's hash, already written in the `sw-test` copy, so a translator change can't turn it off
 3. Version and source on the log's first line (2b1db43)
-4. Warn at start if the install folder can't be written to
+4. Warn at start if the install folder can't be written to: already there, the program stops with a clear message (paths.c)
 5. Warn when a driver update has made the shader cache stale
 6. Collect the new feature requests from upstream's issues
 7. Retake the missing colour shot: Alpha 4 at noon with no look
@@ -98,7 +98,6 @@ Partly here:
 - **Native controller** (#143): any controller through SDL, with Xbox, PlayStation and Nintendo prompts.
 - **Benchmark history**: every run is kept in `benchmark/results.txt`, but there's no comparison yet.
 - **Shader cache check**: the Game Files page says to run it again after a driver update, but nothing warns before playing.
-- **Install folder check**: the program tests whether its folder can be written to, but gives no warning.
 - **GPU readings** (roadmap): the F10 overlay reads NVIDIA on Windows and AMD on Linux, not AMD or Intel on Windows.
 
 ## The work list, easiest to hardest (2026-10-31)

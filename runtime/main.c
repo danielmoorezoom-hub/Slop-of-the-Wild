@@ -326,6 +326,9 @@ int main(int argc, char **argv) {
 #else
     setvbuf(stderr, NULL, _IOLBF, 0);
 #endif
+    // every log starts with which build made it: the versions and the source it was built from (Makefile SW_SOURCE)
+    extern const char *rt_version(void), *rt_slop_version(void);  // (runtime/ui/launcher.mm)
+    fprintf(stderr, "[savagewind] Slop of the Wild %s, Savage Wind %s (%s)\n", rt_slop_version(), rt_version(), SW_SOURCE);
     const char *root = "extracted";  // (in the data root)
     bool skip_launcher = getenv("SAVAGEWIND_NO_LAUNCHER") || getenv("SAVAGEWIND_INPUT");  // tests boot straight in
     bool config = false;

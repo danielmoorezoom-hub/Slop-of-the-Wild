@@ -110,6 +110,7 @@ static void save_png(id<MTLTexture> tex, const char *path) {
 // The version this build is (also names the release files; Makefile / tools/bundle_macos.sh / make_dmg.sh read it).
 #define SAVAGEWIND_VERSION "0.3.1-alpha.3"
 #define SLOP_VERSION_TEXT "0.2"  // (the release tag: Makefile SLOP_VERSION)
+extern "C" const char *rt_slop_version(void) { return SLOP_VERSION_TEXT; }
 extern "C" const char *rt_version(void) { return SAVAGEWIND_VERSION; }  // (the title screen's version line: fs.c)
 
 // ------------------------------------------------------------------ game files
@@ -1928,6 +1929,19 @@ extern "C" void launcher_run(const char *root, int mode) {
                 ImGui::SetCursorPosX(x0);
                 if (main_id.empty() && !nso_build_id(g_root + "/exefs/main", &main_id)) main_id = "?";
                 ImGui::TextColored(ImVec4(0.62f, 0.67f, 0.61f, 1), tr("main build id %s"), main_id.c_str());
+#ifndef __APPLE__
+                {   // (asked once: a new driver or translator makes the first play stutter until the shaders are made again)
+                    static int stale = -1;
+                    if (stale < 0) {
+                        stale = shader_precompile_available() && shader_precompile_status(NULL, NULL, 0) == 2;
+                        if (stale) fprintf(stderr, "[launcher] the precompiled shaders are out of date (a new driver or translator)\n");
+                    }
+                    if (stale) {
+                        ImGui::SetCursorPosX(x0);
+                        ImGui::TextColored(ImVec4(1, 0.72f, 0.4f, 1), "%s", tr("Shaders out of date: see Game Files."));
+                    }
+                }
+#endif
             } else {
                 ImGui::TextColored(ImVec4(1, 0.72f, 0.4f, 1), "!  %s", trv(busy ? "Setting up the game files..." : status).c_str());
                 ImGui::SetCursorPosX(x0);
