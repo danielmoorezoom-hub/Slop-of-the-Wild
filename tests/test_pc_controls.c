@@ -45,6 +45,7 @@ void motion_mouse(float x, float y) { (void)x; (void)y; abort(); }
 void motion_script(float p, float r, float x, float y) { (void)p; (void)r; (void)x; (void)y; abort(); }
 void watch_arm(void) { abort(); }
 
+SDL_WindowFlags SDL_GetWindowFlags(SDL_Window *w) { (void)w; return win_focused ? SDL_WINDOW_INPUT_FOCUS : 0; }
 static void update(void) { input_mouse_update((SDL_Window *)(uintptr_t)1); }
 int main(void) {
     unsetenv("SAVAGEWIND_INPUT"); unsetenv("SAVAGEWIND_HOST_INPUT");
