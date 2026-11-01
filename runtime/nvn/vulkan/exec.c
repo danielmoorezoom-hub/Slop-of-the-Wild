@@ -905,7 +905,33 @@ bool renderer_origin_lower_left(void) { return nvn_window_origin() == 0; }
 // (SAVAGEWIND_VK_PROF) called once per presented frame: frames over 50 ms are logged with where their time went.
 // present_ns: time in backend_present's acquire/blit/present.
 extern uint64_t g_pace_sleep_ns;  // (objects.c present_pace)
+// The overlay's "Last hitch" (Full): a frame well over the recent ones, and where the time went by what's always counted.
+// Only shader building and GPU waits are measured: anything else is the game's own work or loading, which isn't told apart.
+static float last_hitch_ms;
+static const char *last_hitch_cause;
+static uint64_t last_hitch_at;
+bool vk_last_hitch(float *ms, const char **cause, float *ago_s) {
+    if (!last_hitch_at) return false;
+    *ms = last_hitch_ms, *cause = last_hitch_cause, *ago_s = (SDL_GetTicksNS() - last_hitch_at) / 1e9f;
+    return true;
+}
+static void hitch_note(uint64_t now) {
+    static uint64_t last, l_comp, l_wait;
+    static float avg;
+    uint64_t comp = prof_c_tr + prof_c_prog + prof_c_pipe + prof_c_comp;
+    if (comp < l_comp) l_comp = 0;  // (the fps line took the counters)
+    if (last) {
+        float ms = (now - last) / 1e6f, c = (comp - l_comp) / 1e6f, w = (cum_wait - l_wait) / 1e6f;
+        if (avg > 0 && ms > 33 && ms > avg * 2.5f) {
+            last_hitch_ms = ms, last_hitch_at = now;
+            last_hitch_cause = c > ms * 0.3f ? "building shaders" : w > ms * 0.3f ? "waiting for the GPU" : "game or loading";
+        } else avg = avg > 0 ? avg + (ms - avg) * 0.05f : ms;
+    }
+    last = now, l_comp = comp, l_wait = cum_wait;
+}
+
 void vk_prof_frame(uint64_t frame, uint64_t present_ns) {
+    hitch_note(SDL_GetTicksNS());
     if (!prof) return;
     static uint64_t last_t, l_exec, l_wait, l_xwait, l_draws, l_subs, l_comp, hitch_ns;
     if (!hitch_ns) hitch_ns = getenv("SAVAGEWIND_HITCH_MS") ? (uint64_t)atoi(getenv("SAVAGEWIND_HITCH_MS")) * 1000000ull : 50000000ull;

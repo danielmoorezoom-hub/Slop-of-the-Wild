@@ -1193,6 +1193,9 @@ static void perf_cell(const char *fmt, float v) {
     if (v < 0) ImGui::TextDisabled("-");
     else ImGui::Text(fmt, v);
 }
+#ifndef __APPLE__
+extern "C" bool vk_last_hitch(float *ms, const char **cause, float *ago_s);  // (vulkan/exec.c)
+#endif
 static void perf_overlay_draw(ImGuiIO &io, float scale) {
     PerfStats s;
     perfmon_snapshot(&s);
@@ -1250,7 +1253,7 @@ static void perf_overlay_draw(ImGuiIO &io, float scale) {
         line += std::string(" ") + (q >= 0 && q < UPQ_COUNT ? std::string(tr(k_upscale_modes[q])) + " " : "") + f + "x";
     }
     int aa = rt_antialias();
-    line += std::string(" | ") + tr("Anti-aliasing") + ": " + (aa == AA_TAA ? tr("TAA") : aa == AA_SMAA ? tr("SMAA") : tr("Off"));
+    line += std::string(" | ") + tr("Anti-aliasing") + ": " + (rt_fsr4() ? "AMD FSR 4" : aa == AA_TAA ? tr("TAA") : aa == AA_SMAA ? tr("SMAA") : tr("Off"));
     ImGui::TextDisabled("%s", line.c_str());
     line.clear();
 #ifndef __APPLE__
@@ -1270,6 +1273,14 @@ static void perf_overlay_draw(ImGuiIO &io, float scale) {
     // Axis letters are not translated.
     float pos[3];
     if (perfmon_position(pos)) ImGui::Text("X %.1f  Y %.1f  Z %.1f", pos[0], pos[1], pos[2]);
+#ifndef __APPLE__
+    {   // what the last long frame was (vulkan/exec.c), for a minute
+        float ms, ago;
+        const char *cause;
+        if (vk_last_hitch(&ms, &cause, &ago) && ago < 60)
+            ImGui::Text(tr("Last hitch: %.0f ms, %s, %.0f s ago"), ms, tr(cause), ago);
+    }
+#endif
     ImGui::End();
 }
 
