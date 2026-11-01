@@ -1,9 +1,87 @@
-# The next idea list
+# The list
 
-Saved for later. Nothing here is being worked on yet. Sources: what Savage Wind has open or planned as of 2026-10-31, and our
-own ideas. Numbers are their pull requests and issues on [Revivedx/SavageWindRecomp](https://github.com/Revivedx/SavageWindRecomp).
+The current tasks and the ideas together, easiest to hardest, as of 2026-11-01. The order is an estimate, mostly made before reading the code each one needs. Numbers are pull requests and issues on [Revivedx/SavageWindRecomp](https://github.com/Revivedx/SavageWindRecomp). The sections after this one are the older lists, kept for their notes.
 
-Already taken from them for the current list: draw distance (#88) and the memory fixes on reloads (#237).
+### Very easy: minutes to an hour
+
+1. Port Savage Wind's AMD fix (#341, about 13 lines), then turn the HUD copies back on, which should stop text letters jumping
+2. Correct the white grass fix's match: use the game code's hash, already written in the `sw-test` copy, so a translator change can't turn it off
+3. Version and source on the log's first line (2b1db43)
+4. Warn at start if the install folder can't be written to
+5. Warn when a driver update has made the shader cache stale
+6. Collect the new feature requests from upstream's issues
+7. Retake the missing colour shot: Alpha 4 at noon with no look
+8. Tune the white grass sheen's strength, if it looks too pale in play
+9. Clarity: lift the shadows and pull back noon saturation
+
+### Easy: an hour or two
+
+10. Test Cheats > Weather: the arrows, No rain, No thunderstorms, and snow in a cold area
+11. Play-test the ported fixes: moving platforms, shield surf, the Kohga freeze
+12. Alpha 4.1's other fixes: menu pointer crash, controller map, quick selector, Game Over mouse
+13. Check the six items from 0aa6f04 one by one: wide pause menu, map stretching, start screen freeze, Alt-Tab controller, unbound arrow keys, overlay coordinates
+14. Map panning off its lower edge (#319)
+15. Linux overlay reads the GPU that renders (#315), only once there is a Linux build
+16. Benchmark history: show the change since the last run
+17. Finish the update flow: try running the downloaded installer
+18. Reddit post
+
+### Medium: an afternoon or so
+
+19. Test Alpha 3, then find and port what brings back the time and weather tile
+20. Garbled Game Over title: retest after item 1, then look into it if it's still there
+21. OBS Game Capture black frames, and frames on the game's own queue (#293)
+22. Cheaper write watch (f1f2d28), which may help the 35 to 47 ms slow lists
+23. Monitor and fullscreen mode choices (#245)
+24. Hitch log for players: the overlay names what caused the last long frame
+25. Frame recorder, then use it on the shadow flashes and Link's glitch, trying GPU overlap off first
+26. Grass shimmer and artifacts in sunlight, now that the weather can be held
+27. Share with Savage Wind: the white grass bug report and fix, tested on their `test` branch. Not the weather offset as code, since it came from the decompilation and their rules forbid copying from one
+28. Offer them more, one at a time as they respond: incremental setup, save backups
+29. Better horse steering on keyboard (#290, their open #343 may do it)
+30. Unskippable text
+31. Item spawner, from what `promosave.py` learned. First find which item sets off cutscene Demo200_0
+32. Draw distance by area: less Object distance in dense places
+
+### Harder: a day or more
+
+33. In-game console and control commands (#284-286, 24 files conflict), then Link's position in the log (752d72f)
+34. Geometry copy for 4-6 GB cards (f1f2d28)
+35. Teleport bookmarks inside shrines
+36. Fast travel to any map marker
+37. Per-action remapping (#180, their draft #329)
+38. Depth of field in photo mode
+39. Effects on and off, one at a time, including the three grass layers
+40. Accessibility and assists: text size, colour-blind filters, toggles for held buttons
+41. Profiler you can turn on while playing (#309)
+42. NaN-aware min/max in shaders (#153), which may fix some rendering glitches
+43. Less guest memory kept committed
+44. Skip shadow draws that don't matter (risks shadow flicker)
+45. Read ahead for the next area
+46. 16:10 screens (#303), older Vulkan (#250), sparse heap (#197), how shadows look on Intel (#300): each needs hardware we don't have
+47. Our benchmark, mods and bookmarks offered to Savage Wind: the benchmark needs our test route code to go with it
+
+### Hard: days to weeks, and may not work
+
+48. Linux build (Ubuntu, Arch)
+49. Port Cemu's shadow draw distance and reflection packs
+50. Fix or upgrade textures that don't scale, like the menu UI
+51. Raise detail on flowers, far trees and textures, and fix the grass edges
+52. Friendlier setup and launcher explanations for anyone
+53. amiibo rewards without figures
+54. XeSS and DLSS (vendor SDKs; their #111 for DLSS)
+55. Steam Deck gyro through DSU (#281), which needs the Linux build first
+56. Smarter CPU core placement, untested on other CPUs: needs other PCs
+57. Parallel draw translation, the riskiest item
+58. Randomizer
+59. Online (their #294)
+60. macOS
+
+**Needs you, not ranked:** your checks of the real mouse, save import and Confirm button on a controller; merging and releases.
+
+# Older lists, kept for their notes
+
+Sources: what Savage Wind has open or planned as of 2026-10-31, and our own ideas. Already taken from them: draw distance (#88) and the memory fixes on reloads (#237).
 
 ## Already here
 
