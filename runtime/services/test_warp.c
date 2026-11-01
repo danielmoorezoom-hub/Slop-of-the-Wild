@@ -159,11 +159,21 @@ void test_warp_frame(uint64_t frame) {
     }
     int hold = weather >= 0 ? weather : g_settings.weather >= 3 ? g_settings.weather - 3 : -1;  // (Cheats > Weather)
     int avoid = weather >= 0 ? 0 : g_settings.weather;  // (1 no rain, 2 no thunderstorms: what the game picks, but for those)
-    if ((tod < 0 && hold < 0 && avoid != 1 && avoid != 2) || !g_site.world_mgr) return;
+    if ((tod < 0 && hold < 0 && avoid != 1 && avoid != 2 && !getenv("SAVAGEWIND_TEST_WEATHER_ONCE")) || !g_site.world_mgr) return;
     uint64_t wm = *(uint64_t *)(uintptr_t)g_site.world_mgr;
     if (!wm || !*(uint32_t *)(uintptr_t)(wm + 0x5c0)) return;
     // world::Manager::setWeatherType, each frame: mWeatherType at +0x7d1, mWeatherTypeTimer at +0x794; a cutscene's own
     // weather (mWeatherSetForDemo at +0x7d6) stays
+    {   // SAVAGEWIND_TEST_WEATHER_ONCE=<n>: that weather once, as if the game had picked it, so the settings' answer can be seen
+        static int once = -2;
+        if (once == -2) once = getenv("SAVAGEWIND_TEST_WEATHER_ONCE") ? atoi(getenv("SAVAGEWIND_TEST_WEATHER_ONCE")) : -1;
+        if (once >= 0 && once <= 8) {
+            *(volatile uint8_t *)(uintptr_t)(wm + 0x7d1) = (uint8_t)once;
+            *(volatile int32_t *)(uintptr_t)(wm + 0x794) = 4;
+            LOG("[warp] once: weather %d at frame %llu\n", once, (unsigned long long)frame);
+            once = -1;
+        }
+    }
     if (avoid == 1 || avoid == 2) {  // 0 clear, 1 cloudy, 2 rain, 3 heavy rain, 4 snow, 5 heavy snow, 6 thunderstorm, 7 thunder rain, 8 rain in sunshine
         uint8_t cur = *(volatile uint8_t *)(uintptr_t)(wm + 0x7d1);
         if (avoid == 1 && (cur == 2 || cur == 3 || cur == 6 || cur == 7 || cur == 8)) hold = 1;
