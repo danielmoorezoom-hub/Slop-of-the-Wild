@@ -463,6 +463,18 @@ void build_items(void) {
     for (int i = 0; i < teleport_place_count(); i++)
         v.push_back(button(P_TELEPORT, teleport_place_name(i), "Restarts the game: press Continue and you land there. Unsaved progress is lost.", "Go", A_TELEPORT_PLACE, i));
     // Cheats (runtime/cheats.c)
+    v.push_back(toggle(P_CHEATS, "One-hit kills", "Your hits finish any enemy.",
+                       [](const Item &) { return (int)g_settings.cheat_onehit; },
+                       [](const Item &, int x) { g_settings.cheat_onehit = x; }, 0));
+    v.push_back(choice(P_CHEATS, "Damage dealt", "How much your hits hurt enemies. 100% is the game's own.",
+                       [](const Item &) { return 39; },
+                       [](const Item &, int x) {
+                           static char buf[16];
+                           snprintf(buf, sizeof buf, "%d%%", 25 + x * 25);
+                           return (const char *)buf;
+                       },
+                       [](const Item &) { return (g_settings.damage_dealt - 25) / 25; },
+                       [](const Item &, int x) { g_settings.damage_dealt = 25 + x * 25; }, 3));
     v.push_back(choice(P_CHEATS, "Damage taken", "How much the hits you take hurt. 100% is the game's own.",
                        [](const Item &) { return 12; },
                        [](const Item &, int x) {

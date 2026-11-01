@@ -211,6 +211,8 @@ SITES = [
     Site('no_wear_store', 'code', 'b9002174 5288fb08 72a00088 38686aa8 35000008/ff00001f 2a1403e0 2a1f03e2 94000000/fc000000', 0),
     # the weapon actor's own durability, x100: a hit takes its cost w9 off the value w8
     Site('no_wear_hit', 'code', '4b090108 0aa87d08 1e220101 b9000268 1e212000 1a9f07e0 14000000/fc000000 f9400288', 0),
+    # where a hit on an enemy calls it (Cheats > Damage dealt, One-hit kills; found with SAVAGEWIND_HIT_PROBE)
+    Site('hit_enemy_ret', 'code', '397a1288 360000e8 f9400268 aa1303e0 f9402108 d63f0100 7100541f 5400000a/ff00001f f9400268 aa1303e0', 0),
     # where the weapon's update calls that (a virtual method every damage goes through): the return address that tells a weapon's wear
     # from damage to Link or an enemy
     Site('no_wear_ret', 'code', 'f9400288 2a0003f5 aa1403e0 f9415d08 d63f0100 b5000000/ff00001f 52800036 14000000/fc000000', 0),
@@ -273,6 +275,7 @@ OPTIONAL_GROUPS = [
     ('cheat_arrow_sub', 'cheat_arrow_zero'),
     ('no_wear_store',),
     ('no_wear_hit', 'no_wear_ret'),
+    ('hit_enemy_ret',),
     ('traverse_scale', 'traverse_scale_default'),
     ('grass_range', 'grass_fade_blades', 'grass_fade_quads'),
     ('grass_blade_slots', 'grass_blade_cap_a', 'grass_blade_cap_b', 'grass_blade_cap_c', 'grass_blade_cap_c_max',
@@ -432,6 +435,7 @@ KNOWN = {
         'no_wear_store': 0x7000d93d50,
         'no_wear_hit': 0x7000b9542c,
         'no_wear_ret': 0x70007b09f4,
+        'hit_enemy_ret': 0x700057ba48,
         'traverse_scale': 0x70010a4674,
         'traverse_scale_default': 0x70010a4694,
         'grass_range': 0x70013ad8b0,

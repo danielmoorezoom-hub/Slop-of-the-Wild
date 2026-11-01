@@ -937,6 +937,12 @@ static void tab_cheats(void) {
     opt_toggle("Infinite stamina", &g_settings.cheat_stamina, false, "The stamina wheel doesn't go down. It still fills.");
     opt_toggle("Infinite arrows", &g_settings.cheat_arrows, false, "Shooting doesn't use up arrows.");
     opt_toggle("Unbreakable weapons", &g_settings.cheat_weapons, false, "Weapons, bows and shields lose no durability and never break.");
+    opt_toggle("One-hit kills", &g_settings.cheat_onehit, false, "Your hits finish any enemy.");
+    {
+        float dd = (float)g_settings.damage_dealt;
+        if (opt_slider("Damage dealt", &dd, 25, 1000, 25, 100, "%g%%", "How much your hits hurt enemies. 100% is the game's own."))
+            g_settings.damage_dealt = (int)dd;
+    }
     {
         float dmg = (float)g_settings.damage_taken;
         if (opt_slider("Damage taken", &dmg, 25, 300, 25, 100, "%g%%", "How much the hits you take hurt. 100% is the game's own."))

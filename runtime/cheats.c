@@ -2,13 +2,14 @@
 // Each is off by default and changes nothing in the save but the values the game then saves itself. The sites are from Savage Wind's
 // pull requests #25 and #296, found again in 1.9.0.
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "hle.h"
 #include "settings.h"
 
 // (the log says once that each one did something: how a test run knows)
 static void note(int cheat) {
-    static const char *const names[] = {"infinite health", "infinite stamina", "infinite arrows", "unbreakable weapons"};
+    static const char *const names[] = {"infinite health", "infinite stamina", "infinite arrows", "unbreakable weapons", "one-hit kills"};
     static int said;
     if (said & (1 << cheat)) return;
     said |= 1 << cheat;
@@ -61,6 +62,35 @@ int rt_no_wear(void) {
     if (!g_settings.cheat_weapons) return 0;
     note(3);
     return 1;
+}
+
+// Every life taken off, through one method of the game's: a weapon's wear (the call from the weapon's update, wear_ret) and hits on others.
+// (test) SAVAGEWIND_HIT_PROBE=1: each caller once in a while, with the value and the cost
+uint32_t rt_wear_cost(uint32_t cost);
+uint32_t rt_hit_cost(uint64_t ret, uint64_t wear_ret, uint64_t enemy_ret, uint32_t cost, uint32_t value) {
+    static int probe = -1;
+    if (probe < 0) probe = getenv("SAVAGEWIND_HIT_PROBE") != NULL;
+    if (probe && cost) {
+        static struct { uint64_t ret; int n; } seen[32];
+        for (int i = 0; i < 32; i++) {
+            if (seen[i].ret && seen[i].ret != ret) continue;
+            seen[i].ret = ret;
+            if (seen[i].n++ < 12) LOG("[hit] from %llx: value %u, cost %u\n", (unsigned long long)ret, value, cost);
+            break;
+        }
+    }
+    if (ret == wear_ret) return rt_wear_cost(cost);
+    if (ret == enemy_ret && cost) {  // (Cheats > One-hit kills, Damage dealt)
+        if (g_settings.cheat_onehit) {
+            note(4);
+            return value > cost ? value : cost;
+        }
+        if (g_settings.damage_dealt != 100) {
+            uint64_t v = (uint64_t)cost * g_settings.damage_dealt / 100;
+            return v ? (uint32_t)v : 1;
+        }
+    }
+    return cost;
 }
 
 // A hit's cost on it, in hundredths

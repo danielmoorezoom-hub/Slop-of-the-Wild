@@ -38,6 +38,7 @@ Settings g_settings = {
     .stick_cam_y = 200,
     .weapon_wear = 100,
     .damage_taken = 100,
+    .damage_dealt = 100,
     .save_backups = true,
     .lod_master = 75,
     .lod_distance = 140,
@@ -146,6 +147,8 @@ void settings_load(void) {
         else if (!strcmp(key, "stick_camera_x")) g_settings.stick_cam_x = atoi(val);  // (percent)
         else if (!strcmp(key, "stick_camera_y")) g_settings.stick_cam_y = atoi(val);  // (percent)
         else if (!strcmp(key, "lod_extended")) g_settings.lod_extended = atoi(val) != 0;
+        else if (!strcmp(key, "cheat_onehit")) g_settings.cheat_onehit = atoi(val) != 0;
+        else if (!strcmp(key, "damage_dealt")) g_settings.damage_dealt = atoi(val);
         else if (!strcmp(key, "auto_continue")) g_settings.auto_continue = atoi(val) != 0;
         else if (!strcmp(key, "damage_taken")) g_settings.damage_taken = atoi(val);
         else if (!strcmp(key, "cheat_rupees")) g_settings.cheat_rupees = atoi(val) != 0;
@@ -266,6 +269,7 @@ void settings_load(void) {
     if (getenv("SAVAGEWIND_BENCHMARK")) g_settings.vsync = VSYNC_OFF;  // (its own copy of the settings: runtime/benchmark.c)
     g_settings.weapon_wear = CLAMP(g_settings.weapon_wear, 10, 300);
     g_settings.damage_taken = CLAMP(g_settings.damage_taken, 25, 300);
+    g_settings.damage_dealt = CLAMP(g_settings.damage_dealt, 25, 1000);
     g_settings.lod_master = CLAMP(g_settings.lod_master, 0, 100);
     g_settings.lod_distance = CLAMP(g_settings.lod_distance, 100, 150);
     g_settings.lod_grass = CLAMP(g_settings.lod_grass, 100, 250);
@@ -344,7 +348,7 @@ void settings_save(void) {
     fprintf(f, "lod_extended = %d\n", g_settings.lod_extended);
     fprintf(f, "cheat_health = %d\ncheat_stamina = %d\ncheat_arrows = %d\ncheat_weapons = %d\n", g_settings.cheat_health,
             g_settings.cheat_stamina, g_settings.cheat_arrows, g_settings.cheat_weapons);
-    fprintf(f, "auto_continue = %d\ndamage_taken = %d\n", g_settings.auto_continue, g_settings.damage_taken);
+    fprintf(f, "auto_continue = %d\ndamage_taken = %d\ncheat_onehit = %d\ndamage_dealt = %d\n", g_settings.auto_continue, g_settings.damage_taken, g_settings.cheat_onehit, g_settings.damage_dealt);
     fprintf(f, "cheat_rupees = %d\nweapon_wear = %d\nsave_backups = %d\n", g_settings.cheat_rupees, g_settings.weapon_wear, g_settings.save_backups);
     fprintf(f, "lod_auto = %d\n", g_settings.lod_auto);
     fprintf(f, "lod_master = %d\n", g_settings.lod_master);

@@ -686,8 +686,9 @@ def _no_wear(gen, a):
 def _no_wear_hit(gen, a):
     assert _word(gen, a) == 0x4b090108, hex(_word(gen, a))  # sub w8, w8, w9
     ret = gen.sites['no_wear_ret']
-    return ('{ extern uint32_t rt_wear_cost(uint32_t); '
-            f'c->x[8] = (uint32_t)((uint32_t)c->x[8] - (LD64(c->sp + 0x28) == {ret:#x}ull ? rt_wear_cost((uint32_t)c->x[9]) : (uint32_t)c->x[9])); }}'
+    enemy = gen.sites.get('hit_enemy_ret', 0)
+    return ('{ extern uint32_t rt_hit_cost(uint64_t, uint64_t, uint64_t, uint32_t, uint32_t); '
+            f'c->x[8] = (uint32_t)((uint32_t)c->x[8] - rt_hit_cost(LD64(c->sp + 0x28), {ret:#x}ull, {enemy:#x}ull, (uint32_t)c->x[9], (uint32_t)c->x[8])); }}'
             f'  /* {a:#x}: sub w8, w8, w9 (weapon hit: no wear) */')
 
 
