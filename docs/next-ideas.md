@@ -13,10 +13,10 @@ The current tasks and the ideas together, easiest to hardest, as of 0.3, 2026-11
 4. Play-test the ported fixes: moving platforms, shield surf, the Kohga freeze
 5. Linux overlay reads the GPU that renders (#315), only once there is a Linux build
 6. Adjustable dialogue text speed (#338). On hold since 2026-11-01. NPC text only: cutscene subtitles follow the voice
-7. Blocky steps at the edges of the System page's background at 21:9, seen with the wide pause menu port. Check whether Alpha 4 does it too
-8. Horse names accepting only some letters, and an odd background on floating text over the character: check in ours, fix what's there
-9. Some textures missing with the DLC installed: try to reproduce
-10. Blocky purple or magenta textures on some AMD GPUs: try to reproduce on our RX 9070 XT
+7. Blocky steps at the edges of the System page's background at 21:9, seen with the wide pause menu port. Comparing with Alpha 4 needs the clone: on this PC its test run lost the GPU device, with GPU overlap left on
+8. Odd background on floating text over the character (a Reddit report). Needs an example: where it shows. Its horse name half looks like #271, already fixed here, and our name entry has no letter filter; not tried in play
+9. Some textures missing with the DLC installed: not seen in today's runs with the DLC on, which covered few places. Needs a report of where
+10. Blocky purple or magenta textures on some AMD GPUs: not seen on our RX 9070 XT today. Needs a report of which card and where
 11. Test Cemu save import with a real Cemu save, since people ask. Needs one from the user
 
 ### Medium: an afternoon or so
