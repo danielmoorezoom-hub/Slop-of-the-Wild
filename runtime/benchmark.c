@@ -60,32 +60,62 @@ static void set_env(const char *name, const char *value) {
 
 // ------------------------------------------------------------------ results
 // A line: <date> <time>|<route>|<fps>|<1% low>|<0.1% low>|<worst ms>|<frames>|<finished 0/1>|<the settings>
-const char *benchmark_last(int r) {
-    static char last[ROUTES][96];
+// The latest two finished runs of each route, for the Benchmark page: what changed since the last run.
+typedef struct { char when[32], settings[128]; int fps, low1, low01; } Run;
+static struct { Run cur, prev; bool has_cur, has_prev, failed; char last[96], history[640]; } hist[ROUTES];
+
+static void hist_read(void) {
     static bool read;
-    if (!read) {
-        read = true;
-        FILE *f = fopen(DIR_BENCH "/results.txt", "r");
-        char line[512];
-        while (f && fgets(line, sizeof line, f)) {
-            char *route = strchr(line, '|');
-            if (!route) continue;
-            route++;
-            char *fields = strchr(route, '|');
-            if (!fields) continue;
-            *fields++ = 0;
-            int fps, low1, low01, frames, done;
-            float worst;
-            if (sscanf(fields, "%d|%d|%d|%f|%d|%d", &fps, &low1, &low01, &worst, &frames, &done) != 6) continue;
-            for (int i = 0; i < ROUTES; i++)
-                if (!strcmp(route, routes[i].name)) {
-                    if (done) snprintf(last[i], sizeof last[i], "%d fps, 1%% %d, 0.1%% %d", fps, low1, low01);
-                    else snprintf(last[i], sizeof last[i], "Didn't finish");
-                }
-        }
-        if (f) fclose(f);
+    if (read) return;
+    read = true;
+    FILE *f = fopen(DIR_BENCH "/results.txt", "r");
+    char line[512];
+    while (f && fgets(line, sizeof line, f)) {
+        char *route = strchr(line, '|');
+        if (!route) continue;
+        *route++ = 0;
+        char *fields = strchr(route, '|');
+        if (!fields) continue;
+        *fields++ = 0;
+        Run run = {0};
+        float worst;
+        int frames, done;
+        if (sscanf(fields, "%d|%d|%d|%f|%d|%d", &run.fps, &run.low1, &run.low01, &worst, &frames, &done) != 6) continue;
+        snprintf(run.when, sizeof run.when, "%s", line);
+        char *set = fields;
+        for (int k = 0; k < 6 && set; k++) set = strchr(set + 1, '|');
+        if (set) snprintf(run.settings, sizeof run.settings, "%s", set + 1), run.settings[strcspn(run.settings, "\r\n")] = 0;
+        for (int i = 0; i < ROUTES; i++)
+            if (!strcmp(route, routes[i].name)) {
+                hist[i].failed = !done;
+                if (!done) continue;
+                hist[i].prev = hist[i].cur, hist[i].has_prev = hist[i].has_cur;
+                hist[i].cur = run, hist[i].has_cur = true;
+            }
     }
-    return r >= 0 && r < ROUTES ? last[r] : "";
+    if (f) fclose(f);
+    for (int i = 0; i < ROUTES; i++) {
+        const Run *c = &hist[i].cur, *p = &hist[i].prev;
+        if (hist[i].failed) snprintf(hist[i].last, sizeof hist[i].last, "Didn't finish");
+        else if (hist[i].has_prev) snprintf(hist[i].last, sizeof hist[i].last, "%d fps (%+d), 1%% %d (%+d)", c->fps, c->fps - p->fps, c->low1, c->low1 - p->low1);
+        else if (hist[i].has_cur) snprintf(hist[i].last, sizeof hist[i].last, "%d fps, 1%% %d, 0.1%% %d", c->fps, c->low1, c->low01);
+        if (!hist[i].has_prev) continue;
+        int n = snprintf(hist[i].history, sizeof hist[i].history,
+                         "Latest, %s: %d fps, 1%% %d, 0.1%% %d.\nBefore that, %s: %d fps, 1%% %d, 0.1%% %d.\n", c->when, c->fps, c->low1,
+                         c->low01, p->when, p->fps, p->low1, p->low01);
+        if (!strcmp(c->settings, p->settings)) snprintf(hist[i].history + n, sizeof hist[i].history - n, "Same settings.");
+        else snprintf(hist[i].history + n, sizeof hist[i].history - n, "Settings differed:\nnow %s\nthen %s", c->settings, p->settings);
+    }
+}
+
+const char *benchmark_last(int r) {
+    hist_read();
+    return r >= 0 && r < ROUTES ? hist[r].last : "";
+}
+
+const char *benchmark_history(int r) {
+    hist_read();
+    return r >= 0 && r < ROUTES ? hist[r].history : "";
 }
 
 int benchmark_recommended(void) {

@@ -1528,6 +1528,7 @@ extern "C" void launcher_run(const char *root, int mode) {
                     else d += std::string("\n\n") + tr("Your current settings, with the frame rate limit and VSync off. The game starts, walks "
                               "the route by itself from a copy of your save, and comes back here. Your save isn't touched. "
                               "Run it twice to compare: the first time also compiles shaders.");
+                    if (*benchmark_history(i)) d += std::string("\n\n") + benchmark_history(i);
                     if (!benchmark_can_run()) opt_disable_next();
                     if (opt_action(benchmark_name(i), *benchmark_last(i) ? benchmark_last(i) : tr("Run"), d.c_str(), false)) {
                         settings_save();
