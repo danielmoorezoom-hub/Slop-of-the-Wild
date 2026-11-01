@@ -132,8 +132,11 @@ static bool screen_up(uint32_t id) {
     return arr && *(uint64_t *)(uintptr_t)(arr + 8 * id);
 }
 
-// (screens: 1 the start screen, 0x38 its load and confirmation menus)
-bool framepace_title_ui(void) { return screen_up(1) || screen_up(0x38); }
+// (screens: 1 the start screen, 0x38 its load and confirmation menus; 0x38 can also be used over a paused game)
+bool framepace_title_ui(void) {
+    if (*(uint32_t *)(uintptr_t)PAUSE_STATE) return false;
+    return screen_up(1) || screen_up(0x38);
+}
 bool framepace_title_load_ui(void) { return screen_up(0x38); }
 bool framepace_dlc_ui(void) { return screen_up(0x3f); }  // (test only: hle/test_route.c; the "Downloaded DLC" notice over the start screen)
 

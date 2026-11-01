@@ -63,7 +63,7 @@ extern "C" void menu_request_window_size_apply(void) { g_size_apply_at.store(SDL
 extern "C" bool game_options_input_hold(void);  // game_options.mm: a binding capture from the game's Options screen
 
 struct QEvent {
-    enum { KEY, ANALOG, MOUSE_POS, MOUSE_BUTTON, WHEEL, TEXT } kind;
+    enum { KEY, ANALOG, MOUSE_POS, MOUSE_BUTTON, WHEEL, TEXT, FOCUS } kind;
     ImGuiKey key;
     bool down;
     float value, x, y;
@@ -209,6 +209,14 @@ extern "C" bool menu_cursor_free(void) { return g_cursor_free.load(); }
 
 bool menu_handle_event(const SDL_Event *e) {
     static bool back_down, start_down;
+    if (e->type == SDL_EVENT_WINDOW_FOCUS_LOST || e->type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
+        back_down = start_down = false;
+        QEvent q = {};
+        q.kind = QEvent::FOCUS;
+        q.down = e->type == SDL_EVENT_WINDOW_FOCUS_GAINED;
+        push(q);
+        return false;  // the input runtime also releases its cached controls
+    }
     // a binding capture (Controls tab, or the game's Options screen) takes the press
     if (bind_capture_event(e)) return true;
     if (e->type == SDL_EVENT_KEY_DOWN) g_last_pad = false;
@@ -525,6 +533,7 @@ static void drain_events(ImGuiIO &io) {
         case QEvent::MOUSE_BUTTON: io.AddMouseButtonEvent(q.button, q.down); break;
         case QEvent::WHEEL: io.AddMouseWheelEvent(q.x, q.y); break;
         case QEvent::TEXT: io.AddInputCharactersUTF8(q.text); break;
+        case QEvent::FOCUS: io.AddFocusEvent(q.down); break;
         }
     }
 }
@@ -799,8 +808,8 @@ static void tab_display(void) {
     }
     static const char *const perf_names[] = {"Off", "FPS", "Full"};
     opt_choice("Performance overlay", &g_settings.perf_overlay, perf_names, 3, PERF_OFF,
-               "FPS: the frame rate and frame time. Full: also CPU, memory and GPU load and temperatures, and a "
-               "frame time graph. F10 switches between them while you play.");
+               "FPS: the frame rate and frame time. Full: also CPU, memory and GPU load and temperatures, a "
+               "frame time graph and Link's coordinates. F10 switches between them while you play.");
 
     opt_section("Start");
     opt_toggle("Start at Continue (beta)", &g_settings.auto_continue, false, "Beta, may break things. Goes past the title screen by itself, into your latest save. Press any button to stop it.");
@@ -1233,6 +1242,10 @@ static void perf_overlay_draw(ImGuiIO &io, float scale) {
     }
 #endif
     if (!line.empty()) ImGui::TextDisabled("%s", line.c_str());
+    // Link's coordinates; no line at all while there is no Link or the game is in a scene (title, loading, movie, event).
+    // Axis letters are not translated.
+    float pos[3];
+    if (perfmon_position(pos)) ImGui::Text("X %.1f  Y %.1f  Z %.1f", pos[0], pos[1], pos[2]);
     ImGui::End();
 }
 

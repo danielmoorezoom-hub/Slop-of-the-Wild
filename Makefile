@@ -265,7 +265,7 @@ $(B)/savagewind-config.exe: $(B)/rt/platform/windows_config.o $(B)/rt/platform/w
 	$(CC) -o $@ $^ -fuse-ld=lld -Wl,--subsystem,windows
 
 # Slop of the Wild's own version (VERSION stays Savage Wind's: the game code's id uses it)
-SLOP_VERSION := 0.2.1
+SLOP_VERSION := 0.3
 VERSION  := $(shell sed -n 's/^\#define SAVAGEWIND_VERSION "\(.*\)"/\1/p' runtime/ui/launcher.mm)
 
 # macOS: build/Savage Wind.app, runs on macOS $(APP_MIN)+: the game rebuilt for that in build/mac15 against build/deps
@@ -427,6 +427,17 @@ test-vibration: $(B)/test_vibration
 
 .PHONY: test-vibration
 
+# The input test includes input.c; discard its unused HLE functions and their runtime dependencies.
+$(B)/test_input_focus: tools/test_input_focus.c runtime/hle/input.c $(RT_HDRS)
+	@mkdir -p $(B)
+	$(CC) -O1 -ffunction-sections -fdata-sections $(OSFLAGS) $(DEPINC) -Iruntime -o $@ tools/test_input_focus.c \
+	    $(if $(filter macos,$(PLATFORM)),-Wl$(comma)-dead_strip,-Wl$(comma)--gc-sections) \
+	    $(if $(filter macos,$(PLATFORM)),-L$(SDL)/lib,$(if $(DEPS),-L$(DEPS)/lib)) -lSDL3 -lm
+
+test-input-focus: $(B)/test_input_focus
+	$(B)/test_input_focus
+
+.PHONY: test-input-focus
 
 # The Wii U / Cemu save importer against tools/botw_save_convert.py: both convert synthetic saves and every output file
 # is compared (no game files needed). With your own: python3 tools/test_save_convert.py --src <profile> --bootup <pack>
@@ -438,3 +449,19 @@ test-save-convert: $(B)/test_save_convert
 	python3 tools/test_save_convert.py --exe $(B)/test_save_convert
 
 .PHONY: test-save-convert
+
+$(B)/test_game_file_size: tools/test_game_file_size.c runtime/game_file_size.c runtime/game_file_size.h runtime/game_files.h
+	@mkdir -p $(B)
+	$(CC) -O1 -Wall $(OSFLAGS) -Iruntime -o $@ tools/test_game_file_size.c runtime/game_file_size.c
+
+test-game-file-size: $(B)/test_game_file_size
+	$(B)/test_game_file_size
+
+$(B)/test_file_size_cache: tools/test_file_size_cache.cpp runtime/ui/file_size_cache.mm runtime/ui/file_size_cache.h runtime/game_file_size.h
+	@mkdir -p $(B)
+	$(CXX) -O1 -Wall -std=c++17 $(OSFLAGS) -Iruntime -o $@ tools/test_file_size_cache.cpp -lpthread
+
+test-file-size-cache: $(B)/test_file_size_cache
+	$(B)/test_file_size_cache
+
+.PHONY: test-game-file-size test-file-size-cache

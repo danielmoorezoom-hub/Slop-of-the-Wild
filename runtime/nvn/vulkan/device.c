@@ -1583,6 +1583,87 @@ void *vk_frame_cmd(void) {  // (the start screen's ImGui records into it itself:
     return (void *)cb;
 }
 
+// SAVAGEWIND_FRAME_RECORD=<file> (tests; route step `record 1`/`record 0`): every frame as presented, half size, for finding
+// a fault that lasts one frame. A flash can depend on the GPU overlapping the CPU, so the game never waits for a frame's
+// copy unless all the slots are taken (counted in the log). File: u32 width, height; then per frame u32 present count, RGB.
+#define FRAME_REC_SLOTS 8
+static struct { VkBuffer buf; VmaAllocation mem; uint8_t *ptr; uint64_t seq, count; _Atomic int state; } frame_rec[FRAME_REC_SLOTS];  // state: 0 free, 1 copying, 2 ready
+static FILE *frame_rec_file;
+static uint32_t frame_rec_w, frame_rec_h;
+static _Atomic bool frame_rec_on;
+static unsigned frame_rec_next;
+static uint64_t frame_rec_stalls, frame_rec_frames;
+void frame_record_set(bool on) { frame_rec_on = on; LOG("[record] %s, %llu frames so far, %llu waits\n", on ? "on" : "off", (unsigned long long)frame_rec_frames, (unsigned long long)frame_rec_stalls); if (!on && frame_rec_file) fflush(frame_rec_file); }
+static void *frame_rec_thread(void *arg) {
+    (void)arg;
+    bool bgr = g_vk.sc_format == VK_FORMAT_B8G8R8A8_UNORM || g_vk.sc_format == VK_FORMAT_B8G8R8A8_SRGB;
+    uint32_t w = frame_rec_w, h = frame_rec_h, ow = w / 2, oh = h / 2;
+    uint8_t *line = malloc((size_t)ow * oh * 3);
+    for (unsigned i = 0;; i = (i + 1) % FRAME_REC_SLOTS) {
+        while (atomic_load(&frame_rec[i].state) != 2) SDL_Delay(1);
+        vmaInvalidateAllocation(g_vk.vma, frame_rec[i].mem, 0, VK_WHOLE_SIZE);
+        const uint8_t *px = frame_rec[i].ptr;
+        for (uint32_t y = 0; y < oh; y++) {
+            const uint8_t *a = px + (size_t)y * 2 * w * 4, *b = a + w * 4;
+            uint8_t *o = line + (size_t)y * ow * 3;
+            for (uint32_t x = 0; x < ow; x++, a += 8, b += 8, o += 3) {
+                int c0 = (a[0] + a[4] + b[0] + b[4] + 2) >> 2, c1 = (a[1] + a[5] + b[1] + b[5] + 2) >> 2, c2 = (a[2] + a[6] + b[2] + b[6] + 2) >> 2;
+                o[0] = (uint8_t)(bgr ? c2 : c0), o[1] = (uint8_t)c1, o[2] = (uint8_t)(bgr ? c0 : c2);
+            }
+        }
+        uint32_t n = (uint32_t)frame_rec[i].count;
+        fwrite(&n, 4, 1, frame_rec_file);
+        fwrite(line, 3, (size_t)ow * oh, frame_rec_file);
+        atomic_store(&frame_rec[i].state, 0);
+    }
+    return NULL;
+}
+static void frame_rec_copy(VkCommandBuffer cb, uint64_t seq, uint64_t count) {
+    static bool failed;
+    uint32_t w = g_vk.sc_extent.width, h = g_vk.sc_extent.height;
+    // (SAVAGEWIND_FRAME_RECORD_ALL=1: no route needed, so a controller can play. After 15 s: the window has its final size.)
+    if (count == 900 && getenv("SAVAGEWIND_FRAME_RECORD_ALL")) frame_rec_on = true;
+    if (failed || !atomic_load(&frame_rec_on)) return;
+    if (!frame_rec_file) {
+        frame_rec_file = fopen(getenv("SAVAGEWIND_FRAME_RECORD"), "wb");
+        if (!frame_rec_file) { failed = true; LOG("[record] can't open the file\n"); return; }
+        setvbuf(frame_rec_file, NULL, _IOFBF, 16 << 20);
+        frame_rec_w = w, frame_rec_h = h;
+        uint32_t wh[2] = {w / 2, h / 2};
+        fwrite(wh, 4, 2, frame_rec_file);
+        for (int i = 0; i < FRAME_REC_SLOTS; i++) {
+            VkBufferCreateInfo bi = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, .size = (uint64_t)w * h * 4, .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT};
+            VmaAllocationCreateInfo ai = {.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST, .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT};
+            VmaAllocationInfo info;
+            VK_CHECK(vmaCreateBuffer(g_vk.vma, &bi, &ai, &frame_rec[i].buf, &frame_rec[i].mem, &info));
+            frame_rec[i].ptr = info.pMappedData;
+        }
+        pthread_t t;
+        pthread_create(&t, NULL, frame_rec_thread, NULL);
+        pthread_detach(t);
+        LOG("[record] %ux%u to %ux%u\n", w, h, w / 2, h / 2);
+    }
+    if (w != frame_rec_w || h != frame_rec_h) return;
+    // Copies the GPU has finished go to the writer, oldest first.
+    uint64_t done = vk_completed_seq();
+    for (int i = 0; i < FRAME_REC_SLOTS; i++)
+        if (atomic_load(&frame_rec[i].state) == 1 && frame_rec[i].seq <= done) atomic_store(&frame_rec[i].state, 2);
+    unsigned i = frame_rec_next;
+    if (atomic_load(&frame_rec[i].state)) {
+        frame_rec_stalls++;
+        if (atomic_load(&frame_rec[i].state) == 1) { vk_wait_seq(frame_rec[i].seq); atomic_store(&frame_rec[i].state, 2); }
+        while (atomic_load(&frame_rec[i].state)) SDL_Delay(1);
+    }
+    frame_rec_next = (i + 1) % FRAME_REC_SLOTS;
+    frame_rec[i].seq = seq, frame_rec[i].count = count;
+    image_barrier(cb, g_vk.sc_images[cur_frame.image], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    VkBufferImageCopy rg = {.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, .imageExtent = {w, h, 1}};
+    rec_CmdCopyImageToBuffer(cb, g_vk.sc_images[cur_frame.image], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, frame_rec[i].buf, 1, &rg);
+    image_barrier(cb, g_vk.sc_images[cur_frame.image], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    atomic_store(&frame_rec[i].state, 1);
+    frame_rec_frames++;
+}
+
 static void save_window_image(VkCommandBuffer cb, VkSpan *out) {
     uint32_t w = g_vk.sc_extent.width, h = g_vk.sc_extent.height;
     *out = vk_readback((uint64_t)w * h * 4);
@@ -1600,6 +1681,8 @@ void vk_frame_end(const char *shot_path) {
     rec_CmdEndRendering(cb);
     VkSpan shot = {0};
     if (shot_path) save_window_image(cb, &shot);
+    static uint64_t rec_count;
+    if (getenv("SAVAGEWIND_FRAME_RECORD")) frame_rec_copy(cb, vk_pending_seq(), rec_count++);
     if (g_hdr) hdr_write(cb, cur_frame.image);
     else image_barrier(cb, g_vk.sc_images[cur_frame.image], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
     uint32_t img = cur_frame.image;
@@ -2200,6 +2283,7 @@ static void window_event_log(const SDL_Event *e) {
 int ui_run(void) {
     ui_window_init();
     ui_window_show();  // (no start screen before this)
+    input_focus_update(window);
     atomic_store(&ui_ready, true);
     for (;;) {
         if (rt_reboot_requested()) return rt_reboot_requested();  // (runtime/main.c tears the game down)
@@ -2214,6 +2298,7 @@ int ui_run(void) {
                 exit(0);
             }
             window_event_log(&e);
+            if (input_user_blocked(&e)) continue;
             if (menu_handle_event(&e)) continue;
             input_handle_event(&e);
         }
