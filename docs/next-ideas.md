@@ -9,10 +9,10 @@ The current tasks and the ideas together, easiest to hardest, as of 2026-11-01. 
 
 ### Easy: an hour or two
 
-3. Test Cheats > Weather: the arrows, No rain, No thunderstorms, and snow in a cold area
+3. Weather: try snow in a cold area in play. The arrows work, and No rain and No thunderstorms step in when tested
 4. Play-test the ported fixes: moving platforms, shield surf, the Kohga freeze
 5. Alpha 4.1's mouse fixes (controller map, quick selector, Game Over mouse): they sit on upstream's newer mouse code, so this means updating ours first (a medium job). Its pointer crash fix isn't needed: ours drains the recorder before every overlay
-6. Check the six items from 0aa6f04 one by one: wide pause menu, map stretching, start screen freeze, Alt-Tab controller, unbound arrow keys, overlay coordinates
+6. Port the six items from 0aa6f04, all checked as missing here: wide pause menu, map stretching, start screen freeze, Alt-Tab controller, unbound arrow keys, overlay coordinates. Together a medium job (46 files upstream, with monitor choice)
 7. Map panning off its lower edge (#319)
 8. Linux overlay reads the GPU that renders (#315), only once there is a Linux build
 9. Benchmark history: show the change since the last run
