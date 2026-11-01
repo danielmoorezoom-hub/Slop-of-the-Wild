@@ -207,7 +207,7 @@ void test_route_frame(int32_t *lx, int32_t *ly, int32_t *rx, int32_t *ry, uint32
             else step_t0 += now - paused_from, best_t = now;
         }
         if (ev) {
-            if (now % SECONDS < SECONDS / 10) *pad |= button("east");
+            if (now % SECONDS < SECONDS / 10 && !getenv("SAVAGEWIND_ROUTE_NO_SKIP")) *pad |= button("east");
             return;
         }
     }

@@ -45,6 +45,8 @@ enum { HDR_AUTO = 0, HDR_ON = 1, HDR_OFF = 2, HDR_COUNT };
 // Video > Graphics preset: sets anti-aliasing, texture filtering, render scale and shadow resolution together. Nothing else,
 // and never the beta options. settings_preset_current: the one the settings match, or GRAPHICS_PRESET_COUNT (Custom).
 enum { GRAPHICS_PRESET_POTATO, GRAPHICS_PRESET_LOW, GRAPHICS_PRESET_MEDIUM, GRAPHICS_PRESET_HIGH, GRAPHICS_PRESET_COUNT };
+enum { FSMODE_AUTO = 0, FSMODE_BORDERLESS = 1, FSMODE_EXCLUSIVE = 2, FSMODE_COUNT };
+
 typedef struct {
     bool fullscreen;
     int window_w, window_h;  // Video > Window size, pixels (0: not chosen; runtime/window_size.c)
@@ -56,6 +58,14 @@ typedef struct {
     bool lod_extended;   // Draw Distance > Extended draw distance: the sliders below apply (off: the game's own)
     bool cheat_health, cheat_stamina, cheat_arrows, cheat_weapons, cheat_rupees;  // Cheats (runtime/cheats.c)
     int weapon_wear;     // Cheats > Weapon wear: how fast weapons lose durability, percent of the game's: 10..300
+    // Video > Fullscreen mode (runtime/window_size.c winsize_apply): Automatic is borderless at the desktop's size and the
+    // display's own mode at any other size it has; Borderless never changes the display's mode (another size is scaled to
+    // the screen); Exclusive always uses a display mode (the desktop's size too, at its highest refresh rate)
+    int fullscreen_mode;     // FSMODE_*
+    // Video > Monitor (runtime/window_size.c): 0 the window's own (where it is; the primary display at start), n the
+    // n-th display connected; display_name is its name, which finds it again when the displays come in another order
+    int display;
+    char display_name[64];
     int weather;         // Cheats > Weather: 0 the game's, 1 no rain, 2 no thunderstorms, 3.. the game's weather type + 3, held (services/test_warp.c)
     bool wet_fix;        // Video > Wet grass fix (nvn/vulkan/spirv.c)
     bool cheat_onehit;   // Cheats > One-hit kills

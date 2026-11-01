@@ -71,6 +71,7 @@ Settings g_settings = {
 
 static const char *const k_vsync[VSYNC_COUNT] = {"on", "fast", "adaptive", "off"};  // (VSYNC_*: the ini's words)
 static const char *const k_weather[12] = {"game", "no_rain", "no_storms", "clear", "cloudy", "rain", "heavy_rain", "snow", "heavy_snow", "thunderstorm", "thunder_rain", "sun_shower"};
+static const char *const k_fsmode[FSMODE_COUNT] = {"auto", "borderless", "exclusive"};  // (FSMODE_*)
 static const char *const k_hdr[HDR_COUNT] = {"auto", "on", "off"};             // (HDR_*)
 
 // settings_version 2 (2026-10-19): the upscaler's mode, the window size and the 300% mouse default. Older files: their
@@ -151,6 +152,18 @@ void settings_load(void) {
         else if (!strcmp(key, "lod_extended")) g_settings.lod_extended = atoi(val) != 0;
         else if (!strcmp(key, "cheat_onehit")) g_settings.cheat_onehit = atoi(val) != 0;
         else if (!strcmp(key, "wet_fix")) g_settings.wet_fix = atoi(val) != 0;
+        else if (!strcmp(key, "fullscreen_mode")) {
+            for (int i = 0; i < FSMODE_COUNT; i++)
+                if (!strcmp(val, k_fsmode[i])) g_settings.fullscreen_mode = i;
+        }
+        else if (!strcmp(key, "display")) {  // (auto, or "<n> <name>": the n-th display, named so)
+            int n = 0, at = 0;
+            g_settings.display = 0, g_settings.display_name[0] = 0;
+            if (strcmp(val, "auto") && sscanf(val, "%d %n", &n, &at) >= 1 && n >= 1 && n <= 16) {
+                g_settings.display = n;
+                snprintf(g_settings.display_name, sizeof g_settings.display_name, "%s", at ? val + at : "");
+            }
+        }
         else if (!strcmp(key, "weather")) {
             g_settings.weather = 0;
             for (int i = 0; i < 12; i++)
@@ -357,6 +370,10 @@ void settings_save(void) {
     fprintf(f, "cheat_health = %d\ncheat_stamina = %d\ncheat_arrows = %d\ncheat_weapons = %d\n", g_settings.cheat_health,
             g_settings.cheat_stamina, g_settings.cheat_arrows, g_settings.cheat_weapons);
     fprintf(f, "wet_fix = %d\n", g_settings.wet_fix);
+    int fm = g_settings.fullscreen_mode;
+    fprintf(f, "fullscreen_mode = %s\n", k_fsmode[fm >= 0 && fm < FSMODE_COUNT ? fm : FSMODE_AUTO]);
+    if (g_settings.display > 0) fprintf(f, "display = %d %s\n", g_settings.display, g_settings.display_name);
+    else fprintf(f, "display = auto\n");
     fprintf(f, "weather = %s\n", k_weather[g_settings.weather >= 0 && g_settings.weather < 12 ? g_settings.weather : 0]);
     fprintf(f, "auto_continue = %d\ndamage_taken = %d\ncheat_onehit = %d\ndamage_dealt = %d\n", g_settings.auto_continue, g_settings.damage_taken, g_settings.cheat_onehit, g_settings.damage_dealt);
     fprintf(f, "cheat_rupees = %d\nweapon_wear = %d\nsave_backups = %d\n", g_settings.cheat_rupees, g_settings.weapon_wear, g_settings.save_backups);

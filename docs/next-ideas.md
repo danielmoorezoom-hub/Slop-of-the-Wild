@@ -20,55 +20,53 @@ The current tasks and the ideas together, easiest to hardest, as of 2026-11-01. 
 ### Medium: an afternoon or so
 
 10. Test Alpha 3, then find and port what brings back the time and weather tile
-11. Garbled Game Over title: retest with the text fix on, then look into it if it's still there
-12. OBS Game Capture black frames, and frames on the game's own queue (#293)
-13. Cheaper write watch (f1f2d28), which may help the 35 to 47 ms slow lists
-14. Monitor and fullscreen mode choices (#245)
-15. Hitch log for players: the overlay names what caused the last long frame
-16. Video > Haze: less of the milky veil over distances (their PR #317)
-17. Frame rates above 240 fps, and the game's clock limit that goes with them (their PR #323)
-18. Frame recorder, then use it on the shadow flashes and Link's glitch, trying GPU overlap off first
-19. Grass shimmer and artifacts in sunlight, now that the weather can be held
-20. Better horse steering on keyboard (#290, their open #343 may do it)
-21. Unskippable text
-22. Item spawner, from what `promosave.py` learned. First find which item sets off cutscene Demo200_0
-23. Draw distance by area: less Object distance in dense places
-24. Sharper text: the game's bitmap fonts enlarged (their PR #325)
-25. Choose the order of the HUD's button prompts (#321)
+11. OBS Game Capture black frames, and frames on the game's own queue (#293)
+12. Cheaper write watch (f1f2d28), which may help the 35 to 47 ms slow lists
+13. Hitch log for players: the overlay names what caused the last long frame
+14. Video > Haze: less of the milky veil over distances (their PR #317)
+15. Frame rates above 240 fps, and the game's clock limit that goes with them (their PR #323)
+16. Frame recorder, then use it on the shadow flashes and Link's glitch, trying GPU overlap off first
+17. Grass shimmer and artifacts in sunlight, now that the weather can be held
+18. Better horse steering on keyboard (#290, their open #343 may do it)
+19. Unskippable text
+20. Item spawner, from what `promosave.py` learned. First find which item sets off cutscene Demo200_0
+21. Draw distance by area: less Object distance in dense places
+22. Sharper text: the game's bitmap fonts enlarged (their PR #325)
+23. Choose the order of the HUD's button prompts (#321)
 
 ### Harder: a day or more
 
-26. In-game console and control commands (#284-286, 24 files conflict), then Link's position in the log (752d72f)
-27. Geometry copy for 4-6 GB cards (f1f2d28)
-28. Teleport bookmarks inside shrines
-29. Fast travel to any map marker
-30. Per-action remapping (#180, their draft #329)
-31. Gyro on ROG Ally X (#221): needs the hardware
-32. Depth of field in photo mode
-33. Effects on and off, one at a time, including the three grass layers
-34. Accessibility and assists: text size, colour-blind filters, toggles for held buttons
-35. Profiler you can turn on while playing (#309)
-36. NaN-aware min/max in shaders (#153), which may fix some rendering glitches
-37. Less guest memory kept committed
-38. Skip shadow draws that don't matter (risks shadow flicker)
-39. Read ahead for the next area
-40. 16:10 screens (#303), older Vulkan (#250), sparse heap (#197), how shadows look on Intel (#300): each needs hardware we don't have
+24. In-game console and control commands (#284-286, 24 files conflict), then Link's position in the log (752d72f)
+25. Geometry copy for 4-6 GB cards (f1f2d28)
+26. Teleport bookmarks inside shrines
+27. Fast travel to any map marker
+28. Per-action remapping (#180, their draft #329)
+29. Gyro on ROG Ally X (#221): needs the hardware
+30. Depth of field in photo mode
+31. Effects on and off, one at a time, including the three grass layers
+32. Accessibility and assists: text size, colour-blind filters, toggles for held buttons
+33. Profiler you can turn on while playing (#309)
+34. NaN-aware min/max in shaders (#153), which may fix some rendering glitches
+35. Less guest memory kept committed
+36. Skip shadow draws that don't matter (risks shadow flicker)
+37. Read ahead for the next area
+38. 16:10 screens (#303), older Vulkan (#250), sparse heap (#197), how shadows look on Intel (#300): each needs hardware we don't have
 
 ### Hard: days to weeks, and may not work
 
-41. Linux build (Ubuntu, Arch)
-42. Port Cemu's shadow draw distance and reflection packs
-43. Fix or upgrade textures that don't scale, like the menu UI
-44. Raise detail on flowers, far trees and textures, and fix the grass edges
-45. Friendlier setup and launcher explanations for anyone
-46. amiibo rewards without figures
-47. XeSS and DLSS (vendor SDKs; their #111 for DLSS)
-48. Steam Deck gyro through DSU (#281), which needs the Linux build first
-49. Smarter CPU core placement, untested on other CPUs: needs other PCs
-50. Parallel draw translation, the riskiest item
-51. Randomizer
-52. Online (their #294)
-53. macOS
+39. Linux build (Ubuntu, Arch)
+40. Port Cemu's shadow draw distance and reflection packs
+41. Fix or upgrade textures that don't scale, like the menu UI
+42. Raise detail on flowers, far trees and textures, and fix the grass edges
+43. Friendlier setup and launcher explanations for anyone
+44. amiibo rewards without figures
+45. XeSS and DLSS (vendor SDKs; their #111 for DLSS)
+46. Steam Deck gyro through DSU (#281), which needs the Linux build first
+47. Smarter CPU core placement, untested on other CPUs: needs other PCs
+48. Parallel draw translation, the riskiest item
+49. Randomizer
+50. Online (their #294)
+51. macOS
 
 **Done from the top of this list, 2026-11-01:** the update flow starting the downloaded installer (stopped at its first page, not run through); benchmark history; Savage Wind's AMD fix (#341) with the text fix back on; the white grass fix matching the game's code; the log's first line; the install folder check (already there); the stale shader notice; the feature requests, added above; the colour shot; the first-run popup removed.
 
@@ -205,10 +203,6 @@ An estimate before reading the code each needs. Speed items are theories: each g
 Tagged (beta) in the menus, with a warning that they may break things: the white grass fix (Video > Wet grass fix; matched by the game code's hash), Cheats and every row on it including Weather, Profiles, Teleport, Start at Continue, Photo mode, AMD FSR 4, the mouse pointer and bow aiming, the Confirm button, and download and install. The distance sliders and the controller camera speed were tagged already.
 
 Not tagged because they have no row of their own: the Alpha 4 gameplay fixes (moving platforms, shield surf, the Kohga freeze), not tried in play.
-
-## Known bug: garbled Game Over title
-
-Seen in play on 2026-11-01: the screen with Continue and Quit after dying read "ME HORWE" in red instead of the game's title, with a red smear to its left. Not looked into. One thing to check first: Alpha 4's fix for letters jumping above 60 fps (#263) is off on AMD's Windows driver here, and this may be the same text problem.
 
 ## Known bug: no time and weather tile
 
