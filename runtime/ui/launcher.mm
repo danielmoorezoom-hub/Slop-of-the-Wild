@@ -782,45 +782,6 @@ void menu_tabs_focus(bool first_tab);
 extern int g_tab_request_ext;
 extern "C" void menu_apply_window_requests(void *sdl_window);
 
-// The first PLAY ever (settings.menu_tip_seen): a note on where the settings are in game (the game's own Options
-// screen, runtime/ui/game_options.mm), OK starts the game. Returns true once OK is pressed.
-static bool g_tip_test;  // (SAVAGEWIND_LAUNCHER_SHOT=<frame>:tip)
-static bool menu_tip(float s) {
-    bool go = false;
-    ImVec2 ds = ImGui::GetIO().DisplaySize;
-    ImGui::SetNextWindowPos(ImVec2(ds.x * 0.5f, ds.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(fminf(ds.x * 0.8f, 760 * s), 0));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(36 * s, 28 * s));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 16 * s);
-    ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0.05f, 0.10f, 0.085f, 0.98f));
-    bool open = ImGui::BeginPopupModal("##menutip", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-                                       ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize);
-    ImGui::PopStyleColor();
-    ImGui::PopStyleVar(2);
-    if (open) {
-        ImGui::SetWindowFontScale(1.25f);
-        ImGui::PushTextWrapPos(0);
-        ImGui::TextUnformatted(tr("Savage Wind's video, audio and controls settings are in the game's own Options."));
-        ImGui::Spacing();
-        ImGui::TextUnformatted(tr(pc_cursor_enabled()
-            ? "Open them from the title screen, or pause the game and choose System > Options. Esc opens pause or goes back. F2 frees the mouse cursor."
-            : "Open them from the title screen, or pause the game and choose System > Options. Esc frees the mouse cursor."));
-        ImGui::PopTextWrapPos();
-        ImGui::Dummy(ImVec2(0, 14 * s));
-        ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 180 * s) * 0.5f);
-        ImGui::SetItemDefaultFocus();
-        if (ImGui::Button(tr("OK"), ImVec2(180 * s, 44 * s)) || ImGui::IsKeyPressed(ImGuiKey_Enter) ||
-            ImGui::IsKeyPressed(ImGuiKey_GamepadFaceDown)) {
-            g_settings.menu_tip_seen = true;
-            settings_save();
-            ImGui::CloseCurrentPopup();
-            go = true;
-        }
-        ImGui::EndPopup();
-    }
-    return go;
-}
-
 // Start-screen text: a soft drop shadow, then the text with a top-to-bottom colour gradient (top == bottom: flat)
 static void text_fx(ImDrawList *dl, ImFont *font, float size, ImVec2 p, ImU32 top, ImU32 bottom, const char *t,
                     float shadow) {
@@ -1328,7 +1289,6 @@ extern "C" void launcher_run(const char *root, int mode) {
         }
         if (pg && !strncmp(pg + 1, "settings", 8) && pg[9] == ':') g_tab_request_ext = atoi(pg + 10);  // settings:<tab>
         if (pg && !strcmp(pg + 1, "delete")) page = SETUP, g_confirm_delete = true;
-        if (pg && !strcmp(pg + 1, "tip")) g_settings.menu_tip_seen = false, g_tip_test = true;
     }
     // SAVAGEWIND_SETUP_FROM=<folder> (test): the game files page, set up from that folder at once (as choosing it and Set up)
     if (const char *from = getenv("SAVAGEWIND_SETUP_FROM")) {
@@ -1474,11 +1434,7 @@ extern "C" void launcher_run(const char *root, int mode) {
                 next_item();
                 static bool focused_once;
                 if (!focused_once) { ImGui::SetKeyboardFocusHere(); focused_once = true; }
-                // first PLAY ever: how to reach our menu, then the game
-                if (menu_item("PLAY", status.empty(), true)) {
-                    if (!g_settings.menu_tip_seen) ImGui::OpenPopup("##menutip");
-                    else play = true;
-                }
+                if (menu_item("PLAY", status.empty(), true)) play = true;
                 next_item();
                 if (g_refocus == BENCH) ImGui::SetKeyboardFocusHere(), g_refocus = MAIN;
                 if (menu_item("BENCHMARK", status.empty() && !busy)) page = BENCH;
@@ -1905,9 +1861,7 @@ extern "C" void launcher_run(const char *root, int mode) {
 
             // the first start's note on where the settings are: after PLAY, or in setup mode once the game files are
             // ready; OK starts the game
-            if (g_tip_test) ImGui::OpenPopup("##menutip"), g_tip_test = false;
-            if (tip_then_play) ImGui::OpenPopup("##menutip"), tip_then_play = false;
-            if (menu_tip(s)) play = true;
+            if (tip_then_play) play = true, tip_then_play = false;
 
             // status (lower left, main page) and version (lower right) - not under the Settings window
             if (page != SETTINGS) {
