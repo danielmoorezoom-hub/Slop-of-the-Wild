@@ -5,6 +5,7 @@
 #ifdef __APPLE__
 #import <Metal/Metal.h>
 #endif
+#include <ctype.h>
 #include <SDL3/SDL.h>
 #include <float.h>
 #include <math.h>
@@ -1037,6 +1038,89 @@ static void tab_cheats(void) {
     opt_end();
 }
 
+
+// Items: adds items to Link's pouch through the game's own pick-up call (runtime/spawner.c). In game, 1.9.0 only.
+extern "C" {
+int spawner_available(void);
+const char *spawner_status(void);
+int spawner_request(const char *name, int value, int count, int stack);
+}
+namespace {
+struct SpawnItem { const char *id, *name; int cat, life; };
+const SpawnItem kSpawnItems[] = {
+#include "spawner_items.inc"
+};
+bool ci_contains(const char *hay, const char *needle) {
+    if (!*needle) return true;
+    for (; *hay; hay++) {
+        const char *h = hay, *n = needle;
+        while (*h && *n && tolower((unsigned char)*h) == tolower((unsigned char)*n)) h++, n++;
+        if (!*n) return true;
+    }
+    return false;
+}
+}  // namespace
+
+static void tab_items(void) {
+    opt_begin("##items", ImGui::GetFontSize() / 34);
+    if (!spawner_available()) {
+        opt_section("Items (beta)");
+        opt_disable_next();
+        opt_action("Add items", "", "The item spawner needs game version 1.9.0.", false);
+        opt_end();
+        return;
+    }
+    static char query[64];
+    static int cat = 0;
+    static float amount = 1;
+    static const char *cats[] = {"All", "Weapons", "Bows", "Arrows", "Shields", "Armour", "Materials", "Food", "Key items"};
+    opt_section("Add items (beta): may break things");
+    opt_text("Search", query, sizeof query, "Type part of a name",
+             "Type part of an item's name, like \"lynel\" or \"apple\", or its ID, like Weapon_Sword_070.");
+    opt_choice("Category", &cat, cats, 9, 0, "Shows only one kind of item.");
+    opt_slider("Amount", &amount, 1, 999, 1, 1, "%g",
+               "How many to add. Things that stack (materials, food, arrows) go into one slot, up to 999. Weapons, bows, "
+               "shields and armour take a slot each, up to 20 at a time.");
+    if (const char *st = spawner_status(); st && *st) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.75f, 0.88f, 0.33f, 1));
+        ImGui::TextWrapped("%s", st);
+        ImGui::PopStyleColor();
+    }
+    static const char *catname[] = {"Weapon", "Bow", "Arrows", "Shield", "Armour", "Material", "Food", "Key item"};
+    opt_section("Items: select one to add it");
+    int shown = 0, total = 0;
+    const int limit = 80;
+    for (int i = 0; i < (int)(sizeof kSpawnItems / sizeof kSpawnItems[0]); i++) {
+        const SpawnItem &it = kSpawnItems[i];
+        if (cat && it.cat != cat - 1) continue;
+        if (!ci_contains(it.name, query) && !ci_contains(it.id, query)) continue;
+        total++;
+        if (shown >= limit) continue;
+        shown++;
+        bool gear = it.cat == 0 || it.cat == 1 || it.cat == 3;
+        bool stack = it.cat == 2 || it.cat == 5 || it.cat == 6;  // (the game stacks these; key items it decides itself)
+        char desc[200];
+        snprintf(desc, sizeof desc, "%s  (%s)%s", it.id, catname[it.cat],
+                 gear ? "  Full durability." : it.cat == 6 && !strncmp(it.id, "Item_Cook", 9) ? "  Cooked dishes come without their effects." : "");
+        ImGui::PushID(i);
+        if (opt_action(it.name, catname[it.cat], desc, false)) {
+            int n = (int)amount;
+            if (!stack && n > 20) n = 20;
+            int value = gear ? (it.life > 0 ? it.life : 10) * 100 : it.cat == 4 ? 0 : n;
+            spawner_request(it.id, value, it.cat == 7 ? 1 : n, stack || it.cat == 7);
+        }
+        ImGui::PopID();
+    }
+    if (total > shown) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 0.7f, 1));
+        ImGui::TextWrapped("Showing %d of %d. Type more of a name to narrow it down.", shown, total);
+        ImGui::PopStyleColor();
+    } else if (!total) {
+        ImGui::TextWrapped("No items match.");
+    }
+    opt_end();
+}
+
 static void tab_teleport(void) {
     opt_begin("##teleport", ImGui::GetFontSize() / 34);
     static const char *const go = "The game restarts: press Continue and you land there, from your last save. Unsaved progress is lost.";
@@ -1420,15 +1504,16 @@ extern "C" int menu_keyboard_run(const char *initial, int max_len, char *out, in
 static void tabs_body(float scale, bool in_game, void (*prelaunch)(float)) {
     // (id: the page; -1 = Prelaunch)
     struct Tab { const char *name; int id; bool on; };
-    Tab tabs[11];
+    Tab tabs[12];
     int ntabs = 0;
     if (prelaunch) tabs[ntabs++] = {"Prelaunch", -1, true};
-    static const char *names[] = {"Video", "Audio", "Language", "Draw Distance", "Cheats", "Saves", "Achievements", "Teleport", "Controls", "Quit"};
-    static const int order[] = {8, 0, 3, 1, 2, 5, 6, 4, 7, 9};  // Controls, Video, Draw Distance, Audio, Language, Saves, Achievements, Cheats, Teleport, Quit
+    static const char *names[] = {"Video", "Audio", "Language", "Draw Distance", "Cheats", "Saves", "Achievements", "Teleport", "Controls", "Quit", "Items"};
+    static const int order[] = {8, 0, 3, 1, 2, 5, 6, 4, 10, 7, 9};  // Controls, Video, Draw Distance, Audio, Language, Saves, Achievements, Cheats, Teleport, Quit
     for (int i : order) {  // (Quit: in game only - the start screen has its own QUIT; Saves: on the start screen only
         if (i == 9 && prelaunch) continue;  //  the game must not be running while its saves change)
         if (i == 5 && !prelaunch) continue;
         if (i == 7 && prelaunch) continue;  // (Teleport: in game only)
+        if (i == 10 && prelaunch) continue;  // (Items: in game only)
         tabs[ntabs++] = {names[i], i, true};
     }
     int cur = 0;  // g_tab / g_tab_request hold ids
@@ -1513,6 +1598,7 @@ static void tabs_body(float scale, bool in_game, void (*prelaunch)(float)) {
                 case 5: saves_tab_draw(); break;
                 case 6: ach_ui_tab(); break;
                 case 7: tab_teleport(); break;
+                case 10: tab_items(); break;
                 case 8: tab_about(); break;
                 case 9: tab_quit(scale, in_game); break;
                 }
