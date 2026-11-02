@@ -1046,7 +1046,7 @@ const char *spawner_status(void);
 int spawner_request(const char *name, int value, int count, int stack);
 }
 namespace {
-struct SpawnItem { const char *id, *name; int cat, life; };
+struct SpawnItem { const char *id, *name; int cat, life, odd; };
 const SpawnItem kSpawnItems[] = {
 #include "spawner_items.inc"
 };
@@ -1073,11 +1073,12 @@ static void tab_items(void) {
     static char query[64];
     static int cat = 0;
     static float amount = 1;
-    static const char *cats[] = {"All", "Weapons", "Bows", "Arrows", "Shields", "Armour", "Materials", "Food", "Key items"};
+    static const char *cats[] = {"All", "Weapons", "Bows", "Arrows", "Shields", "Armour", "Materials", "Food", "Key items",
+                                  "Unobtainable (may crash)"};
     opt_section("Add items (beta): may break things");
     opt_text("Search", query, sizeof query, "Type part of a name",
              "Type part of an item's name, like \"lynel\" or \"apple\", or its ID, like Weapon_Sword_070.");
-    opt_choice("Category", &cat, cats, 9, 0, "Shows only one kind of item.");
+    opt_choice("Category", &cat, cats, 10, 0, "Shows only one kind of item. Unobtainable: things the game never lets you carry (NPC tools, boss weapons, unused gear). They need the Unobtainable items mod and may crash the game when equipped, dropped or shown.");
     opt_slider("Amount", &amount, 1, 999, 1, 1, "%g",
                "How many to add. Things that stack (materials, food, arrows) go into one slot, up to 999. Weapons, bows, "
                "shields and armour take a slot each, up to 20 at a time.");
@@ -1092,18 +1093,24 @@ static void tab_items(void) {
     const int limit = 80;
     for (int i = 0; i < (int)(sizeof kSpawnItems / sizeof kSpawnItems[0]); i++) {
         const SpawnItem &it = kSpawnItems[i];
-        if (cat && it.cat != cat - 1) continue;
+        if (cat == 9 ? !it.odd : cat && (it.cat != cat - 1 || it.odd)) continue;
         if (!ci_contains(it.name, query) && !ci_contains(it.id, query)) continue;
         total++;
         if (shown >= limit) continue;
         shown++;
         bool gear = it.cat == 0 || it.cat == 1 || it.cat == 3;
         bool stack = it.cat == 2 || it.cat == 5 || it.cat == 6;  // (the game stacks these; key items it decides itself)
-        char desc[200];
+        char desc[300];
+        if (it.odd) {
+            snprintf(desc, sizeof desc, "%s  (%s)  Unobtainable: needs the Unobtainable items mod. May crash the game when "
+                     "equipped, dropped or shown in the inventory - save first.", it.id, catname[it.cat]);
+        } else
         snprintf(desc, sizeof desc, "%s  (%s)%s", it.id, catname[it.cat],
                  gear ? "  Full durability." : it.cat == 6 && !strncmp(it.id, "Item_Cook", 9) ? "  Cooked dishes come without their effects." : "");
         ImGui::PushID(i);
-        if (opt_action(it.name, catname[it.cat], desc, false)) {
+        char valtxt[48];
+        snprintf(valtxt, sizeof valtxt, it.odd ? "%s (unobtainable)" : "%s", catname[it.cat]);
+        if (opt_action(it.name, valtxt, desc, false)) {
             int n = (int)amount;
             if (!stack && n > 20) n = 20;
             int value = gear ? (it.life > 0 ? it.life : 10) * 100 : it.cat == 4 ? 0 : n;
