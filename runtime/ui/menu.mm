@@ -1044,6 +1044,8 @@ extern "C" {
 int spawner_available(void);
 const char *spawner_status(void);
 int spawner_request(const char *name, int value, int count, int stack);
+int spawner_slots_get(int which);
+void spawner_slots_set(int which, int value);
 }
 namespace {
 struct SpawnItem { const char *id, *name; int cat, life, odd; };
@@ -1086,6 +1088,26 @@ static void tab_items(void) {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.75f, 0.88f, 0.33f, 1));
         ImGui::TextWrapped("%s", st);
         ImGui::PopStyleColor();
+    }
+    {
+        opt_section("Pouch slots (beta)");
+        static const char *lab[3] = {"Weapon slots", "Bow slots", "Shield slots"};
+        static const float lo[3] = {8, 5, 4}, game_max[3] = {20, 14, 20};
+        for (int k = 0; k < 3; k++) {
+            int cur = spawner_slots_get(k);
+            static float val[3] = {-1, -1, -1};
+            static int last_seen[3] = {-2, -2, -2};
+            if (cur >= 0 && cur != last_seen[k]) val[k] = (float)cur, last_seen[k] = cur;  // (follow the game's own value)
+            if (cur < 0) {
+                opt_disable_next();
+                opt_action(lab[k], "...", "Load your save to change this.", false);
+                continue;
+            }
+            char d[220];
+            snprintf(d, sizeof d, "How many the pouch holds. The game stops at %g (Hestu's seeds); past that needs the Raised slot "
+                     "limits mod, up to 100. Extra items go onto more pages of the tab.", game_max[k]);
+            if (opt_slider(lab[k], &val[k], lo[k], 100, 1, lo[k], "%g", d)) spawner_slots_set(k, (int)val[k]);
+        }
     }
     static const char *catname[] = {"Weapon", "Bow", "Arrows", "Shield", "Armour", "Material", "Food", "Key item"};
     opt_section("Items: select one to add it");

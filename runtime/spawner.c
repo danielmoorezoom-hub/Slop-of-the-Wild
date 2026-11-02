@@ -60,14 +60,17 @@ int spawner_request(const char *name, int value, int count, int stack) {
 }
 
 static int guest_ptr(uint64_t p) { return p >= GUEST_LO && p < GUEST_HI - 0x100; }
+static uint64_t gcall(Cpu *c, uint64_t fn, uint64_t sp, const uint64_t *args, int n);
 
 // (game main thread, once a frame) run the queued requests
 static void actor_frame(Cpu *c);
+static void slots_frame(Cpu *c);
 static int g_aqn;
 void spawner_frame(void) {
-    if (g_aqn && spawner_available()) {
+    if (spawner_available()) {
         Cpu *c = kernel_current_cpu();
-        if (c) actor_frame(c);
+        if (c && g_aqn) actor_frame(c);
+        if (c && guest_ptr(LD64(PMDM_INSTANCE_190))) slots_frame(c);
     }
     if (!g_qn) return;  // (racy read: the next frame picks up a request queued meanwhile)
     Req todo[64];
@@ -242,4 +245,47 @@ static void actor_frame(Cpu *c) {
         snprintf(g_status, sizeof g_status, "Spawning %s%s in front of Link.", todo[n - 1].name, made > 1 ? " and more" : "");
     else
         snprintf(g_status, sizeof g_status, "The game refused to create %s here.", todo[n - 1].name);
+}
+
+// ------------------------------------------------------------------ pouch slots (the Items tab)
+// The weapon / bow / shield slot counts are the game data flags WeaponPorchStockNum, BowPorchStockNum and
+// ShieldPorchStockNum, read and set through the game's own ksys::gdt::getS32(handle, debug) / setS32(value, handle,
+// debug). The game clamps every s32 flag to its MaxValue (20, 14, 20) when it is set and when a save loads; the
+// "Raised slot limits" mod (Pack/Bootup.pack with those three raised to 100) lets them go past that. 1.9.0:
+#define GETS32_190 0x7000d34ae0ull  // (getFlag_WeaponPorchStockNum at 0x7000d38b30 tail-calls it)
+#define SETS32_190 0x7000d34bc0ull  // (71 s32 setter stubs tail-call it)
+static const uint64_t slot_handle_190[3] = {0x7001da6f80ull, 0x7001da69a4ull, 0x7001da6e84ull};  // weapon, bow, shield
+static atomic_int g_slot_cur[3] = {-1, -1, -1};
+static atomic_int g_slot_set[3] = {-1, -1, -1};
+static atomic_int g_slot_read;
+
+// (render thread) the current counts (-1: not read yet); asks for a fresh read
+int spawner_slots_get(int which) {
+    atomic_store(&g_slot_read, 1);
+    return which >= 0 && which < 3 ? atomic_load(&g_slot_cur[which]) : -1;
+}
+void spawner_slots_set(int which, int value) {
+    if (which >= 0 && which < 3 && spawner_available()) atomic_store(&g_slot_set[which], value);
+}
+
+static void slots_frame(Cpu *c) {
+    static int tick;
+    int pending = 0;
+    for (int i = 0; i < 3; i++) pending |= atomic_load(&g_slot_set[i]) >= 0;
+    if (!pending && !(atomic_load(&g_slot_read) && ++tick % 15 == 0)) return;
+    atomic_store(&g_slot_read, 0);
+    uint64_t sp = (c->sp - 0x400) & ~0xfull;
+    for (int i = 0; i < 3; i++) {
+        uint32_t h = (uint32_t)LD64(slot_handle_190[i]);  // (a u32 handle: index | property << 24)
+        if (h == 0 || h == 0xffffffffu) continue;
+        int v = atomic_exchange(&g_slot_set[i], -1);
+        if (v >= 0) {
+            uint64_t a[3] = {(uint32_t)v, h, 0};
+            gcall(c, SETS32_190, sp, a, 3);
+        }
+        uint64_t g[2] = {h, 0};
+        int cur = (int)(int32_t)gcall(c, GETS32_190, sp, g, 2);
+        atomic_store(&g_slot_cur[i], cur);
+        if (v >= 0) LOG("[spawner] slots %d: asked %d, now %d\n", i, v, cur);
+    }
 }
