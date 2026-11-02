@@ -1128,6 +1128,70 @@ static void tab_items(void) {
     opt_end();
 }
 
+// Spawn: creates enemies, bosses, animals, NPCs and objects in front of Link (runtime/spawner.c spawner_actor_request).
+extern "C" int spawner_actor_request(const char *name, int count, float dist);
+namespace {
+struct SpawnActor { const char *id, *name, *profile; int group; };
+const SpawnActor kSpawnActors[] = {
+#include "spawner_actors.inc"
+};
+}  // namespace
+
+static void tab_spawn(void) {
+    opt_begin("##spawn", ImGui::GetFontSize() / 34);
+    if (!spawner_available()) {
+        opt_section("Spawn (beta)");
+        opt_disable_next();
+        opt_action("Spawn", "", "The spawner needs game version 1.9.0.", false);
+        opt_end();
+        return;
+    }
+    static char query[64];
+    static int group = 0;
+    static float count = 1, dist = 6;
+    static const char *groups[] = {"All", "Enemies", "Big enemies", "Bosses", "Animals", "Horses", "NPCs", "Objects",
+                                   "Cutscene actors"};
+    static const char *gname[] = {"Enemy", "Big enemy", "Boss", "Animal", "Horse", "NPC", "Object", "Cutscene"};
+    opt_section("Spawn (beta): may break things");
+    opt_text("Search", query, sizeof query, "Type part of a name",
+             "Type part of a name, like \"lynel\", \"hinox\" or \"beedle\", or an actor name, like Enemy_Lynel_Senior.");
+    opt_choice("Group", &group, groups, 9, 0,
+               "Shows one kind. Bosses, cutscene actors and many objects expect their own arena, event or setup: they may "
+               "not move, may vanish, or may crash the game. Save first.");
+    opt_slider("How many", &count, 1, 10, 1, 1, "%g", "How many to create, in a row across Link's view.");
+    opt_slider("Distance", &dist, 2, 40, 1, 6, "%g m", "How far in front of Link they appear. Big enemies and bosses need room.");
+    if (const char *st = spawner_status(); st && *st) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.75f, 0.88f, 0.33f, 1));
+        ImGui::TextWrapped("%s", st);
+        ImGui::PopStyleColor();
+    }
+    opt_section("Select one to spawn it");
+    int shown = 0, total = 0;
+    const int limit = 80;
+    for (int i = 0; i < (int)(sizeof kSpawnActors / sizeof kSpawnActors[0]); i++) {
+        const SpawnActor &a = kSpawnActors[i];
+        if (group && a.group != group - 1) continue;
+        if (!ci_contains(a.name, query) && !ci_contains(a.id, query)) continue;
+        total++;
+        if (shown >= limit) continue;
+        shown++;
+        char desc[260];
+        snprintf(desc, sizeof desc, "%s  (%s)%s", a.id, a.profile,
+                 a.group == 2 || a.group == 7 ? "  Expects its own arena or cutscene: may not act normally, or may crash." : "");
+        ImGui::PushID(i);
+        if (opt_action(a.name, gname[a.group], desc, false)) spawner_actor_request(a.id, (int)count, dist);
+        ImGui::PopID();
+    }
+    if (total > shown) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 0.7f, 1));
+        ImGui::TextWrapped("Showing %d of %d. Type more of a name to narrow it down.", shown, total);
+        ImGui::PopStyleColor();
+    } else if (!total) {
+        ImGui::TextWrapped("Nothing matches.");
+    }
+    opt_end();
+}
+
 static void tab_teleport(void) {
     opt_begin("##teleport", ImGui::GetFontSize() / 34);
     static const char *const go = "The game restarts: press Continue and you land there, from your last save. Unsaved progress is lost.";
@@ -1511,16 +1575,16 @@ extern "C" int menu_keyboard_run(const char *initial, int max_len, char *out, in
 static void tabs_body(float scale, bool in_game, void (*prelaunch)(float)) {
     // (id: the page; -1 = Prelaunch)
     struct Tab { const char *name; int id; bool on; };
-    Tab tabs[12];
+    Tab tabs[13];
     int ntabs = 0;
     if (prelaunch) tabs[ntabs++] = {"Prelaunch", -1, true};
-    static const char *names[] = {"Video", "Audio", "Language", "Draw Distance", "Cheats", "Saves", "Achievements", "Teleport", "Controls", "Quit", "Items"};
-    static const int order[] = {8, 0, 3, 1, 2, 5, 6, 4, 10, 7, 9};  // Controls, Video, Draw Distance, Audio, Language, Saves, Achievements, Cheats, Teleport, Quit
+    static const char *names[] = {"Video", "Audio", "Language", "Draw Distance", "Cheats", "Saves", "Achievements", "Teleport", "Controls", "Quit", "Items", "Spawn"};
+    static const int order[] = {8, 0, 3, 1, 2, 5, 6, 4, 10, 11, 7, 9};  // Controls, Video, Draw Distance, Audio, Language, Saves, Achievements, Cheats, Teleport, Quit
     for (int i : order) {  // (Quit: in game only - the start screen has its own QUIT; Saves: on the start screen only
         if (i == 9 && prelaunch) continue;  //  the game must not be running while its saves change)
         if (i == 5 && !prelaunch) continue;
         if (i == 7 && prelaunch) continue;  // (Teleport: in game only)
-        if (i == 10 && prelaunch) continue;  // (Items: in game only)
+        if ((i == 10 || i == 11) && prelaunch) continue;  // (Items, Spawn: in game only)
         tabs[ntabs++] = {names[i], i, true};
     }
     int cur = 0;  // g_tab / g_tab_request hold ids
@@ -1606,6 +1670,7 @@ static void tabs_body(float scale, bool in_game, void (*prelaunch)(float)) {
                 case 6: ach_ui_tab(); break;
                 case 7: tab_teleport(); break;
                 case 10: tab_items(); break;
+                case 11: tab_spawn(); break;
                 case 8: tab_about(); break;
                 case 9: tab_quit(scale, in_game); break;
                 }
