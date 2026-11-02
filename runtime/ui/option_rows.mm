@@ -327,6 +327,27 @@ bool opt_text(const char *label, char *buf, size_t cap, const char *hint, const 
     return done;
 }
 
+bool opt_search(const char *label, char *buf, size_t cap, const char *hint, const char *desc) {
+    ImGui::PushID(label);  // (opt_focus_first: left to the first row below, so Down doesn't start typing)
+    float h = ImGui::GetFontSize() * 1.9f;
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12 * g_scale, (h - ImGui::GetFontSize()) * 0.5f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6 * g_scale);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(1, 1, 1, 0.06f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(1, 1, 1, 0.10f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(1, 1, 1, 0.12f));
+    ImGui::SetNextItemWidth(-1);
+    char before[256];
+    snprintf(before, sizeof before, "%s", buf);
+    bool done = ui_input_text("##search", buf, cap, 0, hint ? tr(hint) : NULL, label);
+    ImGui::PopStyleColor(3);
+    ImGui::PopStyleVar(2);
+    if (ImGui::IsItemHovered()) g_desc_hover = desc ? tr(desc) : "";
+    if (ImGui::IsItemFocused() || ImGui::IsItemActive()) g_desc_focus = desc ? tr(desc) : "";
+    if (g_desc_first.empty() && desc) g_desc_first = tr(desc);
+    ImGui::PopID();
+    return done || strcmp(before, buf) != 0;
+}
+
 void opt_end(void) {
     ImGui::PopStyleVar();
     if (const char *t = getenv("SAVAGEWIND_OPT_SCROLL")) ImGui::SetScrollY(ImGui::GetScrollMaxY() * (float)atof(t));  // (test)

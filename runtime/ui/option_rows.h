@@ -38,6 +38,9 @@ bool opt_action(const char *label, const char *value, const char *desc, bool upp
 bool opt_text(const char *label, char *buf, size_t cap, const char *hint, const char *desc);
 // that text row is being edited (its buffer is the user's: don't overwrite it)
 bool opt_text_editing(const char *label);
+// A search field that is always a text field (no row to select first): typing filters live, every key goes straight
+// into buf. Returns true when buf changed this frame. A controller's A on it opens the on-screen keyboard.
+bool opt_search(const char *label, char *buf, size_t cap, const char *hint, const char *desc);
 // the next row is shown greyed out and can't be changed (e.g. not usable in this mode)
 void opt_disable_next(void);
 // rows after this sit one step in (+1) or back out (-1): options that belong to the row above

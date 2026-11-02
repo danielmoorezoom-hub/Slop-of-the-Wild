@@ -26,8 +26,11 @@
 #define ITEMGET_190        0x7000d921bcull
 #define PMDM_INSTANCE_190  0x7001e18570ull
 #define SAFESTRING_GOT_190 0x7001d66260ull
+// PauseMenuDataMgr::removeItem(const SafeString &name) 0x7000d93320: takes one of the first unequipped item of that
+// name (one off a stack, or the whole slot), as when an item is used up; equipped items are left alone.
+#define REMOVEITEM_190     0x7000d93320ull
 
-typedef struct { char name[64]; int32_t value; int count; } Req;
+typedef struct { char name[64]; int32_t value; int count; int rm; } Req;
 static Req g_q[64];
 static int g_qn;
 static atomic_flag g_lock = ATOMIC_FLAG_INIT;
@@ -54,6 +57,23 @@ int spawner_request(const char *name, int value, int count, int stack) {
         snprintf(r->name, sizeof r->name, "%s", name);
         r->value = stack ? count : value;
         r->count = stack ? 1 : count;
+        r->rm = 0;
+    }
+    unlock();
+    return ok;
+}
+
+// (render thread) queue removing `count` of an item (one removeItem call each: one off a stack, or one slot)
+int spawner_remove_request(const char *name, int count) {
+    if (!spawner_available() || !name || !*name || strlen(name) >= sizeof g_q[0].name || count < 1) return 0;
+    lock();
+    int ok = g_qn < (int)(sizeof g_q / sizeof g_q[0]);
+    if (ok) {
+        Req *r = &g_q[g_qn++];
+        snprintf(r->name, sizeof r->name, "%s", name);
+        r->value = 0;
+        r->count = count > 999 ? 999 : count;
+        r->rm = 1;
     }
     unlock();
     return ok;
@@ -93,7 +113,7 @@ void spawner_frame(void) {
         return;
     }
     vt += 0x10;
-    int calls = 0;
+    int calls = 0, removes = 0;
     for (int i = 0; i < n; i++) {
         for (int k = 0; k < todo[i].count; k++) {
             Cpu saved = *c;
@@ -106,15 +126,26 @@ void spawner_frame(void) {
             c->sp = sp;
             c->x[0] = inst;
             c->x[1] = sp;
-            c->x[2] = (uint64_t)(uint32_t)todo[i].value;
-            c->x[3] = 0;
-            guest_call(c, ITEMGET_190);
+            if (todo[i].rm) {
+                guest_call(c, REMOVEITEM_190);
+                removes++;
+            } else {
+                c->x[2] = (uint64_t)(uint32_t)todo[i].value;
+                c->x[3] = 0;
+                guest_call(c, ITEMGET_190);
+                calls++;
+            }
             *c = saved;
-            calls++;
         }
-        LOG("[spawner] itemGet %s value %d x%d\n", todo[i].name, todo[i].value, todo[i].count);
+        LOG("[spawner] %s %s value %d x%d\n", todo[i].rm ? "removeItem" : "itemGet", todo[i].name, todo[i].value,
+            todo[i].count);
     }
-    if (n == 1)
+    if (n == 1 && todo[0].rm)
+        snprintf(g_status, sizeof g_status, "Removed up to %d of %s (equipped ones are kept; unequip to remove them).",
+                 todo[0].count, todo[0].name);
+    else if (removes && !calls)
+        snprintf(g_status, sizeof g_status, "Removed up to %d items.", removes);
+    else if (n == 1)
         snprintf(g_status, sizeof g_status, "Sent %s to your pouch. Open the inventory to see it (a full pouch takes nothing).",
                  todo[0].name);
     else
