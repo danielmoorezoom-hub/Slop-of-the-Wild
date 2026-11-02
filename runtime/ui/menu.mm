@@ -258,6 +258,10 @@ bool menu_handle_event(const SDL_Event *e) {
             if (!typing) g_cursor_free = !g_cursor_free.load();
             return true;
         }
+        if (!e->key.repeat && e->key.scancode == SDL_SCANCODE_F3 && !typing && overlay_enabled()) {  // this menu from the keyboard
+            set_open(!g_open.load());
+            return true;
+        }
         if (!e->key.repeat && e->key.scancode == SDL_SCANCODE_F6 && !typing) {  // photo mode (runtime/photo.c)
             photo_toggle();
             return true;
