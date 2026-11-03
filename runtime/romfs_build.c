@@ -6,6 +6,7 @@
 #include "romfs_build.h"
 
 #include "platform.h"  // (Windows: POSIX mkdir)
+#include "mod_merge.h"
 
 #include <dirent.h>
 #include <errno.h>
@@ -130,25 +131,38 @@ uint64_t romfs_dir_bytes(const char *dir) {
     return n;
 }
 
-// Mods: mods/<name>/romfs/<the game's path> in place of the game's file, for the game's own RomFS only. The last mod by name wins. The copy
-// in extracted/ stays as it is. The game's size table isn't changed, so a mod's file much larger than the original may not load.
-static void apply_mods(Lists *l, const char *dir) {
+// Mods: mods/<name>/romfs/<the game's path> in place of the game's file, for the game's own RomFS only. The last mod by
+// name wins. The copy in extracted/ stays as it is. Files the game doesn't have (a mod's new items, their models and
+// icons) are added to the image (add_mod_files). The game's size table isn't changed, so a mod's file much larger than
+// the original may not load; files it has no entry for, the game sizes from the file.
+static int list_mods(const char *dir, char names[64][128]) {
     size_t dl = strlen(dir);
-    if (dl < 5 || strcmp(dir + dl - 5, "romfs") || strstr(dir, "aoc")) return;
+    if (dl < 5 || strcmp(dir + dl - 5, "romfs") || strstr(dir, "aoc")) return 0;
     DIR *m = opendir("mods");
-    if (!m) return;
-    char names[64][128];
-    int n = 0, used = 0;
+    if (!m) return 0;
+    int n = 0;
     struct dirent *e;
-    while ((e = readdir(m)) && n < 64)
-        if (e->d_name[0] != '.') snprintf(names[n++], sizeof names[0], "%s", e->d_name);
+    while ((e = readdir(m)) && n < 64) {
+        if (e->d_name[0] == '.') continue;
+        char p[400];
+        struct stat st;
+        snprintf(p, sizeof p, "mods/%s/romfs", e->d_name);
+        if (stat(p, &st) == 0 && S_ISDIR(st.st_mode)) snprintf(names[n++], 128, "%s", e->d_name);
+    }
     closedir(m);
     for (int i = 1; i < n; i++)  // (by name)
         for (int j = i; j > 0 && strcmp(names[j - 1], names[j]) > 0; j--) {
             char t[128];
             memcpy(t, names[j], sizeof t), memcpy(names[j], names[j - 1], sizeof t), memcpy(names[j - 1], t, sizeof t);
         }
+    return n;
+}
+
+static void apply_mods(Lists *l, const char *dir, char names[64][128], int n) {
+    size_t dl = strlen(dir);
+    int used = 0;
     for (int f = 0; n && f < l->nf; f++) {
+        if (strncmp(l->files[f]->path, dir, dl)) continue;  // (a mod's own file: add_mod_files picked the mod)
         const char *rel = l->files[f]->path + dl;
         for (int i = n - 1; i >= 0; i--) {
             char p[1200];
@@ -166,6 +180,110 @@ static void apply_mods(Lists *l, const char *dir) {
     if (n) fprintf(stderr, "[mods] %d mod folder(s), %d game file(s) replaced\n", n, used);
 }
 
+// A mod's files the game doesn't have, into the tree (directories made as needed); a later mod's copy wins.
+static int add_tree(Dir *into, const char *path, int depth) {
+    if (depth > 32) return 0;
+    DIR *d = opendir(path);
+    if (!d) return 0;
+    int added = 0;
+    struct dirent *e;
+    while ((e = readdir(d))) {
+        if (e->d_name[0] == '.') continue;
+        size_t pn = strlen(path) + strlen(e->d_name) + 2;
+        char *p = malloc(pn);
+        snprintf(p, pn, "%s/%s", path, e->d_name);
+        struct stat st;
+        if (stat(p, &st) != 0) { free(p); continue; }
+        if (S_ISDIR(st.st_mode)) {
+            Dir *c = NULL;
+            for (int i = 0; i < into->ndirs && !c; i++)
+                if (!strcmp(into->dirs[i]->name, e->d_name)) c = into->dirs[i];
+            if (!c) {
+                c = calloc(1, sizeof *c);
+                c->name = strdup(e->d_name), c->path = strdup(p), c->parent = into;
+                into->dirs = realloc(into->dirs, sizeof *into->dirs * (into->ndirs + 1));
+                into->dirs[into->ndirs++] = c;
+                qsort(into->dirs, into->ndirs, sizeof *into->dirs, by_name_dir);
+            }
+            added += add_tree(c, p, depth + 1);
+            free(p);
+        } else if (S_ISREG(st.st_mode)) {
+            File *f = NULL;
+            for (int i = 0; i < into->nfiles && !f; i++)
+                if (!strcmp(into->files[i]->name, e->d_name)) f = into->files[i];
+            if (f && strncmp(f->path, "mods/", 5)) { free(p); continue; }  // (the game's: apply_mods replaces it)
+            if (!f) {
+                f = calloc(1, sizeof *f);
+                f->name = strdup(e->d_name), f->parent = into;
+                into->files = realloc(into->files, sizeof *into->files * (into->nfiles + 1));
+                into->files[into->nfiles++] = f;
+                qsort(into->files, into->nfiles, sizeof *into->files, by_name_file);
+                added++;
+            }
+            free(f->path);
+            f->path = p, f->size = (uint64_t)st.st_size;
+        } else {
+            free(p);
+        }
+    }
+    closedir(d);
+    return added;
+}
+
+static void add_mod_files(Dir *root, char names[64][128], int n) {
+    int added = 0;
+    for (int i = 0; i < n; i++) {
+        char p[400];
+        snprintf(p, sizeof p, "mods/%s/romfs", names[i]);
+        added += add_tree(root, p, 0);
+    }
+    if (added) fprintf(stderr, "[mods] %d new file(s) from mods added\n", added);
+}
+
+// The game's RomFS's Actor/ActorInfo.product.sbyml as the image serves it (a mod's, the merge, or the game's): for the
+// item spawner's list of items mods add (spawner_mod_items.c)
+char g_romfs_actorinfo[1200];
+static void note_actorinfo(Lists *l, const char *dir) {
+    if (strstr(dir, "aoc")) return;
+    for (int f = 0; f < l->nf; f++) {
+        File *x = l->files[f];
+        if (!strcmp(x->name, "ActorInfo.product.sbyml") && x->parent && !strcmp(x->parent->name, "Actor") &&
+            x->parent->parent && !x->parent->parent->parent)
+            snprintf(g_romfs_actorinfo, sizeof g_romfs_actorinfo, "%s", x->path);
+    }
+}
+
+// More than one mod with its own Actor/ActorInfo.product.sbyml: the game reads a merge of them all (mod_merge.c),
+// made in cache/ at every start.
+static void merge_actorinfo(Lists *l, const char *dir, char names[64][128], int n) {
+    static const char rel[] = "/Actor/ActorInfo.product.sbyml";
+    const char *files[64];
+    char paths[64][400];
+    int k = 0;
+    for (int i = 0; i < n; i++) {
+        struct stat st;
+        snprintf(paths[k], sizeof paths[k], "mods/%s/romfs%s", names[i], rel);
+        if (stat(paths[k], &st) == 0 && S_ISREG(st.st_mode)) files[k] = paths[k], k++;
+    }
+    if (k < 2) return;
+    char game[1200];
+    snprintf(game, sizeof game, "%s%s", dir, rel);
+    mkdir("cache", 0755);
+    const char *out = "cache/ActorInfo.merged.sbyml";
+    if (!mod_merge_actorinfo(game, files, k, out)) return;
+    struct stat st;
+    if (stat(out, &st) != 0) return;
+    for (int f = 0; f < l->nf; f++) {
+        File *x = l->files[f];
+        if (strcmp(x->name, "ActorInfo.product.sbyml") || !x->parent || strcmp(x->parent->name, "Actor") ||
+            !x->parent->parent || x->parent->parent->parent)
+            continue;
+        free(x->path);
+        x->path = strdup(out);
+        x->size = (uint64_t)st.st_size;
+    }
+}
+
 bool romfs_layout(const char *dir, RomfsLayout *out, char *why, size_t why_size) {
     #define FAIL(...) do { if (why) snprintf(why, why_size, __VA_ARGS__); goto fail; } while (0)
     bool ok = false;
@@ -175,12 +293,17 @@ bool romfs_layout(const char *dir, RomfsLayout *out, char *why, size_t why_size)
     memset(out, 0, sizeof *out);
     Dir *root = scan(dir, "", NULL, 0);
     if (!root) FAIL("can't read %s", dir);
+    char mods[64][128];
+    int nmods = list_mods(dir, mods);
+    add_mod_files(root, mods, nmods);
     // table order: root, then each directory's subdirectories as flatten() lists them; files likewise
     if (l.nd == l.cd) l.dirs = realloc(l.dirs, sizeof *l.dirs * (l.cd = 64));
     l.dirs[l.nd++] = root;
     flatten(root, &l);
     if (!l.nf) FAIL("no files in %s", dir);
-    apply_mods(&l, dir);
+    apply_mods(&l, dir, mods, nmods);
+    merge_actorinfo(&l, dir, mods, nmods);
+    note_actorinfo(&l, dir);
 
     // entry offsets
     uint32_t dsize = 0, fsize = 0;

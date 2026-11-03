@@ -12,6 +12,7 @@
 #include <pthread.h>
 #include <atomic>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "i18n.h"
@@ -1055,6 +1056,8 @@ float spawner_tweak_get(int which);
 int spawner_tweak_found(void);
 int spawner_tweak_total(void);
 int spawner_armor_state(void);
+typedef struct { char id[64]; int cat, life; } ModItem;
+int spawner_mod_items(const ModItem **out);
 int spawner_slots_get(int which);
 void spawner_slots_set(int which, int value);
 }
@@ -1102,7 +1105,7 @@ static void tab_items(void) {
     static int mode = 0;
     static const char *modes[] = {"Add", "Remove"};
     static const char *cats[] = {"All", "Weapons", "Bows", "Arrows", "Shields", "Armour", "Materials", "Food", "Key items",
-                                  "Unobtainable (may crash)"};
+                                  "Unobtainable (may crash)", "Added by mods"};
     opt_section("Add items (beta): may break things");
     opt_search("Search", query, sizeof query, "Search: type part of a name",
                "Type part of an item's name, like \"lynel\" or \"apple\", or its ID, like Weapon_Sword_070. The list "
@@ -1110,7 +1113,7 @@ static void tab_items(void) {
     opt_choice("Mode", &mode, modes, 2, 0,
                "Add: selecting an item puts it in your pouch. Remove: selecting an item takes it out of your pouch (the "
                "Amount from a stack, or that many slots of gear). Equipped items are kept: unequip them first.");
-    opt_choice("Category", &cat, cats, 10, 0, "Shows only one kind of item. Unobtainable: things the game never lets you carry (NPC tools, boss weapons, unused gear). They need the Unobtainable items mod and may crash the game when equipped, dropped or shown.");
+    opt_choice("Category", &cat, cats, 11, 0, "Shows only one kind of item. Unobtainable: things the game never lets you carry (NPC tools, boss weapons, unused gear). They need the Unobtainable items mod and may crash the game when equipped, dropped or shown. Added by mods: items your mods add to the game (listed by their IDs).");
     opt_slider("Amount", &amount, 1, 999, 1, 1, "%g",
                "How many to add or remove. Things that stack (materials, food, arrows) go into one slot, up to 999. "
                "Weapons, bows, shields and armour take a slot each, up to 20 at a time when adding. Removing more than "
@@ -1215,16 +1218,30 @@ static void tab_items(void) {
     static const char *catname[] = {"Weapon", "Bow", "Arrows", "Shield", "Armour", "Material", "Food", "Key item"};
     opt_section(mode ? "Items: select one to remove it" : "Items: select one to add it");
     int total = 0;
-    for (int i = 0; i < (int)(sizeof kSpawnItems / sizeof kSpawnItems[0]); i++) {
-        const SpawnItem &it = kSpawnItems[i];
-        if (cat == 9 ? !it.odd : cat && (it.cat != cat - 1 || it.odd)) continue;
+    // the list: the spawner's own, then what the game's actor table has beyond it (mods' new items: odd 2)
+    static std::vector<SpawnItem> all;
+    if (all.empty()) {
+        all.assign(kSpawnItems, kSpawnItems + sizeof kSpawnItems / sizeof kSpawnItems[0]);
+        std::unordered_set<std::string> known;
+        for (const SpawnItem &it : all) known.insert(it.id);
+        const ModItem *mi = NULL;
+        int nm = spawner_mod_items(&mi);
+        for (int k = 0; k < nm; k++)
+            if (!known.count(mi[k].id)) all.push_back(SpawnItem{mi[k].id, mi[k].id, mi[k].cat, mi[k].life, 2});
+    }
+    for (int i = 0; i < (int)all.size(); i++) {
+        const SpawnItem &it = all[i];
+        if (cat == 10 ? it.odd != 2 : cat == 9 ? it.odd != 1 : cat && (it.cat != cat - 1 || it.odd == 1)) continue;
         if (!ci_contains(it.name, query) && !ci_contains(it.id, query)) continue;
         total++;
         if (!row_near_view()) continue;
         bool gear = it.cat == 0 || it.cat == 1 || it.cat == 3;
         bool stack = it.cat == 2 || it.cat == 5 || it.cat == 6;  // (the game stacks these; key items it decides itself)
         char desc[300];
-        if (it.odd) {
+        if (it.odd == 2) {
+            snprintf(desc, sizeof desc, "%s  (%s)  Added by a mod: shown by its ID. If the mod's files aren't all "
+                     "there, adding it may crash the game - save first.", it.id, catname[it.cat]);
+        } else if (it.odd) {
             snprintf(desc, sizeof desc, "%s  (%s)  Unobtainable: needs the Unobtainable items mod. May crash the game when "
                      "equipped, dropped or shown in the inventory - save first.", it.id, catname[it.cat]);
         } else
@@ -1232,7 +1249,7 @@ static void tab_items(void) {
                  gear ? "  Full durability." : it.cat == 6 && !strncmp(it.id, "Item_Cook", 9) ? "  Cooked dishes come without their effects." : "");
         ImGui::PushID(i);
         char valtxt[48];
-        snprintf(valtxt, sizeof valtxt, it.odd ? "%s (unobtainable)" : "%s", catname[it.cat]);
+        snprintf(valtxt, sizeof valtxt, it.odd == 2 ? "%s (mod)" : it.odd ? "%s (unobtainable)" : "%s", catname[it.cat]);
         if (mode == 1 && opt_action(it.name, valtxt, desc, false)) {
             spawner_remove_request(it.id, (int)amount);
         } else if (mode == 0 && opt_action(it.name, valtxt, desc, false)) {

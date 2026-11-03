@@ -383,8 +383,8 @@ appimages:
 build/test_shaders: tools/test_shaders.m runtime/nvn/maxwell/translate.c runtime/nvn/maxwell/shader.h
 	clang -O1 -fobjc-arc -framework Metal -framework Foundation -o $@ tools/test_shaders.m runtime/nvn/maxwell/translate.c
 
-build/test_romfs: tools/test_romfs.c runtime/romfs_build.c runtime/romfs_image.c runtime/romfs_build.h runtime/romfs_image.h
-	clang -O1 -Iruntime -o $@ tools/test_romfs.c runtime/romfs_build.c runtime/romfs_image.c -lpthread
+build/test_romfs: tools/test_romfs.c runtime/romfs_build.c runtime/romfs_image.c runtime/romfs_build.h runtime/romfs_image.h runtime/mod_merge.c runtime/byml.c runtime/services/archive.c
+	clang -O1 -Iruntime -o $@ tools/test_romfs.c runtime/romfs_build.c runtime/romfs_image.c runtime/mod_merge.c runtime/byml.c runtime/services/archive.c -lpthread
 
 $(B)/test_bind_capture: tools/test_bind_capture.c runtime/hle/bindings.c runtime/input_bind.h
 	@mkdir -p $(B)
