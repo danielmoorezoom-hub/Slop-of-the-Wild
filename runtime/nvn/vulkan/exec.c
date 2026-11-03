@@ -6121,13 +6121,17 @@ static void wait_built(_Atomic int *state) {  // (0 building: until built or fai
 // of floats: the view (0-11, 3x4 rows), view-projection (12-27), projection (28-43, OpenGL style), the camera's own matrix
 // (44-55: right, up, back, position in its columns) and near / far (56, 57). The world camera's has a perspective
 // projection (row 3 = 0 0 -1 0) and its far plane over 10000 (25000; the HUD's layers and the menus' are 10000).
-extern volatile int g_test_route_on, g_photo_on;
+extern volatile int g_test_route_on, g_photo_on, g_noclip_on;
 void test_route_camera(const float *f);
 static void route_camera(void) {
     if (!st.rt.depth || vk_texture_scale_group(st.rt.depth) != RS_SCENE) return;
     Range u = st.ubuf[0][0];
     float *f = (float *)(uintptr_t)u.addr;
     if (u.addr && u.size >= 58 * 4 && f[40] == 0 && f[41] == 0 && f[42] == -1 && f[43] == 0 && f[57] > 10001 && f[56] > 0) {
+        if (g_noclip_on && !g_photo_on) {  // (runtime/spawner.c: noclip flies along the camera's view)
+            extern void noclip_camera(const float *f);
+            noclip_camera(f);
+        }
         if (g_photo_on) {  // (runtime/photo.c, once for a block: the game writes a new one each frame, and other draws read this one too)
             extern void photo_camera(float *f);
             static float seen[4][12];
@@ -6303,7 +6307,7 @@ static void draw_(CmdRec *r, bool indexed) {
     resolve_feedback(pr);
     det_draw = 0;
     scene_post(pr, r);
-    if (g_test_route_on || g_photo_on) route_camera();
+    if (g_test_route_on || g_photo_on || g_noclip_on) route_camera();
     if (g_photo_on) {  // (runtime/photo.c) the HUD: the layouts' draws into the window's image, each with its 560-byte constant buffer
         NvnTexture *to = st.rt.ncolor ? st.rt.color[0] : NULL;
         if (to && vk_texture_scale_group(to) == RS_OUT && st.ubuf[0][0].size == 560) { stat_skipped++; return; }

@@ -24,6 +24,7 @@
 #include "hle.h"
 #include "rt.h"
 #include "settings.h"
+#include "platform.h"
 
 #define ITEMGET_190        0x7000d921bcull
 #define PMDM_INSTANCE_190  0x7001e18570ull
@@ -103,6 +104,7 @@ static void slots_frame(Cpu *c);
 static void tweaks_frame(Cpu *c);
 static void armor_frame(void);
 static void inv_frame(void);
+static void noclip_frame(Cpu *c);
 static int g_aqn;
 void spawner_frame(void) {
     if (spawner_available()) {
@@ -112,6 +114,7 @@ void spawner_frame(void) {
         if (c) tweaks_frame(c);
         armor_frame();
         inv_frame();
+        if (c) noclip_frame(c);
     }
     if (!g_qn) return;  // (racy read: the next frame picks up a request queued meanwhile)
     static Req todo[96];
@@ -632,4 +635,105 @@ int spawner_inventory(InvItem *out, int max) {
     if (n > 0) memcpy(out, g_inv, sizeof out[0] * (size_t)n);
     atomic_flag_clear_explicit(&g_inv_lock, memory_order_release);
     return n;
+}
+
+// ------------------------------------------------------------------ noclip flying (R3 + d-pad down)
+// While on, Link hangs where he is and the left stick flies him (along the camera's view, flattened), A rises, B sinks,
+// ZR goes faster; the right stick still turns the camera. Done through Link's main rigid body (Actor +0x190, as 8 of
+// the calls to RigidBody::getPosition load it) and its MotionAccessor (RigidBody +0xb8; RigidBody::getPosition
+// 0x70012d3e68 and getLinearVelocity 0x70012d4c5c read it there): its virtuals setPosition (+0x18) and
+// setLinearVelocity(const Vector3f &, float) (+0x48), getPosition (+0x20) - after sead's two RTTI ones. Each frame
+// starts with Link put at the flown position and still, so falling never builds up. hle/input.c noclip_take_input
+// takes the controls; nvn/vulkan/exec.c route_camera hands over the camera (noclip_camera).
+volatile int g_noclip_on;
+static _Atomic int32_t nc_lx, nc_ly;
+static atomic_int nc_up, nc_down, nc_fast;
+static _Atomic float nc_r[3] = {1, 0, 0}, nc_b[3] = {0, 0, 1};
+static atomic_int nc_cam_seen;
+
+// (input thread) t: the combo; returns true when the game should not get the movement controls
+bool noclip_take_input(bool combo, int32_t lx, int32_t ly, bool a, bool b, bool zr) {
+    static bool was;
+    bool edge = combo && !was;
+    was = combo;
+    if (edge && spawner_available()) {
+        g_noclip_on = !g_noclip_on;
+        LOG("[noclip] %s\n", g_noclip_on ? "on" : "off");
+    }
+    if (!g_noclip_on) return false;
+    nc_lx = lx, nc_ly = ly, nc_up = a, nc_down = b, nc_fast = zr;
+    return true;
+}
+
+// (render thread) the world camera's matrix: right, up, back in its columns (as photo.c reads it)
+void noclip_camera(const float *f) {
+    nc_r[0] = f[44], nc_r[1] = f[48], nc_r[2] = f[52];
+    nc_b[0] = f[46], nc_b[1] = f[50], nc_b[2] = f[54];
+    nc_cam_seen = 1;
+}
+
+static uint64_t player_actor(Cpu *c) {
+    uint64_t pinfo = LD64(got(PLAYERINFO_GOT_190));
+    if (!mapped(pinfo, 0x80)) return 0;
+    uint64_t sp = (c->sp - 0x1000) & ~0xfull, access = sp + 0x100;
+    memset((void *)(uintptr_t)access, 0, 0x20);
+    uint64_t a1[2] = {pinfo + 0x68, access};
+    uint64_t actor = 0;
+    if (gcall(c, ACQUIRE_190, sp, a1, 2) & 1) actor = LD64(access + 8);
+    uint64_t a3[1] = {access};
+    gcall(c, ACCESS_DTOR_190, sp, a3, 1);
+    return mapped(actor, 0x580) ? actor : 0;
+}
+
+static void noclip_frame(Cpu *c) {
+    static int on;
+    static float pos[3];
+    static uint64_t last;
+    if (!g_noclip_on) { on = 0; return; }
+    uint64_t actor = player_actor(c);
+    uint64_t body = actor ? LD64(actor + 0x190) : 0, acc = mapped(body, 0xc0) ? LD64(body + 0xb8) : 0;
+    uint64_t vt = mapped(acc, 0x10) ? LD64(acc) : 0;
+    if (!mapped(vt, 0x50)) { if (on) LOG("[noclip] lost Link's body\n"); on = 0; return; }
+    uint64_t sp = (c->sp - 0x1000) & ~0xfull, v = sp + 0x80;
+    uint64_t now = plat_now_ns();
+    if (!on) {  // where he is now
+        memset((void *)(uintptr_t)v, 0, 16);
+        uint64_t a[2] = {acc, v};
+        gcall(c, LD64(vt + 0x20), sp, a, 2);
+        memcpy(pos, (void *)(uintptr_t)v, sizeof pos);
+        on = 1, last = now;
+        LOG("[noclip] from %.1f %.1f %.1f\n", pos[0], pos[1], pos[2]);
+    }
+    float dt = (float)((now - last) / 1e9);
+    if (dt > 0.1f) dt = 0.1f;
+    last = now;
+    // flat forward and right from the camera (or Link's own facing until a camera has been seen)
+    float fx, fz, rx, rz;
+    if (nc_cam_seen) {
+        fx = -nc_b[0], fz = -nc_b[2], rx = nc_r[0], rz = nc_r[2];
+    } else {
+        const float *m = (const float *)(uintptr_t)(actor + 0x398);
+        fx = m[2], fz = m[10], rx = -m[10], rz = m[2];
+    }
+    float fl = sqrtf(fx * fx + fz * fz), rl = sqrtf(rx * rx + rz * rz);
+    if (fl > 1e-4f) fx /= fl, fz /= fl;
+    if (rl > 1e-4f) rx /= rl, rz /= rl;
+    float speed = (nc_fast ? 45.0f : 12.0f) * dt, sx = nc_lx / 32767.0f, sy = nc_ly / 32767.0f;
+    pos[0] += (rx * sx + fx * sy) * speed;
+    pos[2] += (rz * sx + fz * sy) * speed;
+    pos[1] += ((int)nc_up - (int)nc_down) * speed;
+    memcpy((void *)(uintptr_t)v, pos, sizeof pos);
+    *(float *)(uintptr_t)(v + 12) = 0;
+    {   // setPosition(pos, propagate to linked motions)
+        uint64_t a[3] = {acc, v, 1};
+        gcall(c, LD64(vt + 0x18), sp, a, 3);
+    }
+    {   // setLinearVelocity(0, epsilon 0)
+        uint64_t z = v + 0x20;
+        memset((void *)(uintptr_t)z, 0, 16);
+        Cpu saved = *c;
+        c->sp = sp, c->x[0] = acc, c->x[1] = z, c->v[0] = 0;
+        guest_call(c, LD64(vt + 0x48));
+        *c = saved;
+    }
 }

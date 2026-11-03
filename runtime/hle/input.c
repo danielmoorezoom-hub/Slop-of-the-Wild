@@ -897,6 +897,15 @@ static void fill_state(Cpu *c) {
         int32_t m = dx && dy ? 23170 : 32767;  // diagonals: same speed (32767 / sqrt 2)
         if (dx || dy) lx = dx * m, ly = dy * m;
     }
+    {   // noclip flying (runtime/spawner.c): R3 + d-pad down; while on, the left stick, A, B and ZR fly Link
+        extern bool noclip_take_input(bool, int32_t, int32_t, bool, bool, bool);
+        bool combo = !menu && (b >> BTN_RSTICK & 1) && (b >> BTN_DOWN & 1);
+        if (combo) b &= ~(1ull << BTN_RSTICK | 1ull << BTN_DOWN);
+        if (noclip_take_input(combo, menu ? 0 : lx, menu ? 0 : ly, b >> BTN_A & 1, b >> BTN_B & 1, b >> BTN_ZR & 1)) {
+            b &= ~(1ull << BTN_A | 1ull << BTN_B | 1ull << BTN_ZR | 1ull << BTN_ZL);
+            lx = ly = 0;
+        }
+    }
     {   // photo mode (runtime/photo.c): both sticks pressed; while on, the camera has the controls
         extern bool photo_take_input(int32_t, int32_t, int32_t, int32_t, bool, bool, bool, bool, bool);
         if (!menu && photo_take_input(lx, ly, rx, ry, b >> BTN_R & 1, b >> BTN_L & 1, b >> BTN_ZR & 1,
