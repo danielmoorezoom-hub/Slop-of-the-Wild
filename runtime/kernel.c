@@ -1286,6 +1286,8 @@ static bool guest_mapped(uint64_t a, uint64_t n) {
         if (a >= regions[i].addr && a + n <= regions[i].addr + regions[i].size) return true;
     return false;
 }
+// (the item spawner's player tweaks, runtime/spawner.c: following pointers through the game's own data safely)
+bool kernel_guest_mapped(uint64_t a, uint64_t n) { return guest_mapped(a, n); }
 
 // The current guest thread's lr and frame-record chain as of its last call boundary (dispatch.c, SAVAGEWIND_WATCH:
 // who called the memcpy that wrote a watched range).

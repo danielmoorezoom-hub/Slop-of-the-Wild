@@ -1049,6 +1049,11 @@ int spawner_available(void);
 const char *spawner_status(void);
 int spawner_request(const char *name, int value, int count, int stack);
 int spawner_remove_request(const char *name, int count);
+int spawner_request_mod(const char *name, int value, int count, int stack, uint32_t mod_flags, int32_t mod_value);
+void spawner_tweak_set(int which, float mult);
+float spawner_tweak_get(int which);
+int spawner_tweak_found(void);
+int spawner_tweak_total(void);
 int spawner_slots_get(int which);
 void spawner_slots_set(int which, int value);
 }
@@ -1134,6 +1139,65 @@ static void tab_items(void) {
             if (opt_slider(lab[k], &val[k], lo[k], 100, 1, lo[k], "%g", d)) spawner_slots_set(k, (int)val[k]);
         }
     }
+    // weapon stats: durability and a bonus (act::WeaponModifier), for weapons, bows and shields added from here
+    static float durability = 0, amt[3] = {10, 1.5f, 5};
+    static int bonus = 0;
+    static bool yellow = true;
+    static const char *bonuses[] = {"None", "Attack up", "Durability up", "Critical hit", "Long throw", "Multi-shot",
+                                    "Quick shot", "Shield guard up", "Zoom rapid (unused)", "Shield surf (unused)"};
+    static const uint32_t bonus_flag[] = {0, 0x1, 0x2, 0x4, 0x8, 0x10, 0x40, 0x100, 0x20, 0x80};
+    // what the amount means: 0 a number added, 1 a multiplier (x1000 in the game), 2 a count, 3 none
+    static const int bonus_kind[] = {3, 0, 0, 3, 1, 2, 1, 0, 3, 1};
+    if (mode == 0) {
+        opt_section("Weapon stats (weapons, bows, shields)");
+        opt_slider("Durability", &durability, 0, 5000, 5, 0, "%g",
+                   "How much use it has left. 0: the item's own (full). The game may still cap it at the weapon's most.");
+        opt_choice("Bonus", &bonus, bonuses, 10, 0,
+                   "The bonus shown with a + on the item. Attack up and Durability up: swords, spears, bows. Critical "
+                   "hit and Long throw: melee weapons. Multi-shot and Quick shot: bows. Shield guard up: shields. "
+                   "A bonus the item can't have does nothing (or may confuse the game).");
+        int kind = bonus_kind[bonus];
+        if (kind == 0) {
+            opt_slider("Bonus amount", &amt[0], 1, 9999, 1, 10, "+%g", "Added to the item's attack, durability or "
+                       "guard. The game's own go up to about +60 (attack) and +100 (guard).");
+        } else if (kind == 1) {
+            opt_slider("Bonus amount", &amt[1], 0.1f, 20, 0.1f, 1.5f, "x%.1f", "A multiplier: how much farther it "
+                       "flies (Long throw, the game's own 1.5 to 2) or how much faster the bow draws (Quick shot, 1.1 to 1.3).");
+        } else if (kind == 2) {
+            opt_slider("Bonus amount", &amt[2], 1, 20, 1, 5, "%g arrows", "Arrows per shot. The game's own: 3 or 5.");
+        }
+        if (bonus) opt_toggle("Yellow bonus", &yellow, true, "Shows the bonus in yellow, as on the strongest gear the game hands out.");
+    }
+    {
+        opt_section("Link (beta)");
+        static const char *lab[6] = {"Jump height", "Glide speed", "Swim speed", "Revali's Gale height", "Stamina use",
+                                     "Climb dash and ladder speed"};
+        static const char *desc[6] = {
+            "Multiplies how high Link jumps (also off walls and ladders). 1x is the game's own.",
+            "Multiplies the paraglider's top speeds. 1x is the game's own.",
+            "Multiplies Link's swimming speeds, including the swim dash. 1x is the game's own.",
+            "Multiplies how high Revali's Gale throws Link. 1x is the game's own.",
+            "Multiplies the stamina that sprinting, jumping, gliding, swimming and climbing take. 0x: none at all.",
+            "Multiplies the climbing dash (jump while climbing) and ladder speeds. 1x is the game's own.",
+        };
+        static const int order[6] = {0, 1, 2, 5, 3, 4};
+        for (int j = 0; j < 6; j++) {
+            int k = order[j];
+            float v = spawner_tweak_get(k);
+            if (opt_slider(lab[k], &v, 0, k == 3 ? 5 : 10, 0.1f, 1, "%.1fx", desc[k])) spawner_tweak_set(k, v);
+        }
+        int found = spawner_tweak_found();
+        if (found >= 0 && found < spawner_tweak_total()) {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.7f, 0.4f, 1));
+            ImGui::TextWrapped("Found %d of Link's %d numbers: some of these sliders may do nothing (savagewind.log lists "
+                               "which).", found, spawner_tweak_total());
+            ImGui::PopStyleColor();
+        }
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 0.7f, 1));
+        ImGui::TextWrapped("Walking and running speed come from Link's animations, not a number the game reads, so there "
+                           "is no slider for them yet.");
+        ImGui::PopStyleColor();
+    }
     static const char *catname[] = {"Weapon", "Bow", "Arrows", "Shield", "Armour", "Material", "Food", "Key item"};
     opt_section(mode ? "Items: select one to remove it" : "Items: select one to add it");
     int total = 0;
@@ -1160,8 +1224,12 @@ static void tab_items(void) {
         } else if (mode == 0 && opt_action(it.name, valtxt, desc, false)) {
             int n = (int)amount;
             if (!stack && n > 20) n = 20;
-            int value = gear ? (it.life > 0 ? it.life : 10) * 100 : it.cat == 4 ? 0 : n;
-            spawner_request(it.id, value, it.cat == 7 ? 1 : n, stack || it.cat == 7);
+            int life = durability >= 1 ? (int)durability : it.life > 0 ? it.life : 10;
+            int value = gear ? life * 100 : it.cat == 4 ? 0 : n;
+            uint32_t mf = gear && bonus ? bonus_flag[bonus] | (yellow ? 0x80000000u : 0) : 0;
+            int kind = bonus_kind[bonus];
+            int32_t mv = kind == 0 ? (int32_t)amt[0] : kind == 1 ? (int32_t)lroundf(amt[1] * 1000) : kind == 2 ? (int32_t)amt[2] : 0;
+            spawner_request_mod(it.id, value, it.cat == 7 ? 1 : n, stack || it.cat == 7, mf, mv);
         }
         ImGui::PopID();
     }

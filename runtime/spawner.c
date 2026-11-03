@@ -30,7 +30,7 @@
 // name (one off a stack, or the whole slot), as when an item is used up; equipped items are left alone.
 #define REMOVEITEM_190     0x7000d93320ull
 
-typedef struct { char name[64]; int32_t value; int count; int rm; } Req;
+typedef struct { char name[64]; int32_t value; int count; int rm; uint32_t mod_flags; int32_t mod_value; } Req;
 static Req g_q[64];
 static int g_qn;
 static atomic_flag g_lock = ATOMIC_FLAG_INIT;
@@ -48,7 +48,16 @@ const char *spawner_status(void) { return g_status; }
 // (render thread) queue `count` of an item: value is what itemGet takes - an amount for things that stack, the
 // durability x 100 for weapons, bows and shields, the dye colour (0) for armour. stack: one call with value = count;
 // otherwise one call (one slot) per item.
+int spawner_request_mod(const char *name, int value, int count, int stack, uint32_t mod_flags, int32_t mod_value);
 int spawner_request(const char *name, int value, int count, int stack) {
+    return spawner_request_mod(name, value, count, stack, 0, 0);
+}
+
+// ... with a weapon bonus: act::WeaponModifierInfo {u32 flags; s32 value} - flags as act::WeaponModifier (AddAtk 1,
+// AddLife 2, AddCrit 4, AddThrow 8, AddSpreadFire 0x10, AddZoomRapid 0x20, AddRapidFire 0x40, AddSurfMaster 0x80,
+// AddGuard 0x100, | IsYellow 0x80000000). itemGet copies it into the new pouch item for weapons, bows and shields
+// (1.9.0 0x7000d92458: flags at [x3], value at [x3 + 4]).
+int spawner_request_mod(const char *name, int value, int count, int stack, uint32_t mod_flags, int32_t mod_value) {
     if (!spawner_available() || !name || !*name || strlen(name) >= sizeof g_q[0].name) return 0;
     lock();
     int ok = g_qn < (int)(sizeof g_q / sizeof g_q[0]);
@@ -58,6 +67,8 @@ int spawner_request(const char *name, int value, int count, int stack) {
         r->value = stack ? count : value;
         r->count = stack ? 1 : count;
         r->rm = 0;
+        r->mod_flags = mod_flags;
+        r->mod_value = mod_value;
     }
     unlock();
     return ok;
@@ -74,6 +85,8 @@ int spawner_remove_request(const char *name, int count) {
         r->value = 0;
         r->count = count > 999 ? 999 : count;
         r->rm = 1;
+        r->mod_flags = 0;
+        r->mod_value = 0;
     }
     unlock();
     return ok;
@@ -85,12 +98,14 @@ static uint64_t gcall(Cpu *c, uint64_t fn, uint64_t sp, const uint64_t *args, in
 // (game main thread, once a frame) run the queued requests
 static void actor_frame(Cpu *c);
 static void slots_frame(Cpu *c);
+static void tweaks_frame(Cpu *c);
 static int g_aqn;
 void spawner_frame(void) {
     if (spawner_available()) {
         Cpu *c = kernel_current_cpu();
         if (c && g_aqn) actor_frame(c);
         if (c && guest_ptr(LD64(PMDM_INSTANCE_190))) slots_frame(c);
+        if (c) tweaks_frame(c);
     }
     if (!g_qn) return;  // (racy read: the next frame picks up a request queued meanwhile)
     Req todo[64];
@@ -132,13 +147,19 @@ void spawner_frame(void) {
             } else {
                 c->x[2] = (uint64_t)(uint32_t)todo[i].value;
                 c->x[3] = 0;
+                if (todo[i].mod_flags) {  // act::WeaponModifierInfo on the stack
+                    uint64_t mod = sp + 0x100;
+                    *(uint32_t *)(uintptr_t)mod = todo[i].mod_flags;
+                    *(int32_t *)(uintptr_t)(mod + 4) = todo[i].mod_value;
+                    c->x[3] = mod;
+                }
                 guest_call(c, ITEMGET_190);
                 calls++;
             }
             *c = saved;
         }
-        LOG("[spawner] %s %s value %d x%d\n", todo[i].rm ? "removeItem" : "itemGet", todo[i].name, todo[i].value,
-            todo[i].count);
+        LOG("[spawner] %s %s value %d x%d, bonus %x %d\n", todo[i].rm ? "removeItem" : "itemGet", todo[i].name,
+            todo[i].value, todo[i].count, todo[i].mod_flags, todo[i].mod_value);
     }
     if (n == 1 && todo[0].rm)
         snprintf(g_status, sizeof g_status, "Removed up to %d of %s (equipped ones are kept; unequip to remove them).",
@@ -319,4 +340,174 @@ static void slots_frame(Cpu *c) {
         atomic_store(&g_slot_cur[i], cur);
         if (v >= 0) LOG("[spawner] slots %d: asked %d, now %d\n", i, v, cur);
     }
+}
+
+// ------------------------------------------------------------------ player tweaks (the Items tab's Link section)
+// Link's actions read their numbers ("static params") through pointers into his AI program resource
+// (Actor/AIProgram/Player_Link.baiprog, ksys::res::AIProgram: AIProgram::getSInstParam hands out a const f32 * into
+// the agl::utl::Parameter), so changing the number in memory changes the game at once. Path, all 1.9.0:
+//   PlayerInfo::sInstance +0x68 (Link's BaseProcLink) -> acquireActor -> the actor (the access's +8)
+//   Actor +0x570 ActorParam*  ->  +0xa0 res::AIProgram* (Resources mAIProgram; 30 places read it this way)
+// The AIProgram's action lists (sead::Buffer<AIActionDef> {s32 size; T *data}, 0xc8 a definition) and each
+// definition's class name and static parameter list are found by looking rather than by fixed offsets: a list whose
+// elements hold a pointer to a class name below, then in that element a list of Parameter pointers, each a
+// Parameter carrying the CRC32 of its name and its value (checked against the game's own value). Only memory the
+// game has mapped is read (kernel_guest_mapped).
+bool kernel_guest_mapped(uint64_t a, uint64_t n);
+
+enum { TW_JUMP, TW_GLIDE, TW_SWIM, TW_GALE, TW_STAMINA, TW_CLIMB, TW_N };
+typedef struct { const char *cls, *param; float def; int group; } Tweak;
+static const Tweak kTweaks[] = {
+    {"PlayerJump", "JumpHeight", 0.58f, TW_JUMP},
+    {"PlayerWallJump", "JumpHeight", 0.58f, TW_JUMP},
+    {"PlayerTwiceJump", "JumpHeight", 0.3f, TW_JUMP},
+    {"PlayerLadderUpStart", "JumpHeight", 0.58f, TW_JUMP},
+    {"PlayerParashawlGlide", "GlideSpeedMax", 0.02f, TW_GLIDE},
+    {"PlayerParashawlGlide", "Lv2GlideSpeedMax", 0.35f, TW_GLIDE},
+    {"PlayerKokkoGlide", "GlideSpeedMax", 0.02f, TW_GLIDE},
+    {"PlayerKokkoGlide", "Lv2GlideSpeedMax", 0.35f, TW_GLIDE},
+    {"PlayerSwimMove", "MaxSpeedF", 0.052f, TW_SWIM},
+    {"PlayerSwimMove", "MaxSpeedS", 0.052f, TW_SWIM},
+    {"PlayerSwimMove", "MaxSpeedB", 0.0416f, TW_SWIM},
+    {"PlayerSwimMove", "MaxSpeedDash", 0.0756f, TW_SWIM},
+    {"PlayerSuperJump", "JumpHeight", 40.0f, TW_GALE},
+    {"PlayerActionClimb", "DashAnmSpdRate", 1.5f, TW_CLIMB},
+    {"PlayerLadderMove", "MoveAnmSpeedMin", 0.4f, TW_CLIMB},
+    {"PlayerLadderMove", "MoveAnmSpeedMax", 1.2f, TW_CLIMB},
+    // stamina: what running, jumping, gliding, swimming and climbing take
+    {"PlayerMove", "EnergyDash", 300.0f, TW_STAMINA},
+    {"PlayerJump", "EnergyDashJump", 300.0f, TW_STAMINA},
+    {"PlayerParashawlGlide", "EnergyGlide", 28.0f, TW_STAMINA},
+    {"PlayerKokkoGlide", "EnergyGlide", 28.0f, TW_STAMINA},
+    {"PlayerSwimMove", "EnergyMove", 30.0f, TW_STAMINA},
+    {"PlayerSwimMove", "EnergyDash", 30.0f, TW_STAMINA},
+    {"PlayerSwimDash", "EnergyDash", 125.0f, TW_STAMINA},
+    {"PlayerSwimJump", "EnergyJump", 100.0f, TW_STAMINA},
+    {"PlayerSwimSpinAttack", "EnergyDash", 125.0f, TW_STAMINA},
+    {"PlayerLadderJump", "EnergyJump", 300.0f, TW_STAMINA},
+    {"PlayerActionClimb", "StaminaDownAlways", 36.5f, TW_STAMINA},
+    {"PlayerActionClimb", "StaminaDownTriggerJump", 310.0f, TW_STAMINA},
+};
+#define NTWEAKS ((int)(sizeof kTweaks / sizeof kTweaks[0]))
+
+static _Atomic float g_tw_mult[TW_N] = {1, 1, 1, 1, 1, 1};
+static uint64_t g_tw_addr[NTWEAKS];  // where each number is (0: not found)
+static float g_tw_orig[NTWEAKS], g_tw_set[NTWEAKS];
+static uint64_t g_tw_prog;           // the AI program they were found in
+static _Atomic int g_tw_found = -1;  // how many were found (-1: not looked yet)
+static _Atomic int g_tw_active;      // a multiplier isn't 1 (or was: put the game's own numbers back)
+
+void spawner_tweak_set(int which, float mult) {
+    if (which < 0 || which >= TW_N) return;
+    g_tw_mult[which] = mult;
+    g_tw_active = 1;
+}
+float spawner_tweak_get(int which) { return which >= 0 && which < TW_N ? g_tw_mult[which] : 1; }
+int spawner_tweak_found(void) { return g_tw_found; }
+int spawner_tweak_total(void) { return NTWEAKS; }
+
+static uint32_t crc32s(const char *s) {
+    uint32_t c = 0xffffffffu;
+    for (; *s; s++) {
+        c ^= (uint8_t)*s;
+        for (int k = 0; k < 8; k++) c = c >> 1 ^ (0xedb88320u & -(c & 1));
+    }
+    return ~c;
+}
+static int mapped(uint64_t a, uint64_t n) { return guest_ptr(a) && kernel_guest_mapped(a, n); }
+static int str_is(uint64_t p, const char *want) {
+    size_t n = strlen(want) + 1;
+    return mapped(p, n) && !memcmp((const void *)(uintptr_t)p, want, n);
+}
+
+// (game thread) Link's actor's AI program, or 0
+static uint64_t player_aiprog(Cpu *c) {
+    uint64_t pinfo = LD64(got(PLAYERINFO_GOT_190));
+    if (!mapped(pinfo, 0x80)) return 0;
+    uint64_t sp = (c->sp - 0x1000) & ~0xfull, access = sp + 0x100;
+    memset((void *)(uintptr_t)access, 0, 0x20);
+    uint64_t a1[2] = {pinfo + 0x68, access};
+    uint64_t actor = 0;
+    if (gcall(c, ACQUIRE_190, sp, a1, 2) & 1) actor = LD64(access + 8);
+    uint64_t a3[1] = {access};
+    gcall(c, ACCESS_DTOR_190, sp, a3, 1);
+    if (!mapped(actor, 0x580)) return 0;
+    uint64_t param = LD64(actor + 0x570);
+    if (!mapped(param, 0x100)) return 0;
+    uint64_t prog = LD64(param + 0xa0);
+    return mapped(prog, 0x448) ? prog : 0;
+}
+
+// in one definition (0xc8 bytes at def): the parameter `hash` whose value is near `def_value`; its value's address
+static uint64_t find_param(uint64_t def, uint32_t hash, float def_value) {
+    for (int off = 0; off + 16 <= 0xc8; off += 8) {  // sead::Buffer<ParameterBase *> {s32 size; ptr}
+        int32_t n = *(int32_t *)(uintptr_t)(def + off);
+        uint64_t arr = LD64(def + off + 8);
+        if (n < 1 || n > 128 || !mapped(arr, (uint64_t)n * 8)) continue;
+        for (int i = 0; i < n; i++) {
+            uint64_t prm = LD64(arr + 8 * (uint64_t)i);
+            if (!mapped(prm, 0x40)) break;
+            int hash_at = -1;
+            for (int h = 0; h < 0x20; h += 4)
+                if (*(uint32_t *)(uintptr_t)(prm + h) == hash) { hash_at = h; break; }
+            if (hash_at < 0) continue;
+            for (int v = hash_at + 4; v + 4 <= 0x40; v += 4) {
+                float f = *(float *)(uintptr_t)(prm + v);
+                if (fabsf(f - def_value) <= 1e-4f * (fabsf(def_value) + 1)) return prm + v;
+            }
+        }
+    }
+    return 0;
+}
+
+static void tweaks_find(uint64_t prog) {
+    memset(g_tw_addr, 0, sizeof g_tw_addr);
+    int found = 0;
+    for (int off = 0; off + 16 <= 0x448; off += 8) {  // the AI / Action lists: sead::Buffer<AIActionDef>
+        int32_t n = *(int32_t *)(uintptr_t)(prog + off);
+        uint64_t arr = LD64(prog + off + 8);
+        if (n < 1 || n > 4000 || !mapped(arr, (uint64_t)n * 0xc8)) continue;
+        for (int i = 0; i < n; i++) {
+            uint64_t def = arr + (uint64_t)i * 0xc8;
+            uint64_t names[4];
+            int nn = 0;
+            for (int k = 0; k + 8 <= 0xc8 && nn < 4; k += 8) {  // (pointers to "Player..." strings: its class name)
+                uint64_t q = LD64(def + k);
+                if (mapped(q, 8) && !memcmp((const void *)(uintptr_t)q, "Player", 6)) names[nn++] = q;
+            }
+            for (int t = 0; t < NTWEAKS && nn; t++) {
+                if (g_tw_addr[t]) continue;
+                int named = 0;
+                for (int k = 0; k < nn && !named; k++) named = str_is(names[k], kTweaks[t].cls);
+                if (!named) continue;
+                uint64_t a = find_param(def, crc32s(kTweaks[t].param), kTweaks[t].def);
+                if (a) g_tw_addr[t] = a, g_tw_orig[t] = g_tw_set[t] = *(float *)(uintptr_t)a, found++;
+            }
+        }
+    }
+    g_tw_found = found;
+    LOG("[spawner] player tweaks: AI program %llx, %d of %d numbers found\n", (unsigned long long)prog, found, NTWEAKS);
+    for (int t = 0; t < NTWEAKS; t++)
+        if (!g_tw_addr[t]) LOG("[spawner]   not found: %s %s\n", kTweaks[t].cls, kTweaks[t].param);
+}
+
+static void tweaks_frame(Cpu *c) {
+    static int tick;
+    if (!g_tw_active || ++tick % 20) return;  // (three times a second, and only once something was changed)
+    uint64_t prog = player_aiprog(c);
+    if (!prog) return;
+    if (prog != g_tw_prog) g_tw_prog = prog, tweaks_find(prog);
+    int any = 0;
+    for (int t = 0; t < NTWEAKS; t++) {
+        uint64_t a = g_tw_addr[t];
+        if (!a || !mapped(a, 4)) continue;
+        float *v = (float *)(uintptr_t)a;
+        if (*v != g_tw_set[t]) g_tw_orig[t] = *v;  // (the game changed it: that's its own number now)
+        float m = g_tw_mult[kTweaks[t].group];
+        float want = g_tw_orig[t] * m;
+        if (*v != want) *v = want;
+        g_tw_set[t] = want;
+        any |= m != 1;
+    }
+    if (!any) g_tw_active = 0;  // (all back to the game's own numbers)
 }
