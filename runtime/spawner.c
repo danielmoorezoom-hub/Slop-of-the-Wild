@@ -105,6 +105,7 @@ static void tweaks_frame(Cpu *c);
 static void armor_frame(void);
 static void inv_frame(void);
 static void noclip_frame(Cpu *c);
+static void move_frame(Cpu *c);
 static int g_aqn;
 void spawner_frame(void) {
     if (spawner_available()) {
@@ -115,6 +116,7 @@ void spawner_frame(void) {
         armor_frame();
         inv_frame();
         if (c) noclip_frame(c);
+        if (c) move_frame(c);
     }
     if (!g_qn) return;  // (racy read: the next frame picks up a request queued meanwhile)
     static Req todo[96];
@@ -375,7 +377,7 @@ static void slots_frame(Cpu *c) {
 // game has mapped is read (kernel_guest_mapped).
 bool kernel_guest_mapped(uint64_t a, uint64_t n);
 
-enum { TW_JUMP, TW_GLIDE, TW_SWIM, TW_GALE, TW_STAMINA, TW_CLIMB, TW_N };
+enum { TW_JUMP, TW_GLIDE, TW_SWIM, TW_GALE, TW_STAMINA, TW_CLIMB, TW_MOVE, TW_N };
 typedef struct { const char *cls, *param; float def; int group; } Tweak;
 static const Tweak kTweaks[] = {
     {"PlayerJump", "JumpHeight", 0.58f, TW_JUMP},
@@ -410,7 +412,7 @@ static const Tweak kTweaks[] = {
 };
 #define NTWEAKS ((int)(sizeof kTweaks / sizeof kTweaks[0]))
 
-static _Atomic float g_tw_mult[TW_N] = {1, 1, 1, 1, 1, 1};
+static _Atomic float g_tw_mult[TW_N] = {1, 1, 1, 1, 1, 1, 1};
 static uint64_t g_tw_addr[NTWEAKS];  // where each number is (0: not found)
 static float g_tw_orig[NTWEAKS], g_tw_set[NTWEAKS];
 static uint64_t g_tw_prog;           // the AI program they were found in
@@ -692,8 +694,15 @@ static void noclip_frame(Cpu *c) {
     if (!g_noclip_on) { on = 0; return; }
     uint64_t actor = player_actor(c);
     uint64_t body = actor ? LD64(actor + 0x190) : 0, acc = mapped(body, 0xc0) ? LD64(body + 0xb8) : 0;
-    uint64_t vt = mapped(acc, 0x10) ? LD64(acc) : 0;
-    if (!mapped(vt, 0x50)) { if (on) LOG("[noclip] lost Link's body\n"); on = 0; return; }
+    uint64_t vt = mapped(acc, 0x10) ? LD64(acc) : 0;  // (the vtable is in the game's module: guest_ptr, not mapped)
+    if (!guest_ptr(vt) || !guest_ptr(LD64(vt + 0x18))) {
+        static int told;
+        if (on || told++ < 3)
+            LOG("[noclip] no body: actor %llx body %llx accessor %llx vtable %llx\n", (unsigned long long)actor,
+                (unsigned long long)body, (unsigned long long)acc, (unsigned long long)vt);
+        on = 0;
+        return;
+    }
     uint64_t sp = (c->sp - 0x1000) & ~0xfull, v = sp + 0x80;
     uint64_t now = plat_now_ns();
     if (!on) {  // where he is now
@@ -736,4 +745,37 @@ static void noclip_frame(Cpu *c) {
         guest_call(c, LD64(vt + 0x48));
         *c = saved;
     }
+}
+
+// ------------------------------------------------------------------ movement speed (Link > Movement speed)
+// Running, walking, climbing and gliding speeds come from Link's animations (root motion), not numbers the game reads,
+// so this goes by where he got to: each frame, how far he moved across the ground since the last one, and that move
+// again (times the multiplier less one) through the same setPosition noclip uses. Up and down are left alone. A jump of
+// more than 5 m in a frame (a warp, a load) isn't a step and is skipped.
+static void move_frame(Cpu *c) {
+    static int have;
+    static float prev[3];
+    float m = g_tw_mult[TW_MOVE];
+    if (g_noclip_on || m == 1.0f) { have = 0; return; }
+    uint64_t actor = player_actor(c);
+    uint64_t body = actor ? LD64(actor + 0x190) : 0, acc = mapped(body, 0xc0) ? LD64(body + 0xb8) : 0;
+    uint64_t vt = mapped(acc, 0x10) ? LD64(acc) : 0;
+    if (!guest_ptr(vt) || !guest_ptr(LD64(vt + 0x20))) { have = 0; return; }
+    uint64_t sp = (c->sp - 0x1000) & ~0xfull, v = sp + 0x80;
+    memset((void *)(uintptr_t)v, 0, 16);
+    uint64_t a[2] = {acc, v};
+    gcall(c, LD64(vt + 0x20), sp, a, 2);
+    float pos[3];
+    memcpy(pos, (void *)(uintptr_t)v, sizeof pos);
+    if (have) {
+        float dx = pos[0] - prev[0], dz = pos[2] - prev[2], d2 = dx * dx + dz * dz;
+        if (d2 > 1e-6f && d2 < 25.0f) {
+            pos[0] += dx * (m - 1), pos[2] += dz * (m - 1);
+            memcpy((void *)(uintptr_t)v, pos, sizeof pos);
+            uint64_t b[3] = {acc, v, 1};
+            gcall(c, LD64(vt + 0x18), sp, b, 3);
+        }
+    }
+    memcpy(prev, pos, sizeof prev);
+    have = 1;
 }

@@ -1269,21 +1269,24 @@ static void tab_items(void) {
     }
     {
         opt_section("Link (beta)");
-        static const char *lab[6] = {"Jump height", "Glide speed", "Swim speed", "Revali's Gale height", "Stamina use",
-                                     "Climb dash and ladder speed"};
-        static const char *desc[6] = {
+        static const char *lab[7] = {"Jump height", "Glide speed", "Swim speed", "Revali's Gale height", "Stamina use",
+                                     "Climb dash and ladder speed", "Movement speed"};
+        static const char *desc[7] = {
             "Multiplies how high Link jumps (also off walls and ladders). 1x is the game's own.",
             "Multiplies the paraglider's top speeds. 1x is the game's own.",
             "Multiplies Link's swimming speeds, including the swim dash. 1x is the game's own.",
             "Multiplies how high Revali's Gale throws Link. 1x is the game's own.",
             "Multiplies the stamina that sprinting, jumping, gliding, swimming and climbing take. 0x: none at all.",
             "Multiplies the climbing dash (jump while climbing) and ladder speeds. 1x is the game's own.",
+            "Multiplies how fast Link gets anywhere across the ground: walking, running, sprinting, climbing sideways, "
+            "gliding, swimming. 1x is the game's own. Very fast can carry him into walls or off ledges.",
         };
-        static const int order[6] = {0, 1, 2, 5, 3, 4};
-        for (int j = 0; j < 6; j++) {
+        static const int order[7] = {6, 0, 1, 2, 5, 3, 4};
+        static const float hi[7] = {100, 100, 100, 50, 10, 50, 30}, step[7] = {0.5f, 0.5f, 0.5f, 0.5f, 0.1f, 0.5f, 0.25f};
+        for (int j = 0; j < 7; j++) {
             int k = order[j];
             float v = spawner_tweak_get(k);
-            if (opt_slider(lab[k], &v, 0, k == 3 ? 5 : 10, 0.1f, 1, "%.1fx", desc[k])) spawner_tweak_set(k, v);
+            if (opt_slider(lab[k], &v, k == 6 ? 0.25f : 0, hi[k], step[k], 1, "%gx", desc[k])) spawner_tweak_set(k, v);
         }
         int found = spawner_tweak_found();
         if (found >= 0 && found < spawner_tweak_total()) {
