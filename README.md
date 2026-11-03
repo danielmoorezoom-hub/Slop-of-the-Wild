@@ -4,6 +4,16 @@
 
 **[Download the newest release](../../releases)** · [Install it](#how-to-install) · [What's new and known issues](../../releases) · [Help test it](#help-test-it)
 
+> [!NOTE]
+> **This is a fork of [devall96/slop-of-the-wild](https://github.com/devall96/slop-of-the-wild)** with an in-game spawner and mod support added. Its changes are on the `item-spawner` branch. Everything below this section describes the upstream project. Press **F3** in game (or the controller's Guide button) to open the menu.
+>
+> - **Items tab:** add any item to your pouch, including ones the game never lets you carry. You can also remove items, set durability and weapon bonuses (Attack up, Quick shot, Multi-shot, Yellow and the rest), and raise the weapon, bow, shield and armour slot limits (armour up to 300).
+> - **Link sliders:** jump height, glide speed, swim speed, climb dash, Revali's Gale height and stamina use. These change while you play.
+> - **Spawn tab:** create enemies, bosses, animals, NPCs and objects in front of Link.
+> - **Mods that add items:** new files in `mods/<name>/romfs` are added to the game. When several mods include `Actor/ActorInfo.product.sbyml`, their changes are combined instead of the last one winning. Items added by mods show up in the spawner under *Added by mods*.
+>
+> All of it needs game version 1.9.0, and all of it is beta: save before trying things.
+
 > [!CAUTION]
 > **No game files are included, and none ever will be**: not in the code, the releases, the issues or the wiki. You need your own copy, dumped from your own Switch. Please don't post game files, dumps, keys or an installed copy here.
 
