@@ -33,7 +33,7 @@
 #define REMOVEITEM_190     0x7000d93320ull
 
 typedef struct { char name[64]; int32_t value; int count; int rm; uint32_t mod_flags; int32_t mod_value; } Req;
-static Req g_q[512];
+static Req g_q[2048];
 static int g_qn;
 static atomic_flag g_lock = ATOMIC_FLAG_INIT;
 static char g_status[200];
@@ -114,12 +114,13 @@ void spawner_frame(void) {
         inv_frame();
     }
     if (!g_qn) return;  // (racy read: the next frame picks up a request queued meanwhile)
-    static Req todo[512];
+    static Req todo[96];
     int n;
-    lock();
-    n = g_qn;
+    lock();  // (at most 96 a frame: a long batch, "one of each", spreads over a few frames)
+    n = g_qn < 96 ? g_qn : 96;
     memcpy(todo, g_q, sizeof todo[0] * n);
-    g_qn = 0;
+    memmove(g_q, g_q + n, sizeof g_q[0] * (size_t)(g_qn - n));
+    g_qn -= n;
     unlock();
     if (!spawner_available()) return;
     Cpu *c = kernel_current_cpu();
@@ -167,7 +168,16 @@ void spawner_frame(void) {
         LOG("[spawner] %s %s value %d x%d, bonus %x %d\n", todo[i].rm ? "removeItem" : "itemGet", todo[i].name,
             todo[i].value, todo[i].count, todo[i].mod_flags, todo[i].mod_value);
     }
-    if (n == 1 && todo[0].rm)
+    static int batch_calls, batch_removes;  // (a batch over several frames: its totals)
+    batch_calls += calls, batch_removes += removes;
+    int more = g_qn;  // (racy read: only for the message)
+    if (more || batch_calls + batch_removes > calls + removes) {
+        if (batch_removes && !batch_calls)
+            snprintf(g_status, sizeof g_status, more ? "Removing... %d so far." : "Removed up to %d items.", batch_removes);
+        else
+            snprintf(g_status, sizeof g_status, more ? "Adding... %d so far." : "Sent %d items to your pouch (a full pouch takes nothing more).", batch_calls);
+        if (!more) batch_calls = batch_removes = 0;
+    } else if (n == 1 && todo[0].rm)
         snprintf(g_status, sizeof g_status, "Removed up to %d of %s (equipped ones are kept; unequip to remove them).",
                  todo[0].count, todo[0].name);
     else if (removes && !calls)
@@ -177,6 +187,7 @@ void spawner_frame(void) {
                  todo[0].name);
     else
         snprintf(g_status, sizeof g_status, "Sent %d items to your pouch.", calls);
+    if (!more) batch_calls = batch_removes = 0;
     atomic_fetch_add(&g_status_seq, 1);
 }
 

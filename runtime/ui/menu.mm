@@ -1303,8 +1303,6 @@ static void tab_items(void) {
         opt_end();
         return;
     }
-    opt_section("Items: select one to add it");
-    int total = 0;
     // the list: the spawner's own, then what the game's actor table has beyond it (mods' new items: odd 2)
     static std::vector<SpawnItem> all;
     if (all.empty()) {
@@ -1316,14 +1314,45 @@ static void tab_items(void) {
         for (int k = 0; k < nm; k++)
             if (!known.count(mi[k].id)) all.push_back(SpawnItem{mi[k].id, mi[k].id, mi[k].cat, mi[k].life, 2});
     }
+    auto listed = [&](const SpawnItem &it) {
+        if (cat == 10 ? it.odd != 2 : cat == 9 ? it.odd != 1 : cat && (it.cat != cat - 1 || it.odd == 1)) return false;
+        return ci_contains(it.name, query) || ci_contains(it.id, query);
+    };
+    // what selecting it sends: n of it, with the weapon stats above
+    auto add_item = [&](const SpawnItem &it, int n) {
+        bool gear = it.cat == 0 || it.cat == 1 || it.cat == 3;
+        bool stack = it.cat == 2 || it.cat == 5 || it.cat == 6;  // (the game stacks these; key items it decides itself)
+        if (!stack && n > 20) n = 20;
+        int life = durability >= 1 ? (int)durability : it.life > 0 ? it.life : 10;
+        int value = gear ? life * 100 : it.cat == 4 ? 0 : n;
+        uint32_t mf = gear && bonus ? bonus_flag[bonus] | (yellow ? 0x80000000u : 0) : 0;
+        int kind = bonus_kind[bonus];
+        int32_t mv = kind == 0 ? (int32_t)amt[0] : kind == 1 ? (int32_t)lroundf(amt[1] * 1000) : kind == 2 ? (int32_t)amt[2] : 0;
+        spawner_request_mod(it.id, value, it.cat == 7 ? 1 : n, stack || it.cat == 7, mf, mv);
+    };
+    {
+        opt_section("Add several at once");
+        int count = 0;
+        for (const SpawnItem &it : all) count += listed(it);
+        char v[48], d[400];
+        snprintf(v, sizeof v, "%d items", count);
+        snprintf(d, sizeof d, "Adds one of every item the list below shows: the Category you picked (and what Search "
+                 "matches), with the weapon stats above. The pouch takes 420 items at most and stops when a kind is full "
+                 "(weapons, bows and shields at your slot counts), so a big category may not all fit.%s",
+                 cat == 9 ? " Unobtainable items may crash the game - save first." : cat == 0 ? " With All picked that's everything: save first." : "");
+        if (!count) opt_disable_next();
+        if (opt_action("Add one of each listed", v, d, false))
+            for (const SpawnItem &it : all)
+                if (listed(it)) add_item(it, 1);
+    }
+    opt_section("Items: select one to add it");
+    int total = 0;
     for (int i = 0; i < (int)all.size(); i++) {
         const SpawnItem &it = all[i];
-        if (cat == 10 ? it.odd != 2 : cat == 9 ? it.odd != 1 : cat && (it.cat != cat - 1 || it.odd == 1)) continue;
-        if (!ci_contains(it.name, query) && !ci_contains(it.id, query)) continue;
+        if (!listed(it)) continue;
         total++;
         if (!row_near_view()) continue;
         bool gear = it.cat == 0 || it.cat == 1 || it.cat == 3;
-        bool stack = it.cat == 2 || it.cat == 5 || it.cat == 6;  // (the game stacks these; key items it decides itself)
         char desc[300];
         if (it.odd == 2) {
             snprintf(desc, sizeof desc, "%s  (%s)  Added by a mod: shown by its ID. If the mod's files aren't all "
@@ -1340,14 +1369,7 @@ static void tab_items(void) {
         if (mode == 1 && opt_action(it.name, valtxt, desc, false)) {
             spawner_remove_request(it.id, (int)amount);
         } else if (mode == 0 && opt_action(it.name, valtxt, desc, false)) {
-            int n = (int)amount;
-            if (!stack && n > 20) n = 20;
-            int life = durability >= 1 ? (int)durability : it.life > 0 ? it.life : 10;
-            int value = gear ? life * 100 : it.cat == 4 ? 0 : n;
-            uint32_t mf = gear && bonus ? bonus_flag[bonus] | (yellow ? 0x80000000u : 0) : 0;
-            int kind = bonus_kind[bonus];
-            int32_t mv = kind == 0 ? (int32_t)amt[0] : kind == 1 ? (int32_t)lroundf(amt[1] * 1000) : kind == 2 ? (int32_t)amt[2] : 0;
-            spawner_request_mod(it.id, value, it.cat == 7 ? 1 : n, stack || it.cat == 7, mf, mv);
+            add_item(it, (int)amount);
         }
         ImGui::PopID();
     }
