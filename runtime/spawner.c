@@ -14,6 +14,7 @@
 //   sead::SafeStringBase<char> vtable: its GOT entry 0x7001d66260 (itemGet's own SafeString temporaries use it + 0x10)
 // A SafeString is {vtable, const char *top}: built on the guest stack below the frame's sp for the call.
 #include <stdatomic.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <math.h>
@@ -32,7 +33,7 @@
 #define REMOVEITEM_190     0x7000d93320ull
 
 typedef struct { char name[64]; int32_t value; int count; int rm; uint32_t mod_flags; int32_t mod_value; } Req;
-static Req g_q[64];
+static Req g_q[512];
 static int g_qn;
 static atomic_flag g_lock = ATOMIC_FLAG_INIT;
 static char g_status[200];
@@ -101,6 +102,7 @@ static void actor_frame(Cpu *c);
 static void slots_frame(Cpu *c);
 static void tweaks_frame(Cpu *c);
 static void armor_frame(void);
+static void inv_frame(void);
 static int g_aqn;
 void spawner_frame(void) {
     if (spawner_available()) {
@@ -109,9 +111,10 @@ void spawner_frame(void) {
         if (c && guest_ptr(LD64(PMDM_INSTANCE_190))) slots_frame(c);
         if (c) tweaks_frame(c);
         armor_frame();
+        inv_frame();
     }
     if (!g_qn) return;  // (racy read: the next frame picks up a request queued meanwhile)
-    Req todo[64];
+    static Req todo[512];
     int n;
     lock();
     n = g_qn;
@@ -565,4 +568,57 @@ static void armor_frame(void) {
     LOG("[spawner] armour slots %d -> %d%s\n", g_armor_applied, want, ok ? "" : " (failed)");
     if (ok) g_armor_applied = want;
     else g_armor_state = -1;
+}
+
+// ------------------------------------------------------------------ what's in the pouch (Items > Remove)
+// PauseMenuDataMgr's item list, read on the game thread a few times a second: 1.9.0 (as removeItem 0x7000d93320 walks
+// it) a sead::OffsetList at +0x68 (head node: prev +0x68, next +0x70; the node's offset in an item at +0x7c), an item
+// (uking::ui::PouchItem): +0x18 type, +0x20 value, +0x24 equipped, +0x28 its name (SafeString: the string at +0x30).
+typedef struct { char name[64]; int type, value, equipped; } InvItem;
+static InvItem g_inv[600], g_inv_tmp[600];
+static int g_inv_n = -1;
+static atomic_flag g_inv_lock = ATOMIC_FLAG_INIT;
+bool kernel_guest_mapped(uint64_t a, uint64_t n);
+
+static void inv_frame(void) {
+    static int tick;
+    if (++tick % 15) return;
+    uint64_t pm = LD64(PMDM_INSTANCE_190);
+    if (!guest_ptr(pm) || !kernel_guest_mapped(pm, 0x80)) return;
+    uint64_t head = pm + 0x68, node = LD64(pm + 0x70);
+    int32_t off = *(int32_t *)(uintptr_t)(pm + 0x7c);
+    int n = 0;
+    for (int guard = 0; node != head && guard < 600; guard++) {
+        if (!guest_ptr(node) || !kernel_guest_mapped(node, 16)) break;
+        uint64_t it = node - (uint64_t)(int64_t)off;
+        if (!kernel_guest_mapped(it, 0x40)) break;
+        uint64_t s = LD64(it + 0x30);
+        if (guest_ptr(s) && kernel_guest_mapped(s, 1) && n < 600) {
+            InvItem *v = &g_inv_tmp[n];
+            size_t k = 0;
+            while (k < sizeof v->name - 1 && kernel_guest_mapped(s + k, 1) && ((const char *)(uintptr_t)s)[k]) {
+                v->name[k] = ((const char *)(uintptr_t)s)[k];
+                k++;
+            }
+            v->name[k] = 0;
+            v->type = *(int32_t *)(uintptr_t)(it + 0x18);
+            v->value = *(int32_t *)(uintptr_t)(it + 0x20);
+            v->equipped = *(uint8_t *)(uintptr_t)(it + 0x24);
+            if (k) n++;
+        }
+        node = LD64(node + 8);
+    }
+    while (atomic_flag_test_and_set_explicit(&g_inv_lock, memory_order_acquire)) { }
+    memcpy(g_inv, g_inv_tmp, sizeof g_inv[0] * (size_t)n);
+    g_inv_n = n;
+    atomic_flag_clear_explicit(&g_inv_lock, memory_order_release);
+}
+
+// (render thread) a copy of the pouch as last read; -1 before the first read (no save loaded yet)
+int spawner_inventory(InvItem *out, int max) {
+    while (atomic_flag_test_and_set_explicit(&g_inv_lock, memory_order_acquire)) { }
+    int n = g_inv_n < 0 ? -1 : g_inv_n < max ? g_inv_n : max;
+    if (n > 0) memcpy(out, g_inv, sizeof out[0] * (size_t)n);
+    atomic_flag_clear_explicit(&g_inv_lock, memory_order_release);
+    return n;
 }

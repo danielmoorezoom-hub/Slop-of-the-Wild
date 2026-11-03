@@ -12,6 +12,7 @@
 #include <pthread.h>
 #include <atomic>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -1058,6 +1059,8 @@ int spawner_tweak_total(void);
 int spawner_armor_state(void);
 typedef struct { char id[64]; int cat, life; } ModItem;
 int spawner_mod_items(const ModItem **out);
+typedef struct { char name[64]; int type, value, equipped; } InvItem;
+int spawner_inventory(InvItem *out, int max);
 int spawner_slots_get(int which);
 void spawner_slots_set(int which, int value);
 }
@@ -1090,6 +1093,85 @@ bool row_near_view(void) {
 }
 }  // namespace
 
+// Items > Remove: the pouch as the game has it (runtime/spawner.c spawner_inventory), one row per item name.
+static void tab_items_remove(const char *query, int cat, int amount) {
+    static InvItem inv[600];
+    int n = spawner_inventory(inv, 600);
+    if (n < 0) {
+        opt_section("Your pouch");
+        ImGui::TextWrapped("Load your save to see what's in your pouch.");
+        return;
+    }
+    // names: the spawner's own list, else the ID
+    static std::unordered_map<std::string, const SpawnItem *> names;
+    if (names.empty())
+        for (const SpawnItem &it : kSpawnItems) names[it.id] = &it;
+    // pouch types: 0 sword, 1 bow, 2 arrow, 3 shield, 4-6 armour, 7 material, 8 food, 9 key item -> the menu's kinds
+    auto kind = [](int t) { return t <= 3 ? t : t <= 6 ? 4 : t == 7 ? 5 : t == 8 ? 6 : 7; };
+    struct Row { std::string id; const char *name; int kind, slots, unequipped, value; };
+    std::vector<Row> rows;
+    std::unordered_map<std::string, size_t> at;
+    for (int i = 0; i < n; i++) {
+        auto f = at.find(inv[i].name);
+        if (f == at.end()) {
+            auto nm = names.find(inv[i].name);
+            at[inv[i].name] = rows.size();
+            rows.push_back(Row{inv[i].name, nm != names.end() ? nm->second->name : NULL, kind(inv[i].type), 0, 0, 0});
+            f = at.find(inv[i].name);
+        }
+        Row &r = rows[f->second];
+        r.slots++;
+        if (!inv[i].equipped) r.unequipped++;
+        r.value += inv[i].value;
+    }
+    static const char *catname[] = {"Weapon", "Bow", "Arrows", "Shield", "Armour", "Material", "Food", "Key item"};
+    auto stacks = [](const Row &r) { return r.kind == 2 || r.kind == 5 || r.kind == 6 || (r.kind == 7 && r.slots == 1 && r.value > 1); };
+    // how many removeItem calls take all of a row (equipped ones stay)
+    auto all_of = [&](const Row &r) { return stacks(r) ? r.value : r.unequipped; };
+    std::vector<const Row *> shown;
+    for (const Row &r : rows) {
+        if (cat >= 9 ? false : cat && r.kind != cat - 1) continue;
+        if (!ci_contains(r.name ? r.name : r.id.c_str(), query) && !ci_contains(r.id.c_str(), query)) continue;
+        shown.push_back(&r);
+    }
+    opt_section("Remove several at once");
+    {
+        int armour = 0;
+        for (const Row &r : rows) if (r.kind == 4) armour += r.unequipped;
+        char v[32];
+        snprintf(v, sizeof v, "%d pieces", armour);
+        if (!armour) opt_disable_next();
+        if (opt_action("Remove all unequipped armour", v, "Takes every armour piece you aren't wearing out of the pouch. Save first: there's no undo.", false))
+            for (const Row &r : rows) if (r.kind == 4 && r.unequipped) spawner_remove_request(r.id.c_str(), r.unequipped);
+        int listed = 0;
+        for (const Row *r : shown) listed += all_of(*r) > 0;
+        snprintf(v, sizeof v, "%d items", listed);
+        if (!listed) opt_disable_next();
+        if (opt_action("Remove everything listed below", v, "Removes all of every item the list below shows (pick a Category or type in Search to narrow it). Equipped items stay. Save first: there's no undo.", false))
+            for (const Row *r : shown) if (all_of(*r) > 0) spawner_remove_request(r->id.c_str(), all_of(*r));
+    }
+    opt_section("Your pouch: select one to remove it");
+    for (size_t i = 0; i < shown.size(); i++) {
+        const Row &r = *shown[i];
+        if (!row_near_view()) continue;
+        char val[64], desc[300];
+        if (stacks(r)) snprintf(val, sizeof val, "x%d", r.value);
+        else if (r.slots > 1) snprintf(val, sizeof val, "%d%s", r.slots, r.unequipped < r.slots ? " (1 worn)" : "");
+        else snprintf(val, sizeof val, "%s", r.unequipped ? catname[r.kind] : "worn / equipped");
+        snprintf(desc, sizeof desc, "%s  (%s)  Removes %s. Equipped items stay: unequip them first.", r.id.c_str(),
+                 catname[r.kind], stacks(r) ? "the Amount set above from the stack" : "the Amount set above, one piece each");
+        ImGui::PushID((int)i);
+        bool can = all_of(r) > 0;
+        if (!can) opt_disable_next();
+        if (opt_action(r.name ? r.name : r.id.c_str(), val, desc, false) && can) {
+            int k = amount < all_of(r) ? amount : all_of(r);
+            spawner_remove_request(r.id.c_str(), k);
+        }
+        ImGui::PopID();
+    }
+    if (shown.empty()) ImGui::TextWrapped(n ? "Nothing in your pouch matches." : "Your pouch is empty.");
+}
+
 static void tab_items(void) {
     opt_begin("##items", ImGui::GetFontSize() / 34);
     if (!spawner_available()) {
@@ -1111,7 +1193,7 @@ static void tab_items(void) {
                "Type part of an item's name, like \"lynel\" or \"apple\", or its ID, like Weapon_Sword_070. The list "
                "below narrows as you type.");
     opt_choice("Mode", &mode, modes, 2, 0,
-               "Add: selecting an item puts it in your pouch. Remove: selecting an item takes it out of your pouch (the "
+               "Add: selecting an item puts it in your pouch. Remove: lists what is in your pouch; selecting one takes it out (the "
                "Amount from a stack, or that many slots of gear). Equipped items are kept: unequip them first.");
     opt_choice("Category", &cat, cats, 11, 0, "Shows only one kind of item. Unobtainable: things the game never lets you carry (NPC tools, boss weapons, unused gear). They need the Unobtainable items mod and may crash the game when equipped, dropped or shown. Added by mods: items your mods add to the game (listed by their IDs).");
     opt_slider("Amount", &amount, 1, 999, 1, 1, "%g",
@@ -1216,7 +1298,12 @@ static void tab_items(void) {
         ImGui::PopStyleColor();
     }
     static const char *catname[] = {"Weapon", "Bow", "Arrows", "Shield", "Armour", "Material", "Food", "Key item"};
-    opt_section(mode ? "Items: select one to remove it" : "Items: select one to add it");
+    if (mode == 1) {  // Remove: what's in the pouch now
+        tab_items_remove(query, cat, (int)amount);
+        opt_end();
+        return;
+    }
+    opt_section("Items: select one to add it");
     int total = 0;
     // the list: the spawner's own, then what the game's actor table has beyond it (mods' new items: odd 2)
     static std::vector<SpawnItem> all;
