@@ -36,6 +36,7 @@ Settings g_settings = {
     .fast_path = true,
     .stick_cam_x = 200,
     .stick_cam_y = 200,
+    .armor_slots = 100,
     .weapon_wear = 100,
     .damage_taken = 100,
     .damage_dealt = 100,
@@ -175,6 +176,7 @@ void settings_load(void) {
         else if (!strcmp(key, "damage_taken")) g_settings.damage_taken = atoi(val);
         else if (!strcmp(key, "cheat_rupees")) g_settings.cheat_rupees = atoi(val) != 0;
         else if (!strcmp(key, "weapon_wear")) g_settings.weapon_wear = atoi(val);
+        else if (!strcmp(key, "armor_slots")) g_settings.armor_slots = atoi(val);
         else if (!strcmp(key, "save_backups")) g_settings.save_backups = atoi(val) != 0;
         else if (!strcmp(key, "cheat_health")) g_settings.cheat_health = atoi(val) != 0;
         else if (!strcmp(key, "cheat_stamina")) g_settings.cheat_stamina = atoi(val) != 0;
@@ -295,6 +297,7 @@ void settings_load(void) {
     g_settings.stick_cam_y = CLAMP(g_settings.stick_cam_y, 100, 600);
     if (getenv("SAVAGEWIND_BENCHMARK")) g_settings.vsync = VSYNC_OFF;  // (its own copy of the settings: runtime/benchmark.c)
     g_settings.weapon_wear = CLAMP(g_settings.weapon_wear, 10, 300);
+    g_settings.armor_slots = CLAMP(g_settings.armor_slots, 100, 300);
     g_settings.damage_taken = CLAMP(g_settings.damage_taken, 25, 300);
     g_settings.damage_dealt = CLAMP(g_settings.damage_dealt, 25, 1000);
     g_settings.lod_master = CLAMP(g_settings.lod_master, 0, 100);
@@ -383,6 +386,7 @@ void settings_save(void) {
     fprintf(f, "weather = %s\n", k_weather[g_settings.weather >= 0 && g_settings.weather < 12 ? g_settings.weather : 0]);
     fprintf(f, "auto_continue = %d\ndamage_taken = %d\ncheat_onehit = %d\ndamage_dealt = %d\n", g_settings.auto_continue, g_settings.damage_taken, g_settings.cheat_onehit, g_settings.damage_dealt);
     fprintf(f, "cheat_rupees = %d\nweapon_wear = %d\nsave_backups = %d\n", g_settings.cheat_rupees, g_settings.weapon_wear, g_settings.save_backups);
+    fprintf(f, "armor_slots = %d\n", g_settings.armor_slots);
     fprintf(f, "lod_auto = %d\n", g_settings.lod_auto);
     fprintf(f, "lod_master = %d\n", g_settings.lod_master);
     fprintf(f, "lod_distance = %d\n", g_settings.lod_distance);

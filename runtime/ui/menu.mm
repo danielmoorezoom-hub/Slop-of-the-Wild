@@ -1054,6 +1054,7 @@ void spawner_tweak_set(int which, float mult);
 float spawner_tweak_get(int which);
 int spawner_tweak_found(void);
 int spawner_tweak_total(void);
+int spawner_armor_state(void);
 int spawner_slots_get(int which);
 void spawner_slots_set(int which, int value);
 }
@@ -1137,6 +1138,19 @@ static void tab_items(void) {
             snprintf(d, sizeof d, "How many the pouch holds. The game stops at %g (Hestu's seeds); past that needs the Raised slot "
                      "limits mod, up to 100. Extra items go onto more pages of the tab.", game_max[k]);
             if (opt_slider(lab[k], &val[k], lo[k], 100, 1, lo[k], "%g", d)) spawner_slots_set(k, (int)val[k]);
+        }
+        {
+            float a = (float)g_settings.armor_slots;
+            if (spawner_armor_state() < 0) opt_disable_next();
+            if (opt_slider("Armour slots", &a, 100, 300, 5, 100, "%g",
+                           spawner_armor_state() < 0
+                               ? "This game build's armour limit couldn't be found, so it stays at 100."
+                               : "How many armour pieces the pouch takes before the game says it's full. The game's own: "
+                                 "100. Kept between sessions. The pouch holds 420 items of all kinds together, so very "
+                                 "full armour leaves less room for the rest.")) {
+                g_settings.armor_slots = (int)a;
+                settings_save();
+            }
         }
     }
     // weapon stats: durability and a bonus (act::WeaponModifier), for weapons, bows and shields added from here

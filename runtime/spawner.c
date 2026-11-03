@@ -22,6 +22,7 @@
 #include "game_sites.h"
 #include "hle.h"
 #include "rt.h"
+#include "settings.h"
 
 #define ITEMGET_190        0x7000d921bcull
 #define PMDM_INSTANCE_190  0x7001e18570ull
@@ -99,6 +100,7 @@ static uint64_t gcall(Cpu *c, uint64_t fn, uint64_t sp, const uint64_t *args, in
 static void actor_frame(Cpu *c);
 static void slots_frame(Cpu *c);
 static void tweaks_frame(Cpu *c);
+static void armor_frame(void);
 static int g_aqn;
 void spawner_frame(void) {
     if (spawner_available()) {
@@ -106,6 +108,7 @@ void spawner_frame(void) {
         if (c && g_aqn) actor_frame(c);
         if (c && guest_ptr(LD64(PMDM_INSTANCE_190))) slots_frame(c);
         if (c) tweaks_frame(c);
+        armor_frame();
     }
     if (!g_qn) return;  // (racy read: the next frame picks up a request queued meanwhile)
     Req todo[64];
@@ -510,4 +513,56 @@ static void tweaks_frame(Cpu *c) {
         any |= m != 1;
     }
     if (!any) g_tw_active = 0;  // (all back to the game's own numbers)
+}
+
+// ------------------------------------------------------------------ armour slots (Items > Pouch slots)
+// The pouch takes 100 armour pieces: a constant in the game code, not a game data flag like the weapon, bow and shield
+// slots. 1.9.0, both in uking::ui::PauseMenuDataMgr:
+//   cannotGetItem(name, n) 0x7000d91198: armour: countItems(ArmorHead) + n > 100 (0x7000d91408 cmp w8, #0x64)
+//   isOverCategoryLimit(type) 0x7000d9f554: armour: count > 99 (0x7000d9f594 cmp w19, #0x63)
+// In the recompiled code each comparison is a few register loads of the constant (and of what the flags need: 99,
+// -100), as 32-bit immediates; they are found in those functions' compiled code by their exact bytes and rewritten.
+// (Whatever the limit, the pouch holds 420 items of every kind together.)
+int code_write32(void *at, uint32_t v);
+static const uint8_t kArmorCannot[] = {0xbb, 0x63, 0, 0, 0, 0xbd, 0x64, 0, 0, 0, 0x41, 0xbe, 0x9c, 0xff, 0xff, 0xff};
+static const uint8_t kArmorOver[] = {0xb9, 0x62, 0, 0, 0, 0xba, 0x63, 0, 0, 0};
+static uint8_t *g_armor_cannot, *g_armor_over;  // where those are (found once, before any change)
+static int g_armor_applied = 100, g_armor_state;   // state: 0 not looked, 1 found, -1 not found
+int spawner_armor_state(void) { return g_armor_state; }
+
+static uint8_t *find_bytes(uint64_t guest_fn, size_t len, const uint8_t *pat, size_t n) {
+    GuestFn f = dispatch_lookup(guest_fn);
+    if (!f) return NULL;
+    uint8_t *p = (uint8_t *)(uintptr_t)f;
+    uint8_t *hit = NULL;
+    for (size_t i = 0; i + n <= len; i++)
+        if (!memcmp(p + i, pat, n)) {
+            if (hit) return NULL;  // (twice: not sure which)
+            hit = p + i;
+        }
+    return hit;
+}
+
+static void armor_frame(void) {
+    int want = g_settings.armor_slots;
+    if (want < 100) want = 100;
+    if (want > 300) want = 300;
+    if (want == g_armor_applied || g_armor_state < 0) return;
+    if (!g_armor_state) {
+        g_armor_cannot = find_bytes(0x7000d91198ull, 0x1400, kArmorCannot, sizeof kArmorCannot);
+        g_armor_over = find_bytes(0x7000d9f554ull, 0xc00, kArmorOver, sizeof kArmorOver);
+        g_armor_state = g_armor_cannot ? 1 : -1;
+        LOG("[spawner] armour limit code: %p %p\n", (void *)g_armor_cannot, (void *)g_armor_over);
+        if (g_armor_state < 0) {
+            snprintf(g_status, sizeof g_status, "Couldn't find the armour limit in this game build: armour slots stay at 100.");
+            return;
+        }
+    }
+    int ok = !code_write32(g_armor_cannot + 1, (uint32_t)(want - 1)) && !code_write32(g_armor_cannot + 6, (uint32_t)want) &&
+             !code_write32(g_armor_cannot + 12, (uint32_t)-want);
+    if (ok && g_armor_over)
+        ok = !code_write32(g_armor_over + 1, (uint32_t)(want - 2)) && !code_write32(g_armor_over + 6, (uint32_t)(want - 1));
+    LOG("[spawner] armour slots %d -> %d%s\n", g_armor_applied, want, ok ? "" : " (failed)");
+    if (ok) g_armor_applied = want;
+    else g_armor_state = -1;
 }
