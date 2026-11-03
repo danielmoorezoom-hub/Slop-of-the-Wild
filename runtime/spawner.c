@@ -106,6 +106,7 @@ static void armor_frame(void);
 static void inv_frame(void);
 static void noclip_frame(Cpu *c);
 static void move_frame(Cpu *c);
+static void world_frame(Cpu *c);
 static int g_aqn;
 void spawner_frame(void) {
     if (spawner_available()) {
@@ -117,6 +118,7 @@ void spawner_frame(void) {
         inv_frame();
         if (c) noclip_frame(c);
         if (c) move_frame(c);
+        if (c) world_frame(c);
     }
     if (!g_qn) return;  // (racy read: the next frame picks up a request queued meanwhile)
     static Req todo[96];
@@ -687,13 +689,78 @@ static uint64_t player_actor(Cpu *c) {
     return mapped(actor, 0x580) ? actor : 0;
 }
 
+
+// Link's body. His actor has no main rigid body (Actor +0x190 is null for the player: he moves through his character
+// controller), so it's looked for: phys::RigidBody objects reachable from his physics (Actor +0x578, InstanceSet) a
+// few pointers deep, known by their MotionAccessor (+0xb8) pointing back at them (MotionAccessor::mBody, +8), the
+// one nearest where PlayerInfo says Link is (+0x88). Found once per actor.
+static uint64_t g_pbody_actor, g_pbody;
+static void body_pos(Cpu *c, uint64_t sp, uint64_t body, float out[3]) {
+    uint64_t acc = LD64(body + 0xb8), vt = LD64(acc), v = sp + 0x80;
+    memset((void *)(uintptr_t)v, 0, 16);
+    uint64_t a[2] = {acc, v};
+    gcall(c, LD64(vt + 0x20), sp, a, 2);
+    memcpy(out, (void *)(uintptr_t)v, 12);
+}
+static int is_body(uint64_t q) {
+    if (!mapped(q, 0xc0)) return 0;
+    uint64_t m = LD64(q + 0xb8);
+    return mapped(m, 0x10) && LD64(m + 8) == q && guest_ptr(LD64(m)) && guest_ptr(LD64(LD64(m) + 0x20));
+}
+static uint64_t player_body(Cpu *c, uint64_t actor) {
+    if (!actor) return 0;
+    uint64_t mb = LD64(actor + 0x190);
+    if (is_body(mb)) return mb;
+    if (actor == g_pbody_actor && is_body(g_pbody)) return g_pbody;
+    static int wait;
+    if (actor == g_pbody_actor && !g_pbody && wait-- > 0) return 0;  // (not found: look again in 2 s)
+    wait = 60;
+    g_pbody_actor = actor, g_pbody = 0;
+    uint64_t pinfo = g_site.player_info ? LD64(g_site.player_info) : 0;
+    float lp[3] = {0, 0, 0};
+    if (mapped(pinfo, 0x100)) memcpy(lp, (void *)(uintptr_t)(pinfo + 0x88), 12);
+    // breadth-first from the InstanceSet, 3 levels, the first 0x300 bytes of each object
+    static uint64_t q[4096];
+    int qn = 0, head = 0, found = 0;
+    uint64_t sp = (c->sp - 0x1000) & ~0xfull;
+    float best = 1e30f;
+    uint64_t root = LD64(actor + 0x578);
+    if (!mapped(root, 0x200)) return 0;
+    q[qn++] = root;
+    int level_end = qn, level = 0;
+    while (head < qn && level < 3) {
+        uint64_t o = q[head++];
+        for (int off = 0; off < 0x300; off += 8) {
+            if (!mapped(o + off, 8)) break;
+            uint64_t p = LD64(o + off);
+            if (!guest_ptr(p) || (p & 7)) continue;
+            if (is_body(p)) {
+                float bp[3];
+                body_pos(c, sp, p, bp);
+                float d = (bp[0] - lp[0]) * (bp[0] - lp[0]) + (bp[1] - lp[1]) * (bp[1] - lp[1]) + (bp[2] - lp[2]) * (bp[2] - lp[2]);
+                found++;
+                if (d < best) best = d, g_pbody = p;
+            } else if (qn < 4096 && mapped(p, 0x100)) {
+                int dup = 0;
+                for (int k = 0; k < qn && !dup; k++) dup = q[k] == p;
+                if (!dup) q[qn++] = p;
+            }
+        }
+        if (head == level_end) level++, level_end = qn;
+    }
+    LOG("[noclip] Link's body: %d bodies near his physics, nearest %llx at %.2f m\n", found, (unsigned long long)g_pbody,
+        best < 1e29f ? sqrtf(best) : -1.0f);
+    if (best > 9.0f) g_pbody = 0;  // (more than 3 m from him: not his)
+    return g_pbody;
+}
+
 static void noclip_frame(Cpu *c) {
     static int on;
     static float pos[3];
     static uint64_t last;
     if (!g_noclip_on) { on = 0; return; }
     uint64_t actor = player_actor(c);
-    uint64_t body = actor ? LD64(actor + 0x190) : 0, acc = mapped(body, 0xc0) ? LD64(body + 0xb8) : 0;
+    uint64_t body = player_body(c, actor), acc = body ? LD64(body + 0xb8) : 0;
     uint64_t vt = mapped(acc, 0x10) ? LD64(acc) : 0;  // (the vtable is in the game's module: guest_ptr, not mapped)
     if (!guest_ptr(vt) || !guest_ptr(LD64(vt + 0x18))) {
         static int told;
@@ -758,7 +825,7 @@ static void move_frame(Cpu *c) {
     float m = g_tw_mult[TW_MOVE];
     if (g_noclip_on || m == 1.0f) { have = 0; return; }
     uint64_t actor = player_actor(c);
-    uint64_t body = actor ? LD64(actor + 0x190) : 0, acc = mapped(body, 0xc0) ? LD64(body + 0xb8) : 0;
+    uint64_t body = player_body(c, actor), acc = body ? LD64(body + 0xb8) : 0;
     uint64_t vt = mapped(acc, 0x10) ? LD64(acc) : 0;
     if (!guest_ptr(vt) || !guest_ptr(LD64(vt + 0x20))) { have = 0; return; }
     uint64_t sp = (c->sp - 0x1000) & ~0xfull, v = sp + 0x80;
@@ -778,4 +845,118 @@ static void move_frame(Cpu *c) {
     }
     memcpy(prev, pos, sizeof prev);
     have = 1;
+}
+
+// ------------------------------------------------------------------ time of day and fast travel (Items > World)
+// Time: ksys::world::Manager [world_mgr] +0x5c8 its managers, [0] = TimeMgr: +0xb8 the time (0..360 = 24 h), +0xc0
+// mNewTime (what TimeMgr::setTime writes and calc takes over: the inn's way of changing the hour), +0xc4 the clock's
+// step a frame (0 stops it).
+// Fast travel: game data bools by name. A name's handle as TimeMgr::loadFlags makes them (1.9.0 0x7001425664):
+// GameDataMgr (its pointer's GOT entry 0x7001d66478) +0xbd8 -> the flag tables, crc32(name) looked up in the bool
+// table (0x7001143950), | GameDataMgr +0xc28 << 24. getBool(handle, debug) 0x7000d349d0, setBool(value, handle,
+// debug) 0x7000d34a20.
+#define GDTMGR_GOT_190  0x7001d66478ull
+#define BOOLFIND_190    0x7001143950ull
+#define GETBOOL_190     0x7000d349d0ull
+#define SETBOOL_190     0x7000d34a20ull
+static _Atomic float g_time_req = -1;
+static atomic_int g_time_freeze, g_warp_req = -1, g_warp_on;
+static _Atomic float g_time_now = -1;
+void spawner_time_set(float hour) { g_time_req = hour; }
+float spawner_time_get(void) { return g_time_now; }  // (hours, -1 before a world)
+void spawner_time_freeze(int on) { g_time_freeze = on; }
+int spawner_time_frozen(void) { return g_time_freeze; }
+void spawner_warp_all(int on) { g_warp_req = on; }
+int spawner_warp_all_on(void) { return g_warp_on; }
+
+static uint64_t time_mgr(void) {
+    if (!g_site.world_mgr) return 0;
+    uint64_t wm = LD64(g_site.world_mgr);
+    if (!guest_ptr(wm) || !*(uint32_t *)(uintptr_t)(wm + 0x5c0)) return 0;
+    uint64_t mgrs = LD64(wm + 0x5c8), tm = guest_ptr(mgrs) ? LD64(mgrs) : 0;
+    return guest_ptr(tm) ? tm : 0;
+}
+
+static uint32_t bool_handle(Cpu *c, uint64_t sp, const char *name) {
+    uint64_t mgr = LD64(got(GDTMGR_GOT_190));
+    if (!guest_ptr(mgr)) return 0xffffffffu;
+    uint64_t tabp = LD64(mgr + 0xbd8), tab = guest_ptr(tabp) ? LD64(tabp) : 0;
+    if (!guest_ptr(tab)) return 0xffffffffu;
+    uint32_t h = 0xffffffffu;
+    for (const char *p = name; *p; p++) {
+        h ^= (uint8_t)*p;
+        for (int k = 0; k < 8; k++) h = h >> 1 ^ (0xedb88320u & -(h & 1));
+    }
+    uint64_t a[2] = {tab, ~h};
+    uint32_t idx = (uint32_t)gcall(c, BOOLFIND_190, sp, a, 2);
+    if (idx == 0xffffffffu || (idx & 0xff000000u)) return 0xffffffffu;
+    return idx | *(uint32_t *)(uintptr_t)(mgr + 0xc28) << 24;
+}
+
+// the flags: every shrine (Dungeon000-136: found, opened, entered = its travel gate on) and tower (MapTower_01-15)
+static char g_warp_names[512][40];
+static int g_warp_n;
+static uint8_t g_warp_before[512];
+static int g_warp_saved;
+static void warp_list(void) {
+    if (g_warp_n) return;
+    static const char *const pre[] = {"Location_Dungeon", "Open_Dungeon", "Enter_Dungeon"};
+    for (int p = 0; p < 3; p++)
+        for (int i = 0; i <= 136; i++) snprintf(g_warp_names[g_warp_n++], 40, "%s%03d", pre[p], i);
+    for (int i = 1; i <= 15; i++) snprintf(g_warp_names[g_warp_n++], 40, "MapTower_%02d", i);
+}
+
+static void world_frame(Cpu *c) {
+    uint64_t tm = time_mgr();
+    if (tm) {
+        g_time_now = *(float *)(uintptr_t)(tm + 0xb8) / 15.0f;
+        float req = g_time_req;
+        if (req >= 0) {
+            g_time_req = -1;
+            float v = req >= 24 ? 0 : req * 15.0f;
+            *(float *)(uintptr_t)(tm + 0xc0) = v;
+            snprintf(g_status, sizeof g_status, "Time set to %02d:%02d.", (int)req % 24, (int)((req - (int)req) * 60 + 0.5f) % 60);
+            LOG("[spawner] time of day -> %.2f h\n", req);
+        }
+        static float step_saved = -1;
+        float *step = (float *)(uintptr_t)(tm + 0xc4);
+        if (g_time_freeze) {
+            if (step_saved < 0 && *step > 0) step_saved = *step;
+            *step = 0;
+        } else if (step_saved >= 0) {
+            *step = step_saved;
+            step_saved = -1;
+        }
+    } else {
+        g_time_now = -1;
+    }
+    int w = g_warp_req;
+    if (w < 0) return;
+    g_warp_req = -1;
+    warp_list();
+    uint64_t sp = (c->sp - 0x1000) & ~0xfull;
+    int changed = 0, missing = 0;
+    for (int i = 0; i < g_warp_n; i++) {
+        uint32_t h = bool_handle(c, sp, g_warp_names[i]);
+        if (h == 0xffffffffu) { missing++; continue; }
+        if (w) {
+            if (!g_warp_saved) {
+                uint64_t a[2] = {h, 0};
+                g_warp_before[i] = (uint8_t)(gcall(c, GETBOOL_190, sp, a, 2) & 1);
+            }
+            uint64_t b[3] = {1, h, 0};
+            gcall(c, SETBOOL_190, sp, b, 3);
+            changed++;
+        } else if (g_warp_saved && !g_warp_before[i]) {
+            uint64_t b[3] = {0, h, 0};
+            gcall(c, SETBOOL_190, sp, b, 3);
+            changed++;
+        }
+    }
+    if (w) g_warp_saved = 1;
+    else g_warp_saved = 0;
+    g_warp_on = w;
+    snprintf(g_status, sizeof g_status, w ? "Every shrine and tower is a fast travel point now (%d flags)." :
+             "Fast travel points put back as they were (%d flags).", changed);
+    LOG("[spawner] fast travel all %s: %d flags set, %d not found\n", w ? "on" : "off", changed, missing);
 }

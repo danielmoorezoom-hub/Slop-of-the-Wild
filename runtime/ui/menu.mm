@@ -1057,6 +1057,12 @@ float spawner_tweak_get(int which);
 int spawner_tweak_found(void);
 int spawner_tweak_total(void);
 int spawner_armor_state(void);
+void spawner_time_set(float hour);
+float spawner_time_get(void);
+void spawner_time_freeze(int on);
+int spawner_time_frozen(void);
+void spawner_warp_all(int on);
+int spawner_warp_all_on(void);
 typedef struct { char id[64]; int cat, life; } ModItem;
 int spawner_mod_items(const ModItem **out);
 typedef struct { char name[64]; int type, value, equipped; } InvItem;
@@ -1237,6 +1243,29 @@ static void tab_items(void) {
                 settings_save();
             }
         }
+    }
+    {
+        opt_section("World (beta)");
+        float now = spawner_time_get();
+        static float hour = 12;
+        char d[200];
+        if (now >= 0) snprintf(d, sizeof d, "The hour to set, 0 to 24 (12 is noon). It's %02d:%02d now.", (int)now % 24, (int)((now - (int)now) * 60) % 60);
+        else snprintf(d, sizeof d, "The hour to set, 0 to 24 (12 is noon). Load your save first.");
+        opt_slider("Time of day", &hour, 0, 23.75f, 0.25f, 12, "%g h", d);
+        if (now < 0) opt_disable_next();
+        char v[32];
+        snprintf(v, sizeof v, "%02d:%02d", (int)hour, (int)((hour - (int)hour) * 60 + 0.5f));
+        if (opt_action("Set the time", v, "Moves the clock to the hour above, as sleeping at an inn does. Going back past midnight starts a new day.", false))
+            spawner_time_set(hour);
+        bool freeze = spawner_time_frozen() != 0;
+        if (opt_toggle("Freeze time", &freeze, false, "Stops the clock where it is (the sky, the day and night). Off: it runs again."))
+            spawner_time_freeze(freeze);
+        bool warp = spawner_warp_all_on() != 0;
+        if (opt_toggle("Fast travel to every shrine and tower", &warp, false,
+                       "On: every shrine (DLC ones included) and every tower is a travel gate, found or not. Towers count as "
+                       "climbed, so their map regions show. Off: puts them back as they were when you turned this on "
+                       "(this session only). Saving keeps whatever is on at the time."))
+            spawner_warp_all(warp);
     }
     // weapon stats: durability and a bonus (act::WeaponModifier), for weapons, bows and shields added from here
     static float durability = 0, amt[3] = {10, 1.5f, 5};
