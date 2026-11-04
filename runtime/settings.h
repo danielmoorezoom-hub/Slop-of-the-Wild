@@ -57,7 +57,8 @@ typedef struct {
     int sharpening;      // AMD CAS sharpening of the 3D image, 0 (off) .. 10 (100%) (vulkan/exec.c scene_post)
     bool lod_extended;   // Draw Distance > Extended draw distance: the sliders below apply (off: the game's own)
     bool cheat_health, cheat_stamina, cheat_arrows, cheat_weapons, cheat_rupees;  // Cheats (runtime/cheats.c)
-    int armor_slots;     // Items > Pouch slots: how many armour pieces the pouch takes (the game: 100), 100..300
+    int armor_slots;
+    int no_woods_fog, no_typhlo_dark, no_map_bounds;  // Items > World (at the next start: romfs_build.c options)     // Items > Pouch slots: how many armour pieces the pouch takes (the game: 100), 100..300
     int weapon_wear;     // Cheats > Weapon wear: how fast weapons lose durability, percent of the game's: 10..300
     // Video > Fullscreen mode (runtime/window_size.c winsize_apply): Automatic is borderless at the desktop's size and the
     // display's own mode at any other size it has; Borderless never changes the display's mode (another size is scaled to

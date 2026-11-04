@@ -240,6 +240,41 @@ static void add_mod_files(Dir *root, char names[64][128], int n) {
     if (added) fprintf(stderr, "[mods] %d new file(s) from mods added\n", added);
 }
 
+// Settings that swap files (main.c fills it from the settings: "bounds+dark+fog" and the like, "" for none): a mod's
+// options/<that>/romfs/<path> in place of the file the image would serve. (Items > World: Lost Woods fog, Typhlo
+// Ruins' darkness, invisible walls - the merged data carries a variant for each combination.)
+char g_romfs_options[64];
+static void rel_of(const File *f, char *out, size_t cap) {
+    const Dir *chain[40];
+    int n = 0;
+    for (const Dir *d = f->parent; d && d->parent && n < 40; d = d->parent) chain[n++] = d;
+    size_t k = 0;
+    out[0] = 0;
+    for (int i = n - 1; i >= 0; i--) k += (size_t)snprintf(out + k, k < cap ? cap - k : 0, "/%s", chain[i]->name);
+    snprintf(out + (k < cap ? k : cap - 1), k < cap ? cap - k : 1, "/%s", f->name);
+}
+static void apply_options(Lists *l, const char *dir, char names[64][128], int n) {
+    if (!g_romfs_options[0] || strstr(dir, "aoc")) return;
+    int used = 0;
+    for (int f = 0; f < l->nf; f++) {
+        char rel[1000];
+        rel_of(l->files[f], rel, sizeof rel);
+        for (int i = n - 1; i >= 0; i--) {
+            char p[1300];
+            struct stat st;
+            snprintf(p, sizeof p, "mods/%s/options/%s/romfs%s", names[i], g_romfs_options, rel);
+            if (stat(p, &st) == 0 && S_ISREG(st.st_mode)) {
+                free(l->files[f]->path);
+                l->files[f]->path = strdup(p);
+                l->files[f]->size = (uint64_t)st.st_size;
+                used++;
+                break;
+            }
+        }
+    }
+    fprintf(stderr, "[mods] options %s: %d file(s)\n", g_romfs_options, used);
+}
+
 // The game's RomFS's Actor/ActorInfo.product.sbyml as the image serves it (a mod's, the merge, or the game's): for the
 // item spawner's list of items mods add (spawner_mod_items.c)
 char g_romfs_actorinfo[1200];
@@ -303,6 +338,7 @@ bool romfs_layout(const char *dir, RomfsLayout *out, char *why, size_t why_size)
     if (!l.nf) FAIL("no files in %s", dir);
     apply_mods(&l, dir, mods, nmods);
     merge_actorinfo(&l, dir, mods, nmods);
+    apply_options(&l, dir, mods, nmods);
     note_actorinfo(&l, dir);
 
     // entry offsets

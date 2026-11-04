@@ -1062,6 +1062,8 @@ float spawner_time_get(void);
 void spawner_time_freeze(int on);
 int spawner_time_frozen(void);
 void spawner_warp_all(int on);
+void spawner_rune_nocd(int on);
+int spawner_rune_nocd_on(void);
 int spawner_warp_all_on(void);
 typedef struct { char id[64]; int cat, life; } ModItem;
 int spawner_mod_items(const ModItem **out);
@@ -1266,6 +1268,32 @@ static void tab_items(void) {
                        "climbed, so their map regions show. Off: puts them back as they were when you turned this on "
                        "(this session only). Saving keeps whatever is on at the time."))
             spawner_warp_all(warp);
+        bool runes = spawner_rune_nocd_on() != 0;
+        if (opt_toggle("No rune cooldowns", &runes, false, "Remote bombs and Stasis are ready again at once, instead of after their countdown."))
+            spawner_rune_nocd(runes);
+        // these swap game files: from the next start (romfs_build.c options)
+        static const struct { const char *label, *desc; int *v; } swaps[] = {
+            {"No Lost Woods fog", "Takes away the Lost Woods' fog, and the way it sends you back to the entrance when you stray. From the next start.", &g_settings.no_woods_fog},
+            {"No Typhlo Ruins darkness", "Typhlo Ruins as light as the woods around them, and no dark cloud over them from afar. From the next start.", &g_settings.no_typhlo_dark},
+            {"No invisible walls", "Takes away the game's invisible walls (AirWall): the edge of the map and other places it fences off, the Great Plateau's too. Past the edge there may be nothing to stand on. From the next start.", &g_settings.no_map_bounds},
+        };
+        for (const auto &sw : swaps) {
+            bool v = *sw.v != 0;
+            if (opt_toggle(sw.label, &v, false, sw.desc)) { *sw.v = v; settings_save(); }
+        }
+        {
+            extern char g_romfs_options[64];
+            char want[64];
+            snprintf(want, sizeof want, "%s%s%s%s%s", g_settings.no_map_bounds ? "bounds" : "",
+                     g_settings.no_map_bounds && (g_settings.no_typhlo_dark || g_settings.no_woods_fog) ? "+" : "",
+                     g_settings.no_typhlo_dark ? "dark" : "", g_settings.no_typhlo_dark && g_settings.no_woods_fog ? "+" : "",
+                     g_settings.no_woods_fog ? "fog" : "");
+            if (strcmp(want, g_romfs_options)) {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.7f, 0.4f, 1));
+                ImGui::TextWrapped("Restart the game for the fog, darkness and wall changes to take effect.");
+                ImGui::PopStyleColor();
+            }
+        }
     }
     // weapon stats: durability and a bonus (act::WeaponModifier), for weapons, bows and shields added from here
     static float durability = 0, amt[3] = {10, 1.5f, 5};
