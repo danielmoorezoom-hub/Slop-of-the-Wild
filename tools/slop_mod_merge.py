@@ -13,29 +13,64 @@ shutil.rmtree('out', ignore_errors=True)
 def unyaz(b): b = bytes(b); return bytes(oead.yaz0.decompress(b)) if b[:4] == b'Yaz0' else b
 def crc(s): return zlib.crc32(s.encode())
 
-# ---- the mods: (folder name, romfs dir, logs dir or None)
+# ---- the mods. BNP: (name, base romfs, logs, aoc romfs); PLAIN: (name, base romfs, aoc romfs, kind)
+# kind: 'old' (made on an older game version: only what's new counts), 'own' (its own actors' changes count too),
+# 'full' (current game version, an overhaul: everything it changes counts; lowest priority, so the rest win)
+RAW3 = Path('raw3')
+SKIP_BNP = {'royal_knight_armor_for_19_blue_', 'champion_s_cap'}  # (blue: same armour as red, kept aside; the cap: installed already)
 BNP = []
-for d in sorted(RAW.iterdir()):
+def add_bnp(d):
     info = d / 'info.json'
-    if info.exists():
-        name = json.loads(info.read_text())['name']
-        BNP.append((name, d / '01007EF00011E000' / 'romfs', d / 'logs'))
-PLAIN = [('OoT Zora Tunic', RAW / 'zora' / 'romfs'), ('OoT Goron Tunic', RAW / 'goronsand' / 'Goron' / 'romfs')]
-SKIP = {'Pack/Bootup.pack', 'Actor/ActorInfo.product.sbyml', 'System/Resource/ResourceSizeTable.product.srsizetable'}
+    name = json.loads(info.read_text())['name']
+    BNP.append((name, d / '01007EF00011E000' / 'romfs', d / 'logs', d / '01007EF00011F001' / 'romfs'))
+for d in sorted(RAW.iterdir()):
+    if (d / 'info.json').exists(): add_bnp(d)
+for d in sorted(RAW3.iterdir()):
+    if d.name in SKIP_BNP or d.name == 'relics': continue
+    for sub in sorted(d.iterdir()) if d.is_dir() else []:
+        if (sub / 'info.json').exists(): add_bnp(sub)
+PLAIN = [('OoT Zora Tunic', RAW / 'zora' / 'romfs', None, 'old'),
+         ('OoT Goron Tunic', RAW / 'goronsand' / 'Goron' / 'romfs', None, 'old'),
+         ('Ancient Weaponry MkII', RAW3 / 'ancientweaponrymkii_5acf0/01007EF00011E000/romfs', None, 'own'),
+         ('Magic Armor (Twilight Princess)', RAW3 / 'magic_armor_from_twilight_princess/48b66c60-magic_armor_from_twilight_princess/atmosphere/contents/01007EF00011E000/romfs', None, 'own'),
+         ('Link II Shield', RAW3 / 'linkiishield', None, 'own'),
+         ('TP Master Sword and Shield', RAW3 / 'tpmasterswordandshield/romfs', None, 'own'),
+         ('Epic Master Sword Enhanced', RAW3 / 'epic_mastersword_enhanced_-_dmg250/Epic MasterSword Enhanced - Dmg250/contents/01007EF00011E000/romfs', None, 'own'),
+         ('Thunderstorm Rod', RAW3 / 'thunderstormrod_-_ganon_thunder_rod/ThunderstormRod - Ganon Thunder Rod/contents/01007EF00011E000/romfs', None, 'own'),
+         ('0 Relics of the Past', RAW3 / 'relics/01007EF00011E000/romfs', RAW3 / 'relics/01007EF00011F001/romfs', 'full')]
+SKIP = {'Pack/Bootup.pack', 'Actor/ActorInfo.product.sbyml', 'System/Resource/ResourceSizeTable.product.srsizetable',
+        'Pack/TitleBG.pack', 'Pack/Title.pack', 'readme.txt', 'Pack/debug.log'}
+import re
+UNIT = re.compile(r'^Map/(MainField|AocField)/([A-J]-\d|_DistanceView)/[^/]+_(Static|Dynamic)\.smubin$')
+AOC_SKIP = {'Pack/AocMainField.pack', 'System/AocVersion.txt'}
 
+def rkey(rel):  # the size table's name for a file: Yaz0 extensions lose their 's'
+    r = rel.rsplit('.', 1)
+    return r[0] + '.' + (r[1][1:] if len(r) > 1 and r[1].startswith('s') and r[1] != 'sarc' else r[-1])
 def safe(n): return ''.join(c for c in n if c not in '<>:"/\\|?*').strip()
-copied = {}
-for name, romfs, *_ in BNP + PLAIN:
+copied = {}; owner = {}
+def copy_tree(name, root, sub, aoc):
     n = 0
-    for p in romfs.rglob('*'):
+    if not root or not root.exists(): return 0
+    for p in root.rglob('*'):
         if not p.is_file(): continue
-        rel = p.relative_to(romfs).as_posix()
+        rel = p.relative_to(root).as_posix()
         if rel.count('/') > 2 and rel.startswith('Actor/Pack/'): continue  # (a stray options folder)
-        if rel in SKIP or (rel.startswith('Pack/Bootup_') and rel.endswith('.pack')): continue
-        dst = OUT / safe(name) / 'romfs' / rel
+        if aoc and (rel in AOC_SKIP or UNIT.match(rel)): continue
+        if not aoc and (rel in SKIP or (rel.startswith('Pack/Bootup_') and rel.endswith('.pack'))): continue
+        if aoc and (sub, rel) in owner: continue  # (two mods' copies of the same DLC file: the first one)
+        dst = OUT / safe(name) / sub / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(p, dst); n += 1
-    copied[name] = n
+        owner.setdefault((sub, rel), []).append(name)
+    return n
+for name, romfs, logs, aoc in BNP:
+    copied[name] = copy_tree(name, romfs, 'romfs', False) + copy_tree(name, aoc, 'aoc', True)
+for name, romfs, aoc, kind in PLAIN:
+    copied[name] = copy_tree(name, romfs, 'romfs', False) + copy_tree(name, aoc, 'aoc', True)
+# BNP options picked: the Fierce Deity Sword, two-handed with wind slices
+FD = RAW3 / 'ultimatefiercedeitysword/eeac194f-ultimatefiercedeitysword/options/Ultimate Fierce Deity Sword WindSlices/01007EF00011E000/romfs'
+copied['Ultimate Fierce Deity Sword'] += copy_tree('Ultimate Fierce Deity Sword', FD, 'romfs', False)
 print('files per mod:', copied)
 
 # ---- dict merge as BCML (dicts recursive, everything else replaced)
@@ -72,15 +107,15 @@ def actorinfo_diff_of(path, new_only, only=None):
             if len(x): d[h] = x
     return d
 ai_diffs = [('Unobtainable items', actorinfo_diff_of(OLD_UNOB, False))]
-for name, romfs, logs in BNP:
+for name, romfs, logs, aoc in BNP:
     f = logs / 'actorinfo.yml'
     if f.exists():
         y = oead.byml.from_text(f.read_text('utf-8'))
         ai_diffs.append((name, {int(k): v for k, v in y.items()}))
-for name, romfs in PLAIN:
+for name, romfs, aoc, kind in sorted(PLAIN, key=lambda m: m[3] != 'full'):  # (the overhaul first: the rest win)
     f = romfs / 'Actor/ActorInfo.product.sbyml'
     own = {p.name[:-len('.sbactorpack')] for p in (romfs / 'Actor/Pack').glob('*.sbactorpack')}
-    if f.exists(): ai_diffs.append((name, actorinfo_diff_of(f, True, own)))
+    if f.exists(): ai_diffs.insert(1 if kind == 'full' else len(ai_diffs), (name, actorinfo_diff_of(f, kind == 'old', own)))
 new_actors = []
 inst = {}
 for name, d in ai_diffs:
@@ -144,7 +179,7 @@ def gd_apply(add, dele=()):
 # Raised slot limits: its changes
 rsl = gd_of_pack(CUR / 'Raised slot limits/romfs/Pack/Bootup.pack')
 gd_apply({t: {k: e for k, e in v.items() if types.get(t, {}).get(k) != e} for t, v in rsl.items()})
-for name, romfs, logs in BNP:
+for name, romfs, logs, aoc in BNP:
     f = logs / 'gamedata.yml'
     if not f.exists(): continue
     y = oead.byml.from_text(f.read_text('utf-8'))
@@ -153,13 +188,16 @@ GORON_FULL = 38146776
 def padded(path, full=None):
     d = Path(path).read_bytes()
     return d + b'\0' * (full - len(d)) if full and len(d) < full else d
-for name, romfs in PLAIN:
+for name, romfs, aoc, kind in PLAIN:
     f = romfs / 'Pack/Bootup.pack'
     if not f.exists(): continue
     tmp = Path(tempfile.mktemp()); tmp.write_bytes(padded(f, GORON_FULL if 'Goron' in name else None))
     try:
         g = gd_of_pack(tmp)
-        gd_apply({t: {k: e for k, e in v.items() if k not in van_names.get(t, ())} for t, v in g.items()})
+        if kind == 'full':  # (current version: its changed flags too)
+            gd_apply({t: {k: e for k, e in v.items() if k not in van_names.get(t, ()) or types[t].get(k) != e} for t, v in g.items()})
+        else:
+            gd_apply({t: {k: e for k, e in v.items() if k not in van_names.get(t, ())} for t, v in g.items()})
     except Exception as ex: print('  gamedata of', name, 'unreadable:', ex)
 w = oead.SarcWriter(oead.Endianness.Little)
 for t, entries in types.items():
@@ -176,7 +214,7 @@ first = oead.byml.from_binary(sv_files[0].data)
 entries = {int(e['HashValue']): e for f in sv_files[:-2] for e in oead.byml.from_binary(f.data)['file_list'][1]}
 van_sv = set(entries)
 dels = set()
-for name, romfs, logs in BNP:
+for name, romfs, logs, aoc in BNP:
     f = logs / 'savedata.yml'
     if not f.exists(): continue
     y = oead.byml.from_text(f.read_text('utf-8'))
@@ -187,7 +225,7 @@ def sv_of_pack(path):
     s = oead.Sarc(unyaz(b.get_file('GameData/savedataformat.ssarc').data))
     fs = sorted(s.get_files(), key=lambda f: f.name)
     return [e for f in fs[:-2] for e in oead.byml.from_binary(f.data)['file_list'][1]]
-for name, romfs in PLAIN:
+for name, romfs, aoc, kind in PLAIN:
     f = romfs / 'Pack/Bootup.pack'
     if not f.exists(): continue
     tmp = Path(tempfile.mktemp()); tmp.write_bytes(padded(f, GORON_FULL if 'Goron' in name else None))
@@ -219,7 +257,7 @@ bw = oead.SarcWriter.from_sarc(boot)
 # other files mods change inside Bootup.pack (music lists and the like): theirs
 van_boot = {f.name: bytes(f.data) for f in boot.get_files()}
 taken = set()  # (first mod wins: the music mod sorts before the ones that only carry an old copy)
-for name, romfs, logs in BNP:
+for name, romfs, logs, aoc in BNP:
     f = romfs / 'Pack/Bootup.pack'
     if not f.exists(): continue
     for x in oead.Sarc(f.read_bytes()).get_files():
@@ -227,6 +265,14 @@ for name, romfs, logs in BNP:
         if van_boot.get(x.name) != bytes(x.data) and x.name not in taken:
             taken.add(x.name)
             bw.files[x.name] = bytes(x.data); print('  Bootup.pack:', x.name, 'from', name)
+for name, romfs, aoc, kind in PLAIN:  # the overhaul's other changes, where no other mod made one
+    f = romfs / 'Pack/Bootup.pack'
+    if kind != 'full' or not f.exists(): continue
+    k = 0
+    for x in oead.Sarc(f.read_bytes()).get_files():
+        if x.name.startswith('GameData/') or x.name in taken: continue
+        if van_boot.get(x.name) != bytes(x.data): bw.files[x.name] = bytes(x.data); taken.add(x.name); k += 1
+    print('  Bootup.pack:', k, 'files from', name)
 bw.files['GameData/gamedata.ssarc'] = oead.yaz0.compress(gamedata_bytes)
 bw.files['GameData/savedataformat.ssarc'] = oead.yaz0.compress(savedata_bytes)
 (M / 'Pack').mkdir(parents=True, exist_ok=True)
@@ -240,26 +286,29 @@ text_diffs = {}  # file -> entries
 def add_texts(d):
     for file, ents in d.items():
         text_diffs.setdefault(file, {}).update(ents)
-for name, romfs, logs in BNP:
+for name, romfs, logs, aoc in BNP:
     f = logs / 'texts.json'
     if not f.exists(): continue
     t = json.loads(f.read_text('utf-8'))
     lang = next((l for l in ('EUen', 'USen') if l in t), next(iter(t), None))
     if lang: add_texts(t[lang])
 tmpd = Path(tempfile.mkdtemp())
+new_msg_files = {}  # message files the game hasn't got at all: a mod's own
 def parse(data):
     p = tmpd / 'x.msbt'; p.write_bytes(bytes(data)); return pymsyt.parse_msbt(p)
-for name, romfs in PLAIN:
-    f = romfs / 'Pack/Bootup_USen.pack'
+for name, romfs, aoc, kind in sorted(PLAIN, key=lambda m: m[3] != 'full'):
+    lang = 'EUen' if (romfs / 'Pack/Bootup_EUen.pack').exists() else 'USen'
+    f = romfs / f'Pack/Bootup_{lang}.pack'
     if not f.exists(): continue
-    mod = msbt_files(f, 'USen'); van = msbt_files(VAN / 'Bootup_USen.pack', 'USen')
+    mod = msbt_files(f, lang); van = msbt_files(VAN / f'Bootup_{lang}.pack', lang)
     vf = {x.name: bytes(x.data) for x in van.get_files()}
     for x in mod.get_files():
         if vf.get(x.name) == bytes(x.data): continue
+        if x.name not in vf: new_msg_files.setdefault(x.name, bytes(x.data)); continue
         me = parse(x.data)['entries']; ve = parse(vf[x.name])['entries'] if x.name in vf else {}
-        new = {k: v for k, v in me.items() if k not in ve}
+        new = {k: v for k, v in me.items() if k not in ve or (kind == 'full' and ve[k] != v)}
         if new: add_texts({x.name.replace('.msbt', '.msyt'): new})
-print('text files changed:', len(text_diffs), sum(len(v) for v in text_diffs.values()), 'entries')
+print('new message files:', len(new_msg_files)); print('text files changed:', len(text_diffs), sum(len(v) for v in text_diffs.values()), 'entries')
 for lang in ('EUen', 'USen'):
     pack = oead.Sarc((VAN / f'Bootup_{lang}.pack').read_bytes())
     msg = oead.Sarc(unyaz(pack.get_file(f'Message/Msg_{lang}.product.ssarc').data))
@@ -273,11 +322,108 @@ for lang in ('EUen', 'USen'):
         out = tmpd / 'o.msbt'
         pymsyt.write_msbt(y, out, platform='switch')
         mw.files[fn] = out.read_bytes()
+    for fn, data in new_msg_files.items(): mw.files[fn] = data
     msg_bytes = bytes(mw.write()[1])
     pw = oead.SarcWriter.from_sarc(pack)
     pw.files[f'Message/Msg_{lang}.product.ssarc'] = oead.yaz0.compress(msg_bytes)
     (M / f'Pack/Bootup_{lang}.pack').write_bytes(bytes(pw.write()[1]))
     globals()['msg_' + lang] = msg_bytes
+
+
+# ---- maps: each unit the game's (the DLC's loose copy) with every mod's changes laid over it, by object HashId;
+# BNPs say theirs in logs/map.yml, a plain mod's full units are compared with the game's. The DLC's
+# AocMainField.pack is emptied so the game reads the loose units (as BCML does).
+VAN2 = Path('van2')
+MA = OUT / 'zz Merged data (keep last)' / 'aoc'
+units = {}  # rel -> byml
+def load_unit(rel):
+    if rel not in units:
+        p = VAN2 / 'aoc1' / rel
+        if not p.exists(): return None
+        units[rel] = oead.byml.from_binary(unyaz(p.read_bytes()))
+    return units[rel]
+def unit_rel(key):  # "E-7_Static" -> Map/MainField/E-7/E-7_Static.smubin
+    sec = key.rsplit('_', 1)[0]
+    return f'Map/MainField/{sec}/{key}.smubin'
+def apply_unit(rel, diff, who):
+    u = load_unit(rel)
+    if u is None: print('  no game map unit', rel, 'for', who); return
+    for part in ('Objs', 'Rails'):
+        if part not in diff: continue
+        d = diff[part]
+        cur = {int(o['HashId']): o for o in (u[part] if part in u else [])}
+        for h in d.get('del', []): cur.pop(int(h), None)
+        for h, o in d.get('mod', {}).items(): cur[int(h)] = o
+        for o in d.get('add', []): cur.setdefault(int(o['HashId']), o)
+        u[part] = oead.byml.Array([cur[h] for h in sorted(cur)])
+def diff_unit(van, mod):
+    out = {}
+    for part in ('Objs', 'Rails'):
+        v = {int(o['HashId']): o for o in (van[part] if part in van else [])}
+        m = {int(o['HashId']): o for o in (mod[part] if part in mod else [])}
+        out[part] = {'add': [m[h] for h in m if h not in v], 'mod': {h: m[h] for h in m if h in v and v[h] != m[h]},
+                     'del': [h for h in v if h not in m]}
+    return out
+for name, romfs, aoc, kind in PLAIN:  # (the overhaul first)
+    if not aoc or not aoc.exists(): continue
+    k = 0
+    for p in sorted(aoc.rglob('*.smubin')):
+        rel = p.relative_to(aoc).as_posix()
+        if not UNIT.match(rel): continue
+        van = load_unit(rel)
+        mod = oead.byml.from_binary(unyaz(p.read_bytes()))
+        if van is None: units[rel] = mod; k += 1; continue
+        d = diff_unit(van, mod)
+        if any(d[x]['add'] or d[x]['mod'] or d[x]['del'] for x in d): apply_unit(rel, d, name); k += 1
+    print('  maps:', k, 'units from', name)
+for name, romfs, logs, aoc in BNP:
+    f = logs / 'map.yml'
+    if not f.exists(): continue
+    y = oead.byml.from_text(f.read_text('utf-8'))
+    for key, d in y.items(): apply_unit(unit_rel(str(key)), d, name)
+    print('  maps:', len(y), 'units from', name)
+map_sizes = {}
+for rel, u in units.items():
+    data = oead.byml.to_binary(u, False, 2)
+    dst = MA / rel; dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.write_bytes(oead.yaz0.compress(data))
+    map_sizes['Aoc/0010/' + rkey(rel)] = bytes(data)
+(MA / 'Pack').mkdir(parents=True, exist_ok=True)
+(MA / 'Pack/AocMainField.pack').write_bytes(b'')
+print('map units merged:', len(units))
+
+# ---- packs two mods both change: the game's with each one's changed files (the overhaul first, so the rest win)
+def merge_sarc(van_bytes, mods, removals=True):
+    van = oead.Sarc(unyaz(van_bytes)); w = oead.SarcWriter.from_sarc(van)
+    vf = {f.name: bytes(f.data) for f in van.get_files()}
+    for who, data in mods:
+        m = {f.name: bytes(f.data) for f in oead.Sarc(unyaz(data)).get_files()}
+        for n, d in m.items():
+            if vf.get(n) != d: w.files[n] = d
+        if removals:
+            for n in vf:
+                if n not in m and n in w.files: del w.files[n]
+    return bytes(w.write()[1])
+# TitleBG: the overhaul's changes, then the TOTK hair's
+tbg = merge_sarc(Path('/home/claude/slopmods/van/TitleBG.pack').read_bytes(),
+                 [('relics', (RAW3 / 'relics/01007EF00011E000/romfs/Pack/TitleBG.pack').read_bytes())])
+tbg = merge_sarc(tbg, [('hair', Path('/home/claude/slopmods/raw/totkhair/01007EF00011E000/romfs/Pack/TitleBG.pack').read_bytes())], removals=False)
+(M / 'Pack/TitleBG.pack').write_bytes(tbg)
+# Title: the islands' title screen (the overhaul's changes the same file)
+isl = next(RAW3.glob('islands*/*/01007EF00011E000/romfs/Pack/Title.pack'))
+(M / 'Pack/Title.pack').write_bytes(merge_sarc((VAN2 / 'romfs/Pack/Title.pack').read_bytes(), [('islands', isl.read_bytes())]))
+# actor packs more than one of the user's own mods carry (the overhaul just loses those)
+conf = {}
+for (sub, rel), who in owner.items():
+    real = [w for w in who if not w.startswith('0 ')]
+    if sub == 'romfs' and rel.startswith('Actor/Pack/') and len(real) > 1: conf[rel] = real
+for rel, who in conf.items():
+    vp = VAN2 / 'romfs' / rel
+    if not vp.exists(): print('  no game copy of', rel, '- the last of', who, 'wins'); continue
+    data = merge_sarc(vp.read_bytes(), [(w, (OUT / safe(w) / 'romfs' / rel).read_bytes()) for w in who], removals=False)
+    (M / rel).parent.mkdir(parents=True, exist_ok=True)
+    (M / rel).write_bytes(oead.yaz0.compress(data))
+    print('  merged', rel, 'from', who)
 
 # ---- size table: what's installed now, each mod's entries, the merged files
 tbl = rstb.ResourceSizeTable(unyaz((CUR / 'zz Size table (keep last)/romfs/System/Resource/ResourceSizeTable.product.srsizetable').read_bytes()), be=False)
@@ -285,30 +431,35 @@ vtbl = rstb.ResourceSizeTable(unyaz((VAN / 'ResourceSizeTable.product.srsizetabl
 def setmax(k, v):
     old = tbl.get_size(k) if tbl.is_in_table(k) else 0
     if v > old: tbl.set_size(k, v)
-for name, romfs, logs in BNP:
+for name, romfs, logs, aoc in BNP:
     f = logs / 'rstb.json'
     if not f.exists(): continue
     for k, v in json.loads(f.read_text()).items():
         if k.startswith('System/Resource/') or k.startswith('GameData/'): continue
         if v: setmax(k, int(v))
         elif tbl.is_in_table(k): tbl.delete_entry(k)  # (0: the game sizes it from the file, as BCML does)
-for name, romfs in PLAIN:
+for name, romfs, aoc, kind in PLAIN:
     f = romfs / 'System/Resource/ResourceSizeTable.product.srsizetable'
     if not f.exists(): continue
     mt = rstb.ResourceSizeTable(unyaz(f.read_bytes()), be=False)
     # entries for this mod's own files
-    for p in romfs.rglob('*'):
-        if not p.is_file(): continue
-        rel = p.relative_to(romfs).as_posix()
-        r = rel.rsplit('.', 1); key = r[0] + '.' + (r[1][1:] if r[1].startswith('s') and r[1] != 'sarc' else r[1])
-        if rel in SKIP or rel.startswith('Pack/'): continue
-        if mt.is_in_table(key): setmax(key, mt.get_size(key))
+    for root, pre in ((romfs, ''), (aoc, 'Aoc/0010/')):
+        if not root or not root.exists(): continue
+        for p in root.rglob('*'):
+            if not p.is_file(): continue
+            rel = p.relative_to(root).as_posix()
+            if rel in SKIP or rel.startswith('Pack/') or UNIT.match(rel): continue
+            key = pre + rkey(rel)
+            if mt.is_in_table(key): setmax(key, mt.get_size(key))
 calc = rstb.SizeCalculator()
 for k, data, ext in [('GameData/gamedata.sarc', gamedata_bytes, '.sarc'), ('GameData/savedataformat.sarc', savedata_bytes, '.sarc'),
                      ('Message/Msg_EUen.product.sarc', msg_EUen, '.sarc'), ('Message/Msg_USen.product.sarc', msg_USen, '.sarc')]:
     v = calc.calculate_file_size_with_ext(data, False, ext)
     print('RSTB', k, tbl.get_size(k) if tbl.is_in_table(k) else None, '->', v)
     tbl.set_size(k, max(v, vtbl.get_size(k) if vtbl.is_in_table(k) else 0))
+for k, data in map_sizes.items():
+    v = calc.calculate_file_size_with_ext(data, False, '.mubin')
+    setmax(k, v)
 b = io.BytesIO(); tbl.write(b, be=False)
 (M / 'System/Resource').mkdir(parents=True, exist_ok=True)
 (M / 'System/Resource/ResourceSizeTable.product.srsizetable').write_bytes(oead.yaz0.compress(b.getvalue()))
