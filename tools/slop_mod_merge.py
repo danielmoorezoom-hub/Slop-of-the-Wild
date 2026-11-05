@@ -270,7 +270,7 @@ for name, romfs, aoc, kind in PLAIN:  # the overhaul's other changes, where no o
     if kind != 'full' or not f.exists(): continue
     k = 0
     for x in oead.Sarc(f.read_bytes()).get_files():
-        if x.name.startswith('GameData/') or x.name in taken: continue
+        if x.name.startswith(('GameData/', 'SLink2/', 'ELink2/')) or x.name in taken: continue  # (its XLink tables are in the 32-bit layout: the Switch game crashes reading them)
         if van_boot.get(x.name) != bytes(x.data): bw.files[x.name] = bytes(x.data); taken.add(x.name); k += 1
     print('  Bootup.pack:', k, 'files from', name)
 bw.files['GameData/gamedata.ssarc'] = oead.yaz0.compress(gamedata_bytes)
