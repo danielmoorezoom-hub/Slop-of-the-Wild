@@ -460,6 +460,37 @@ for k, data, ext in [('GameData/gamedata.sarc', gamedata_bytes, '.sarc'), ('Game
 for k, data in map_sizes.items():
     v = calc.calculate_file_size_with_ext(data, False, '.mubin')
     setmax(k, v)
+# every file the installed mods serve (inside packs too): an entry smaller than the file it sizes makes the game's load
+# fail (Relics' Event/EventInfo, null resource at the title screen). Each gets at least what the file needs.
+def walk_sizes(rel, data, pre, depth=0):
+    if data[:4] == b'Yaz0': data = bytes(oead.yaz0.decompress(data))
+    if data[:4] == b'SARC' and depth < 3:
+        try: s = oead.Sarc(data)
+        except Exception: s = None
+        if s:
+            for f in s.get_files(): walk_sizes(f.name, bytes(f.data), pre, depth + 1)
+    if rel.startswith('System/Resource/'): return
+    key = pre + rkey(rel)
+    if not tbl.is_in_table(key): return
+    old = tbl.get_size(key)
+    if old >= len(data) + 0x80: return
+    ext = '.' + key.rsplit('.', 1)[-1]
+    need = calc.calculate_file_size_with_ext(data, False, ext)
+    if not need: need = calc.calculate_file_size_with_ext(data, False, ext, force=True) or 0
+    if need and need >= len(data):
+        if need > old: tbl.set_size(key, need); fixed.append((key, old, need))
+    else:
+        tbl.delete_entry(key); fixed.append((key, old, 'deleted'))
+fixed = []
+for d in sorted(OUT.iterdir()):
+    for sub, pre in (('romfs', ''), ('aoc', 'Aoc/0010/')):
+        root = d / sub
+        if not root.exists(): continue
+        for p in root.rglob('*'):
+            if p.is_file() and p.suffix not in ('.json', '.txt'):
+                walk_sizes(p.relative_to(root).as_posix(), p.read_bytes(), pre)
+print('RSTB: %d entries too small for their files fixed' % len(fixed))
+for x in fixed[:60]: print('  ', *x)
 b = io.BytesIO(); tbl.write(b, be=False)
 (M / 'System/Resource').mkdir(parents=True, exist_ok=True)
 (M / 'System/Resource/ResourceSizeTable.product.srsizetable').write_bytes(oead.yaz0.compress(b.getvalue()))
