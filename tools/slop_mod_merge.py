@@ -472,15 +472,13 @@ def walk_sizes(rel, data, pre, depth=0):
     if rel.startswith('System/Resource/'): return
     key = pre + rkey(rel)
     if not tbl.is_in_table(key): return
-    old = tbl.get_size(key)
-    if old >= len(data) + 0x80: return
     ext = '.' + key.rsplit('.', 1)[-1]
-    need = calc.calculate_file_size_with_ext(data, False, ext)
-    if not need: need = calc.calculate_file_size_with_ext(data, False, ext, force=True) or 0
-    if need and need >= len(data):
-        if need > old: tbl.set_size(key, need); fixed.append((key, old, need))
-    else:
-        tbl.delete_entry(key); fixed.append((key, old, 'deleted'))
+    old = tbl.get_size(key)
+    # the game needs the file's size (32-aligned) plus its parser's room (~0x1c0 for a BYML: the game's own entries
+    # are that much over); the size calculator where it knows the type, and a margin either way
+    need = max(calc.calculate_file_size_with_ext(data, False, ext) or 0, ((len(data) + 31) & ~31) + 0x600)
+    if old >= need - 0x400: return  # (the game's own entries already have room enough)
+    tbl.set_size(key, need); fixed.append((key, old, need))
 fixed = []
 for d in sorted(OUT.iterdir()):
     for sub, pre in (('romfs', ''), ('aoc', 'Aoc/0010/')):
