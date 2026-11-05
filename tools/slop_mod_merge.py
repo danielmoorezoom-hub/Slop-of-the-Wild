@@ -116,6 +116,12 @@ for name, romfs, aoc, kind in sorted(PLAIN, key=lambda m: m[3] != 'full'):  # (t
     f = romfs / 'Actor/ActorInfo.product.sbyml'
     own = {p.name[:-len('.sbactorpack')] for p in (romfs / 'Actor/Pack').glob('*.sbactorpack')}
     if f.exists(): ai_diffs.insert(1 if kind == 'full' else len(ai_diffs), (name, actorinfo_diff_of(f, kind == 'old', own)))
+    if f.exists() and kind == 'full':  # (and its heap sizes for every actor: it changes ones whose packs live in
+        # TitleBG.pack too, Link's among them, and their bigger files need the room: out of memory loading a save)
+        for a in oead.byml.from_binary(unyaz(f.read_bytes()))['Actors']:
+            h = crc(str(a['name']))
+            if h in actors and 'instSize' in a and int(a['instSize']) > int(actors[h].get('instSize', 0)):
+                ai_diffs.insert(1, (name + ' heap', {h: oead.byml.Hash({'instSize': a['instSize']})}))
 new_actors = []
 inst = {}
 for name, d in ai_diffs:
@@ -126,6 +132,21 @@ for name, d in ai_diffs:
         else:
             actors[h] = oead.byml.Hash(dict(a)); new_actors.append((name, str(a.get('name', h))))
 for h, v in inst.items(): actors[h]['instSize'] = oead.S32(v)
+# actors whose packs a mod replaces: a quarter more heap than the most any table gives (their files are often bigger
+# than the game's, and a mod's own table may not say so)
+bumped = 0
+for (sub, rel), who in owner.items():
+    if sub != 'romfs' or not rel.startswith('Actor/Pack/') or not rel.endswith('.sbactorpack'): continue
+    h = crc(rel[len('Actor/Pack/'):-len('.sbactorpack')])
+    if h in actors and 'instSize' in actors[h]:
+        actors[h]['instSize'] = oead.S32(int(int(actors[h]['instSize']) * 1.25)); bumped += 1
+_vt = {f.name: bytes(f.data) for f in oead.Sarc(Path('/home/claude/slopmods/van/TitleBG.pack').read_bytes()).get_files() if f.name.startswith('Actor/Pack/')}
+for f in oead.Sarc((RAW3 / 'relics/01007EF00011E000/romfs/Pack/TitleBG.pack').read_bytes()).get_files():
+    if f.name in _vt and _vt[f.name] != bytes(f.data):
+        h = crc(f.name[len('Actor/Pack/'):-len('.sbactorpack')])
+        if h in actors and 'instSize' in actors[h]:
+            actors[h]['instSize'] = oead.S32(int(int(actors[h]['instSize']) * 1.25)); bumped += 1
+print('actor heaps grown for mods\' packs:', bumped)
 # every armour piece dyeable (the ArmorDye tag the dye shop looks for)
 DYE = zlib.crc32(b'ArmorDye'); dyed = 0
 for h, a in actors.items():
