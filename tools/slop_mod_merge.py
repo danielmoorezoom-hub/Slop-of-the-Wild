@@ -425,6 +425,41 @@ for rel, who in conf.items():
     (M / rel).write_bytes(oead.yaz0.compress(data))
     print('  merged', rel, 'from', who)
 
+# ---- packs mods ship partly: BNPs (and BCML-made folders) keep only the files a mod changed inside a game pack (its
+# Title.sblarc with just the new picture, an NPC's pack with one file of 68). Served like that the game finds the rest
+# missing (no Title_00 layout: crash at the title screen). Each such pack gets the game's files it leaves out, nested
+# archives too. The overhaul's packs are whole (their missing files are removals), and Bootup/TitleBG are merged above.
+VAN3 = Path('van3')
+def deep_fill(van, mod):
+    zv, zm = van[:4] == b'Yaz0', mod[:4] == b'Yaz0'
+    v, m = unyaz(van), unyaz(mod)
+    if v[:4] != b'SARC' or m[:4] != b'SARC': return None
+    vs, ms = oead.Sarc(v), oead.Sarc(m)
+    w = oead.SarcWriter.from_sarc(ms); mf = {f.name: bytes(f.data) for f in ms.get_files()}; added = 0
+    for f in vs.get_files():
+        d = bytes(f.data)
+        if f.name not in mf: w.files[f.name] = d; added += 1
+        elif mf[f.name] != d:
+            sub = deep_fill(d, mf[f.name])
+            if sub: w.files[f.name] = sub[0]; added += sub[1]
+    if not added: return None
+    out = bytes(w.write()[1])
+    return (oead.yaz0.compress(out) if zm else out), added
+filled = 0
+for d in sorted(OUT.iterdir()):
+    if d.name.startswith('0 '): continue
+    for sub, vsub in (('romfs', 'romfs'), ('aoc', 'aoc1')):
+        root = d / sub
+        if not root.exists(): continue
+        for p in root.rglob('*'):
+            rel = p.relative_to(root).as_posix()
+            if not p.is_file() or rel in ('Pack/Bootup.pack', 'Pack/TitleBG.pack') or rel.startswith('Pack/Bootup_'): continue
+            vp = next((x for x in (VAN3 / sub / rel, VAN2 / vsub / rel) if x.exists()), None)
+            if not vp: continue
+            r = deep_fill(vp.read_bytes(), p.read_bytes())
+            if r: p.write_bytes(r[0]); filled += 1; print('  filled', d.name, rel, '+%d game files' % r[1])
+print('packs filled in with the game files they left out:', filled)
+
 # ---- size table: what's installed now, each mod's entries, the merged files
 tbl = rstb.ResourceSizeTable(unyaz((CUR / 'zz Size table (keep last)/romfs/System/Resource/ResourceSizeTable.product.srsizetable').read_bytes()), be=False)
 vtbl = rstb.ResourceSizeTable(unyaz((VAN / 'ResourceSizeTable.product.srsizetable').read_bytes()), be=False)
