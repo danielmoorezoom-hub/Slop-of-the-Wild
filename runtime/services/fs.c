@@ -733,7 +733,7 @@ static size_t serve_pack(int k, const uint8_t *pack, size_t pn, int node, uint32
                          const uint8_t *fmeta, uint64_t foff, uint64_t fsz) {
     size_t zn = 0;
     uint32_t total = (uint32_t)nn;
-    memcpy(arc2 + 8, &total, 4);
+    if (!memcmp(arc2, "SARC", 4)) memcpy(arc2 + 8, &total, 4);  // (an archive's own size; other files as they are)
     uint8_t *z2 = yaz0_pack(arc2, nn, pack + pdoff + ps, &zn);
     uint64_t old = pe - ps, delta = zn > old ? (zn - old + 0x1FFF) & ~0x1FFFull : 0;
     size_t qn = pn + delta;
@@ -1120,6 +1120,96 @@ static void haze_patch(void) {
     LOG("[fs] haze %d %%: %d climate values (scattering x%.2f, near haze x%.2f)\n", pct, changed, sc, kk);
 }
 
+// (Slop of the Wild) Items > World: Link without the quiver on his back, or without the Sheikah Slate at his hip.
+// Their models (Model/Weapon_Quiver_001.sbfres, loose; Model/Item_Conductor.sbfres, the slate, in Pack/TitleBG.pack)
+// are served with every mesh drawing no triangles: each shape's (FSHP) meshes get an index count of 0, their
+// submeshes too. Switch BFRES 0.5: FSHP +0x20 the mesh array (0x38 bytes each), +0x67 how many; a mesh: +0 its
+// submesh array ({u32 offset, u32 count}), +0x24 primitive type, +0x2c index count, +0x34 submesh count. The file
+// is packed again and served from memory (the slate's in a copy of TitleBG.pack).
+static int bfres_hide_meshes(uint8_t *d, size_t n) {
+    int hidden = 0;
+    for (size_t i = 0; i + 0x70 <= n; i += 4) {
+        if (memcmp(d + i, "FSHP", 4)) continue;
+        uint64_t ma;
+        memcpy(&ma, d + i + 0x20, 8);
+        uint8_t nm = d[i + 0x67];
+        if (!nm || nm > 16 || ma + (uint64_t)nm * 0x38 > n) continue;
+        for (int k = 0; k < nm; k++) {
+            uint8_t *m = d + ma + (size_t)k * 0x38;
+            uint64_t sub;
+            uint32_t prim, zero = 0;
+            uint16_t nsub;
+            memcpy(&sub, m, 8), memcpy(&prim, m + 0x24, 4), memcpy(&nsub, m + 0x34, 2);
+            if (prim > 0x10 || nsub > 64 || sub + (uint64_t)nsub * 8 > n) continue;
+            memcpy(m + 0x2c, &zero, 4);
+            for (int j = 0; j < nsub; j++) memcpy(d + sub + (size_t)j * 8 + 4, &zero, 4);
+            hidden++;
+        }
+    }
+    return hidden;
+}
+// RomFS file k served from memory instead (`d`, n bytes: kept), as Version.txt
+static void serve_whole(int k, uint8_t *d, uint64_t size, const uint8_t *fmeta, uint64_t foff, uint64_t fsz) {
+    meta_copy(fmeta, foff, fsz);
+    uint64_t rel = R->ov_end - R->rom_data_off;
+    memcpy(R->ov_meta + R->rom_files[k].meta + 8, &rel, 8);
+    memcpy(R->ov_meta + R->rom_files[k].meta + 0x10, &size, 8);
+    if (R->ov_n == R->ov_cap) { R->ov_cap = R->ov_cap ? R->ov_cap * 2 : 256; R->ov = realloc(R->ov, sizeof *R->ov * R->ov_cap); }
+    R->ov[R->ov_n++] = (Overlay){R->ov_end, size, NULL, -1, d};
+    R->ov_end = (R->ov_end + size + 0xF) & ~0xFull;
+}
+static uint8_t *hidden_quiver, *hidden_slate_pack;  // (served from memory)
+static void hide_model(const char *pack_path, const char *model, const char *what, const uint8_t *fmeta, uint64_t foff,
+                       uint64_t fsz) {
+    if (R != &images[0]) return;
+    const char *path = pack_path ? pack_path : model;
+    int k = 0;
+    while (k < R->rom_nfiles && strcmp(R->rom_files[k].path, path)) k++;
+    char host[1200];
+    if (k == R->rom_nfiles || overlay_file(path, host, sizeof host)) { LOG("[fs] hide %s: %s not found\n", what, path); return; }
+    size_t pn = R->rom_files[k].size, un = 0, zn = 0;
+    uint8_t *pack = malloc(pn), *u = NULL;
+    uint32_t pdoff = 0, ps = 0, pe = (uint32_t)pn;
+    int node = -1, hidden = 0;
+    if (pack && romfs_image_pread(R->img, pack, pn, R->rom_files[k].off) == (ssize_t)pn) {
+        if (pack_path) node = sarc_find(pack, pn, model, &pdoff, &ps, &pe);
+        if ((!pack_path || node >= 0) && pe - ps > 16 && !memcmp(pack + pdoff + ps, "Yaz0", 4))
+            u = yaz0_unpack(pack + pdoff + ps, pe - ps, &un);
+    }
+    if (u) hidden = bfres_hide_meshes(u, un);
+    if (!hidden) {
+        LOG("[fs] hide %s: %s left as it is\n", what, model);
+        free(pack), free(u);
+        return;
+    }
+    if (!pack_path) {
+        uint8_t *z = yaz0_pack(u, un, pack, &zn);
+        free(hidden_quiver);
+        serve_whole(k, hidden_quiver = z, zn, fmeta, foff, fsz);
+    } else {
+        // the pack from memory, the model packed again in its place (the pack grows if it has to); changes already
+        // made to the pack's bytes (haze_patch) go into the copy
+        uint64_t base = R->rom_files[k].off, end = base + pn, at = base + pdoff + pe;
+        zn = serve_pack(k, pack, pn, node, pdoff, ps, pe, u, un, &hidden_slate_pack, NULL, un, fmeta, foff, fsz);
+        R->ngrown--;  // (the model's own size is as it was)
+        uint64_t delta = R->ov[R->ov_n - 1].size - pn;
+        for (int i = 0; i < R->npatches; i++) {
+            Patch *q = &R->patches[i];
+            if (q->off < base || q->off + q->size > end) continue;
+            uint64_t to = q->off - base + (q->off >= at ? delta : 0);
+            memcpy(hidden_slate_pack + to, q->data, q->size);
+            free(q->data);
+            R->patches[i--] = R->patches[--R->npatches];
+        }
+    }
+    LOG("[fs] hide %s: %d meshes of %s draw nothing (%zu bytes packed)\n", what, hidden, model, zn);
+    free(pack), free(u);
+}
+static void hide_models_patch(const uint8_t *fmeta, uint64_t foff, uint64_t fsz) {
+    if (g_settings.hide_quiver) hide_model(NULL, "Model/Weapon_Quiver_001.sbfres", "quiver", fmeta, foff, fsz);
+    if (g_settings.hide_slate) hide_model("Pack/TitleBG.pack", "Model/Item_Conductor.sbfres", "Sheikah Slate", fmeta, foff, fsz);
+}
+
 // An RSTB entry: names first (paths whose crc32 collides), then the crc32 table (sorted). NULL when it has none.
 static uint32_t *rstb_entry(uint8_t *d, uint32_t ncrc, uint32_t nname, const char *path) {
     for (uint32_t i = 0; i < nname; i++)
@@ -1317,6 +1407,7 @@ static void rom_index(void) {
     menu_tex_scan();
     rstb_patch(fmeta, foff, fsz);
     haze_patch();
+    hide_models_patch(fmeta, foff, fsz);
     if (R->ov_n) LOG("[fs] overlay: %d romfs files replaced\n", R->ov_n);
     if (R->ov_meta) { R->patches[R->npatches++] = (Patch){R->ov_meta_off, R->ov_meta_size, R->ov_meta}; }
     add_new_files(h, dmeta, dsz, fsz);

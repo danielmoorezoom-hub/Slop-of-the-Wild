@@ -180,6 +180,8 @@ void settings_load(void) {
         else if (!strcmp(key, "no_woods_fog")) g_settings.no_woods_fog = atoi(val) != 0;
         else if (!strcmp(key, "no_typhlo_dark")) g_settings.no_typhlo_dark = atoi(val) != 0;
         else if (!strcmp(key, "no_map_bounds")) g_settings.no_map_bounds = atoi(val) != 0;
+        else if (!strcmp(key, "hide_quiver")) g_settings.hide_quiver = atoi(val) != 0;
+        else if (!strcmp(key, "hide_slate")) g_settings.hide_slate = atoi(val) != 0;
         else if (!strcmp(key, "save_backups")) g_settings.save_backups = atoi(val) != 0;
         else if (!strcmp(key, "cheat_health")) g_settings.cheat_health = atoi(val) != 0;
         else if (!strcmp(key, "cheat_stamina")) g_settings.cheat_stamina = atoi(val) != 0;
@@ -392,6 +394,7 @@ void settings_save(void) {
     fprintf(f, "armor_slots = %d\n", g_settings.armor_slots);
     fprintf(f, "no_woods_fog = %d\nno_typhlo_dark = %d\nno_map_bounds = %d\n", g_settings.no_woods_fog,
             g_settings.no_typhlo_dark, g_settings.no_map_bounds);
+    fprintf(f, "hide_quiver = %d\nhide_slate = %d\n", g_settings.hide_quiver, g_settings.hide_slate);
     fprintf(f, "lod_auto = %d\n", g_settings.lod_auto);
     fprintf(f, "lod_master = %d\n", g_settings.lod_master);
     fprintf(f, "lod_distance = %d\n", g_settings.lod_distance);

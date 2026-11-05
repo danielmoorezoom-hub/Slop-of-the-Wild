@@ -1276,7 +1276,10 @@ static void tab_items(void) {
             {"No Lost Woods fog", "Takes away the Lost Woods' fog, and the way it sends you back to the entrance when you stray. From the next start.", &g_settings.no_woods_fog},
             {"No Typhlo Ruins darkness", "Typhlo Ruins as light as the woods around them, and no dark cloud over them from afar. From the next start.", &g_settings.no_typhlo_dark},
             {"No invisible walls", "Takes away the game's invisible walls (AirWall): the edge of the map and other places it fences off, the Great Plateau's too. Past the edge there may be nothing to stand on. From the next start.", &g_settings.no_map_bounds},
+            {"Hide the quiver", "Link without the quiver on his back (the arrows still work). From the next start.", &g_settings.hide_quiver},
+            {"Hide the Sheikah Slate", "Link without the Sheikah Slate at his hip (and in his hand when he uses it). From the next start.", &g_settings.hide_slate},
         };
+        static const int boot_quiver = g_settings.hide_quiver, boot_slate = g_settings.hide_slate;  // (what this start serves)
         for (const auto &sw : swaps) {
             bool v = *sw.v != 0;
             if (opt_toggle(sw.label, &v, false, sw.desc)) { *sw.v = v; settings_save(); }
@@ -1288,9 +1291,9 @@ static void tab_items(void) {
                      g_settings.no_map_bounds && (g_settings.no_typhlo_dark || g_settings.no_woods_fog) ? "+" : "",
                      g_settings.no_typhlo_dark ? "dark" : "", g_settings.no_typhlo_dark && g_settings.no_woods_fog ? "+" : "",
                      g_settings.no_woods_fog ? "fog" : "");
-            if (strcmp(want, g_romfs_options)) {
+            if (strcmp(want, g_romfs_options) || boot_quiver != g_settings.hide_quiver || boot_slate != g_settings.hide_slate) {
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.7f, 0.4f, 1));
-                ImGui::TextWrapped("Restart the game for the fog, darkness and wall changes to take effect.");
+                ImGui::TextWrapped("Restart the game for these changes to take effect.");
                 ImGui::PopStyleColor();
             }
         }
