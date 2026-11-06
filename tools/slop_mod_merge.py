@@ -17,7 +17,7 @@ def crc(s): return zlib.crc32(s.encode())
 # kind: 'old' (made on an older game version: only what's new counts), 'own' (its own actors' changes count too),
 # 'full' (current game version, an overhaul: everything it changes counts; lowest priority, so the rest win)
 RAW3 = Path('raw3')
-SKIP_BNP = {'royal_knight_armor_for_19_blue_', 'champion_s_cap'}  # (blue: same armour as red, kept aside; the cap: installed already)
+SKIP_BNP = {'royal_knight_armor_for_19_blue_', 'champion_s_cap', 'islands_expansion_dlc_v12_-_switch'}  # (blue: same armour as red, kept aside; the cap: installed already)
 BNP = []
 def add_bnp(d):
     info = d / 'info.json'
@@ -431,8 +431,10 @@ tbg = merge_sarc(Path('/home/claude/slopmods/van/TitleBG.pack').read_bytes(),
 tbg = merge_sarc(tbg, [('hair', Path('/home/claude/slopmods/raw/totkhair/01007EF00011E000/romfs/Pack/TitleBG.pack').read_bytes())], removals=False)
 (M / 'Pack/TitleBG.pack').write_bytes(tbg)
 # Title: the islands' title screen (the overhaul's changes the same file)
-isl = next(RAW3.glob('islands*/*/01007EF00011E000/romfs/Pack/Title.pack'))
-(M / 'Pack/Title.pack').write_bytes(merge_sarc((VAN2 / 'romfs/Pack/Title.pack').read_bytes(), [('islands', isl.read_bytes())]))
+# the title screen: the overhaul's (the Islands Expansion's is left out with it)
+rt = RAW3 / 'relics/01007EF00011E000/romfs/Pack/Title.pack'
+if rt.exists(): (M / 'Pack/Title.pack').write_bytes(merge_sarc((VAN2 / 'romfs/Pack/Title.pack').read_bytes(), [('relics', rt.read_bytes())]))
+elif (M / 'Pack/Title.pack').exists(): (M / 'Pack/Title.pack').unlink()
 # actor packs more than one of the user's own mods carry (the overhaul just loses those)
 conf = {}
 for (sub, rel), who in owner.items():
