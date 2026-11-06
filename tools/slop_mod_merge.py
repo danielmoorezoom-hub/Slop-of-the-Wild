@@ -38,6 +38,8 @@ PLAIN = [('OoT Zora Tunic', RAW / 'zora' / 'romfs', None, 'old'),
          ('Epic Master Sword Enhanced', RAW3 / 'epic_mastersword_enhanced_-_dmg250/Epic MasterSword Enhanced - Dmg250/contents/01007EF00011E000/romfs', None, 'own'),
          ('Thunderstorm Rod', RAW3 / 'thunderstormrod_-_ganon_thunder_rod/ThunderstormRod - Ganon Thunder Rod/contents/01007EF00011E000/romfs', None, 'own'),
          ('0 Relics of the Past', RAW3 / 'relics/01007EF00011E000/romfs', RAW3 / 'relics/01007EF00011F001/romfs', 'full')]
+ONLY_RELICS = os.environ.get('ONLY_RELICS') == '1'  # (just the overhaul: every other mod left out)
+if ONLY_RELICS: BNP = []; PLAIN = [m for m in PLAIN if m[3] == 'full']
 SKIP = {'Pack/Bootup.pack', 'Actor/ActorInfo.product.sbyml', 'System/Resource/ResourceSizeTable.product.srsizetable',
         'Pack/TitleBG.pack', 'Pack/Title.pack', 'readme.txt', 'Pack/debug.log'}
 import re
@@ -70,7 +72,7 @@ for name, romfs, aoc, kind in PLAIN:
     copied[name] = copy_tree(name, romfs, 'romfs', False) + copy_tree(name, aoc, 'aoc', True)
 # BNP options picked: the Fierce Deity Sword, two-handed with wind slices
 FD = RAW3 / 'ultimatefiercedeitysword/eeac194f-ultimatefiercedeitysword/options/Ultimate Fierce Deity Sword WindSlices/01007EF00011E000/romfs'
-copied['Ultimate Fierce Deity Sword'] += copy_tree('Ultimate Fierce Deity Sword', FD, 'romfs', False)
+if not ONLY_RELICS: copied['Ultimate Fierce Deity Sword'] += copy_tree('Ultimate Fierce Deity Sword', FD, 'romfs', False)
 print('files per mod:', copied)
 
 # ---- dict merge as BCML (dicts recursive, everything else replaced)
@@ -106,7 +108,7 @@ def actorinfo_diff_of(path, new_only, only=None):
             x = diff_node(actors[h], a)
             if len(x): d[h] = x
     return d
-ai_diffs = [('Unobtainable items', actorinfo_diff_of(OLD_UNOB, False))]
+ai_diffs = [] if ONLY_RELICS else [('Unobtainable items', actorinfo_diff_of(OLD_UNOB, False))]
 for name, romfs, logs, aoc in BNP:
     f = logs / 'actorinfo.yml'
     if f.exists():
@@ -150,7 +152,7 @@ print('actor heaps grown for mods\' packs:', bumped)
 # every armour piece dyeable (the ArmorDye tag the dye shop looks for)
 DYE = zlib.crc32(b'ArmorDye'); dyed = 0
 for h, a in actors.items():
-    if str(a.get('profile', '')).startswith('Armor'):
+    if not ONLY_RELICS and str(a.get('profile', '')).startswith('Armor'):
         tg = a['tags'] if 'tags' in a else oead.byml.Hash()
         k = 'tag%08x' % DYE
         if k not in tg:
@@ -198,7 +200,7 @@ def gd_apply(add, dele=()):
     for t, names in dele:
         for k in names: types.get(t, {}).pop(k, None)
 # Raised slot limits: its changes
-rsl = gd_of_pack(CUR / 'Raised slot limits/romfs/Pack/Bootup.pack')
+rsl = {} if ONLY_RELICS else gd_of_pack(CUR / 'Raised slot limits/romfs/Pack/Bootup.pack')
 gd_apply({t: {k: e for k, e in v.items() if types.get(t, {}).get(k) != e} for t, v in rsl.items()})
 for name, romfs, logs, aoc in BNP:
     f = logs / 'gamedata.yml'
@@ -428,7 +430,7 @@ def merge_sarc(van_bytes, mods, removals=True):
 # TitleBG: the overhaul's changes, then the TOTK hair's
 tbg = merge_sarc(Path('/home/claude/slopmods/van/TitleBG.pack').read_bytes(),
                  [('relics', (RAW3 / 'relics/01007EF00011E000/romfs/Pack/TitleBG.pack').read_bytes())])
-tbg = merge_sarc(tbg, [('hair', Path('/home/claude/slopmods/raw/totkhair/01007EF00011E000/romfs/Pack/TitleBG.pack').read_bytes())], removals=False)
+if not ONLY_RELICS: tbg = merge_sarc(tbg, [('hair', Path('/home/claude/slopmods/raw/totkhair/01007EF00011E000/romfs/Pack/TitleBG.pack').read_bytes())], removals=False)
 (M / 'Pack/TitleBG.pack').write_bytes(tbg)
 # Title: the islands' title screen (the overhaul's changes the same file)
 # the title screen: the overhaul's (the Islands Expansion's is left out with it)
