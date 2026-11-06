@@ -106,6 +106,7 @@ static void armor_frame(void);
 static void inv_frame(void);
 static void noclip_frame(Cpu *c);
 static void move_frame(Cpu *c);
+static void diag_frame(Cpu *c);
 static void world_frame(Cpu *c);
 static void rune_frame(Cpu *c);
 static int g_aqn;
@@ -119,6 +120,7 @@ void spawner_frame(void) {
         inv_frame();
         if (c) noclip_frame(c);
         if (c) move_frame(c);
+        if (c) diag_frame(c);
         if (c) world_frame(c);
         if (c) rune_frame(c);
     }
@@ -660,7 +662,10 @@ static _Atomic float nc_r[3] = {1, 0, 0}, nc_b[3] = {0, 0, 1};
 static atomic_int nc_cam_seen;
 
 // (input thread) t: the combo; returns true when the game should not get the movement controls
+static volatile int32_t g_diag_lx, g_diag_ly;
+volatile uint64_t g_diag_buttons;  // (the stick as the game gets it, for diag_frame)
 bool noclip_take_input(bool combo, int32_t lx, int32_t ly, bool a, bool b, bool zr) {
+    g_diag_lx = lx, g_diag_ly = ly;
     // the combo held for a second toggles it (crouching while whistling, R3 and d-pad down together, used to turn it
     // on unnoticed: Link stuck sliding, the stick his flying)
     static bool fired;
@@ -829,6 +834,32 @@ static void noclip_frame(Cpu *c) {
 // so this goes by where he got to: each frame, how far he moved across the ground since the last one, and that move
 // again (times the multiplier less one) through the same setPosition noclip uses. Up and down are left alone. A jump of
 // more than 5 m in a frame (a warp, a load) isn't a step and is skipped.
+// diagnosis: every second, where Link is, how far he moved, and the stick (Link sliding without input)
+static void diag_frame(Cpu *c) {
+    static uint64_t last;
+    static float prev[3];
+    static int have;
+    uint64_t now = plat_now_ns();
+    if (now - last < 1000000000ull) return;
+    last = now;
+    uint64_t actor = player_actor(c);
+    uint64_t body = player_body(c, actor), acc = body ? LD64(body + 0xb8) : 0;
+    uint64_t vt = mapped(acc, 0x10) ? LD64(acc) : 0;
+    if (!guest_ptr(vt) || !guest_ptr(LD64(vt + 0x20))) { have = 0; return; }
+    uint64_t sp = (c->sp - 0x1000) & ~0xfull, v = sp + 0x80;
+    memset((void *)(uintptr_t)v, 0, 16);
+    uint64_t a[2] = {acc, v};
+    gcall(c, LD64(vt + 0x20), sp, a, 2);
+    float pos[3];
+    memcpy(pos, (void *)(uintptr_t)v, sizeof pos);
+    float dx = pos[0] - prev[0], dy = pos[1] - prev[1], dz = pos[2] - prev[2];
+    LOG("[diag] Link %.2f %.2f %.2f moved %.2f %.2f %.2f in 1 s, stick %d %d, buttons %llx, noclip %d, speed x%.2f\n", pos[0],
+        pos[1], pos[2], have ? dx : 0, have ? dy : 0, have ? dz : 0, (int)g_diag_lx, (int)g_diag_ly,
+        (unsigned long long)g_diag_buttons, (int)g_noclip_on,
+        (double)g_tw_mult[TW_MOVE]);
+    memcpy(prev, pos, sizeof prev);
+    have = 1;
+}
 static void move_frame(Cpu *c) {
     static int have;
     static float prev[3];
