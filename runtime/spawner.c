@@ -107,6 +107,7 @@ static void inv_frame(void);
 static void noclip_frame(Cpu *c);
 static void move_frame(Cpu *c);
 static void world_frame(Cpu *c);
+static void rune_frame(Cpu *c);
 static int g_aqn;
 void spawner_frame(void) {
     if (spawner_available()) {
@@ -119,6 +120,7 @@ void spawner_frame(void) {
         if (c) noclip_frame(c);
         if (c) move_frame(c);
         if (c) world_frame(c);
+        if (c) rune_frame(c);
     }
     if (!g_qn) return;  // (racy read: the next frame picks up a request queued meanwhile)
     static Req todo[96];
@@ -959,4 +961,63 @@ static void world_frame(Cpu *c) {
     snprintf(g_status, sizeof g_status, w ? "Every shrine and tower is a fast travel point now (%d flags)." :
              "Fast travel points put back as they were (%d flags).", changed);
     LOG("[spawner] fast travel all %s: %d flags set, %d not found\n", w ? "on" : "off", changed, missing);
+}
+
+// ------------------------------------------------------------------ rune cooldowns (Items > World)
+// The remote bombs' and Stasis' waits are Link's general parameters (Actor/GeneralParamList/Player_Link.bgparamlist,
+// object "Player": BombReloadTime1 6, BombReloadTime2 3, StopTimerReloadTime 300), which the runes read as they go.
+// Found like the AI program's numbers: Link's ActorParam (+0x570) +0xa8 res::GParamList, the objects it points to,
+// a parameter's CRC32 name hash and then its value (the game's own) close after.
+static atomic_int g_rune_nocd;  // (bits: 1 the remote bombs, 2 Stasis)
+static int g_rune_on;
+void spawner_rune_nocd(int which, int on) { if (on) g_rune_nocd |= which; else g_rune_nocd &= ~which; }
+int spawner_rune_nocd_on(int which) { return (g_rune_nocd & which) != 0; }
+static const struct { const char *name; float def; } kRune[] = {
+    {"BombReloadTime1", 6.0f}, {"BombReloadTime2", 3.0f}, {"StopTimerReloadTime", 300.0f},
+};
+static uint64_t g_rune_at[3], g_rune_gpl;
+static float g_rune_orig[3];
+
+static uint64_t find_value(uint64_t o, uint32_t hash, float def) {
+    for (int off = 0; off + 8 <= 0x2000; off += 4) {
+        if (!mapped(o + off, 8)) return 0;
+        if (*(uint32_t *)(uintptr_t)(o + off) != hash) continue;
+        for (int v = off + 4; v <= off + 0x20 && mapped(o + v, 4); v += 4) {
+            float f = *(float *)(uintptr_t)(o + v);
+            if (fabsf(f - def) <= 1e-4f * (fabsf(def) + 1)) return o + v;
+        }
+    }
+    return 0;
+}
+
+static void rune_frame(Cpu *c) {
+    static int tick;
+    int want = g_rune_nocd;
+    if (want == g_rune_on && (!want || ++tick % 60)) return;
+    uint64_t actor = player_actor(c);
+    uint64_t param = actor ? LD64(actor + 0x570) : 0, gpl = mapped(param, 0x100) ? LD64(param + 0xa8) : 0;
+    if (!mapped(gpl, 0x100)) return;
+    if (gpl != g_rune_gpl) {  // (a new resource: look again; its numbers are the game's own again)
+        memset(g_rune_at, 0, sizeof g_rune_at);
+        g_rune_gpl = gpl, g_rune_on = 0;
+        int found = 0;
+        for (int k = 0; k < 3; k++) {  // (objects kept inside the resource itself)
+            uint64_t a = find_value(gpl, crc32s(kRune[k].name), kRune[k].def);
+            if (a) g_rune_at[k] = a, g_rune_orig[k] = *(float *)(uintptr_t)a, found++;
+        }
+        for (int off = 0; off < 0x400 && found < 3; off += 8) {  // the GParamList's object pointers, then inside them
+            uint64_t o = LD64(gpl + off);
+            if (!guest_ptr(o) || (o & 3) || !mapped(o, 0x100)) continue;
+            for (int k = 0; k < 3; k++) {
+                if (g_rune_at[k]) continue;
+                uint64_t a = find_value(o, crc32s(kRune[k].name), kRune[k].def);
+                if (a) g_rune_at[k] = a, g_rune_orig[k] = *(float *)(uintptr_t)a, found++;
+            }
+        }
+        LOG("[spawner] rune cooldowns: %d of 3 found in GParamList %llx\n", found, (unsigned long long)gpl);
+    }
+    for (int k = 0; k < 3; k++)
+        if (g_rune_at[k] && mapped(g_rune_at[k], 4))
+            *(float *)(uintptr_t)g_rune_at[k] = want & (k < 2 ? 1 : 2) ? 0.0f : g_rune_orig[k];
+    g_rune_on = want;
 }

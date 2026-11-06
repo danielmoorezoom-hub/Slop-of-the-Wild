@@ -1062,6 +1062,8 @@ float spawner_time_get(void);
 void spawner_time_freeze(int on);
 int spawner_time_frozen(void);
 void spawner_warp_all(int on);
+void spawner_rune_nocd(int which, int on);
+int spawner_rune_nocd_on(int which);
 int spawner_warp_all_on(void);
 typedef struct { char id[64]; int cat, life; } ModItem;
 int spawner_mod_items(const ModItem **out);
@@ -1278,6 +1280,13 @@ static void tab_items(void) {
                        "climbed, so their map regions show. Off: puts them back as they were when you turned this on "
                        "(this session only). Saving keeps whatever is on at the time."))
             spawner_warp_all(warp);
+        bool bombs = spawner_rune_nocd_on(1) != 0, stasis = spawner_rune_nocd_on(2) != 0;
+        if (opt_toggle("No remote bomb cooldown", &bombs, false,
+                       "Round and square remote bombs are ready again as soon as one goes off, instead of after their "
+                       "countdown."))
+            spawner_rune_nocd(1, bombs);
+        if (opt_toggle("No Stasis cooldown", &stasis, false, "Stasis is ready again at once, instead of after its countdown."))
+            spawner_rune_nocd(2, stasis);
     }
     // weapon stats: durability and a bonus (act::WeaponModifier), for weapons, bows and shields added from here
     static float durability = 0, amt[3] = {10, 1.5f, 5};
