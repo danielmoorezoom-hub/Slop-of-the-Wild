@@ -1066,6 +1066,7 @@ int spawner_warp_all_on(void);
 typedef struct { char id[64]; int cat, life; } ModItem;
 int spawner_mod_items(const ModItem **out);
 int spawner_item_upgradable(const char *id);
+const char *spawner_item_name(const char *id);
 typedef struct { char name[64]; int type, value, equipped; } InvItem;
 int spawner_inventory(InvItem *out, int max);
 int spawner_slots_get(int which);
@@ -1109,7 +1110,7 @@ static void tab_items_remove(const char *query, int cat, int amount) {
         ImGui::TextWrapped("Load your save to see what's in your pouch.");
         return;
     }
-    // names: the spawner's own list, else the ID
+    // names: the spawner's own list, else the game's text (mods' items), else the ID
     static std::unordered_map<std::string, const SpawnItem *> names;
     if (names.empty())
         for (const SpawnItem &it : kSpawnItems) names[it.id] = &it;
@@ -1123,7 +1124,8 @@ static void tab_items_remove(const char *query, int cat, int amount) {
         if (f == at.end()) {
             auto nm = names.find(inv[i].name);
             at[inv[i].name] = rows.size();
-            rows.push_back(Row{inv[i].name, nm != names.end() ? nm->second->name : NULL, kind(inv[i].type), 0, 0, 0});
+            rows.push_back(Row{inv[i].name, nm != names.end() ? nm->second->name : spawner_item_name(inv[i].name),
+                               kind(inv[i].type), 0, 0, 0});
             f = at.find(inv[i].name);
         }
         Row &r = rows[f->second];
@@ -1202,7 +1204,7 @@ static void tab_items(void) {
     opt_choice("Mode", &mode, modes, 2, 0,
                "Add: selecting an item puts it in your pouch. Remove: lists what is in your pouch; selecting one takes it out (the "
                "Amount from a stack, or that many slots of gear). Equipped items are kept: unequip them first.");
-    opt_choice("Category", &cat, cats, 11, 0, "Shows only one kind of item. Unobtainable: things the game never lets you carry (NPC tools, boss weapons, unused gear). They need the Unobtainable items mod and may crash the game when equipped, dropped or shown. Added by mods: items your mods add to the game (listed by their IDs).");
+    opt_choice("Category", &cat, cats, 11, 0, "Shows only one kind of item. Unobtainable: things the game never lets you carry (NPC tools, boss weapons, unused gear). They need the Unobtainable items mod and may crash the game when equipped, dropped or shown. Added by mods: items your mods add to the game (by their names in the inventory; their IDs where a mod gives none).");
     static bool top_rank, not_owned, no_mod;
     if (mode == 0) {
         opt_toggle("Highest upgrade only", &top_rank, false,
@@ -1354,7 +1356,10 @@ static void tab_items(void) {
         const ModItem *mi = NULL;
         int nm = spawner_mod_items(&mi);
         for (int k = 0; k < nm; k++)
-            if (!known.count(mi[k].id)) all.push_back(SpawnItem{mi[k].id, mi[k].id, mi[k].cat, mi[k].life, 2});
+            if (!known.count(mi[k].id)) {  // (its name as the inventory shows it, when the game's text has one)
+                const char *nm = spawner_item_name(mi[k].id);
+                all.push_back(SpawnItem{mi[k].id, nm && *nm ? nm : mi[k].id, mi[k].cat, mi[k].life, 2});
+            }
     }
     // what's in the pouch (for Hide what I have), looked up again every half second
     static std::unordered_set<std::string> owned;
@@ -1410,8 +1415,8 @@ static void tab_items(void) {
         bool gear = it.cat == 0 || it.cat == 1 || it.cat == 3;
         char desc[300];
         if (it.odd == 2) {
-            snprintf(desc, sizeof desc, "%s  (%s)  Added by a mod: shown by its ID. If the mod's files aren't all "
-                     "there, adding it may crash the game - save first.", it.id, catname[it.cat]);
+            snprintf(desc, sizeof desc, "%s  (%s)  Added by a mod. If the mod's files aren't all there, adding it "
+                     "may crash the game - save first.", it.id, catname[it.cat]);
         } else if (it.odd) {
             snprintf(desc, sizeof desc, "%s  (%s)  Unobtainable: needs the Unobtainable items mod. May crash the game when "
                      "equipped, dropped or shown in the inventory - save first.", it.id, catname[it.cat]);
