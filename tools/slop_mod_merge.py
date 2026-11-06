@@ -22,7 +22,7 @@ for d in sorted(RAW.iterdir()):
         BNP.append((name, d / '01007EF00011E000' / 'romfs', d / 'logs'))
 # the mods enabled again (2026-11-06): BNPs and plain romfs mods from the later batch
 RAW3 = Path('raw3')
-for d in ['ancientbustersword', 'barbarianarmorredesignfor19', 'ultimatefiercedeitysword', 'trirod_switch', 'weaponsofblight_98e28']:
+for d in ['ancientbustersword', 'barbarianarmorredesignfor19', 'trirod_switch', 'weaponsofblight_98e28']:
     for sub in sorted((RAW3 / d).iterdir()):
         if (sub / 'info.json').exists():
             BNP.append((json.loads((sub / 'info.json').read_text())['name'], sub / '01007EF00011E000' / 'romfs', sub / 'logs'))
@@ -51,7 +51,7 @@ for name, romfs, *_ in BNP + PLAIN + OWN:
     copied[name] = n
 # the Fierce Deity Sword's option: two-handed, wind slices
 FD = RAW3 / 'ultimatefiercedeitysword/eeac194f-ultimatefiercedeitysword/options/Ultimate Fierce Deity Sword WindSlices/01007EF00011E000/romfs'
-for p in FD.rglob('*'):
+for p in []:  # (the Fierce Deity Sword: removed 2026-11-06)
     if p.is_file():
         dst = OUT / 'Ultimate Fierce Deity Sword' / 'romfs' / p.relative_to(FD).as_posix(); dst.parent.mkdir(parents=True, exist_ok=True); shutil.copy(p, dst)
 print('files per mod:', copied)
