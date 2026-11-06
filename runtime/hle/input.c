@@ -897,8 +897,7 @@ static void fill_state(Cpu *c) {
         int32_t m = dx && dy ? 23170 : 32767;  // diagonals: same speed (32767 / sqrt 2)
         if (dx || dy) lx = dx * m, ly = dy * m;
     }
-    { extern volatile uint64_t g_diag_buttons; g_diag_buttons = b; }  // (spawner.c's diag line)
-    {   // noclip flying (runtime/spawner.c): R3 + d-pad down held a second; while on, the left stick, A, B and ZR fly Link
+    {   // noclip flying (runtime/spawner.c): R3 + d-pad down; while on, the left stick, A, B and ZR fly Link
         extern bool noclip_take_input(bool, int32_t, int32_t, bool, bool, bool);
         bool combo = !menu && (b >> BTN_RSTICK & 1) && (b >> BTN_DOWN & 1);
         if (combo) b &= ~(1ull << BTN_RSTICK | 1ull << BTN_DOWN);

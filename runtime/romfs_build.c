@@ -135,14 +135,9 @@ uint64_t romfs_dir_bytes(const char *dir) {
 // name wins. The copy in extracted/ stays as it is. Files the game doesn't have (a mod's new items, their models and
 // icons) are added to the image (add_mod_files). The game's size table isn't changed, so a mod's file much larger than
 // the original may not load; files it has no entry for, the game sizes from the file.
-// The DLC's RomFS (extracted/aoc1: aoc:/0010, the one with the DLC's map) takes mods/<name>/aoc/<its path> the same
-// way: a mod's DLC files (BCML's 01007EF00011F001/romfs).
-static const char *g_mod_sub = "romfs";  // (the mod subfolder for the image being laid out)
 static int list_mods(const char *dir, char names[64][128]) {
     size_t dl = strlen(dir);
-    if (dl >= 5 && !strcmp(dir + dl - 5, "romfs") && !strstr(dir, "aoc")) g_mod_sub = "romfs";
-    else if (dl >= 4 && !strcmp(dir + dl - 4, "aoc1")) g_mod_sub = "aoc";
-    else return 0;
+    if (dl < 5 || strcmp(dir + dl - 5, "romfs") || strstr(dir, "aoc")) return 0;
     DIR *m = opendir("mods");
     if (!m) return 0;
     int n = 0;
@@ -151,7 +146,7 @@ static int list_mods(const char *dir, char names[64][128]) {
         if (e->d_name[0] == '.') continue;
         char p[400];
         struct stat st;
-        snprintf(p, sizeof p, "mods/%s/%s", e->d_name, g_mod_sub);
+        snprintf(p, sizeof p, "mods/%s/romfs", e->d_name);
         if (stat(p, &st) == 0 && S_ISDIR(st.st_mode)) snprintf(names[n++], 128, "%s", e->d_name);
     }
     closedir(m);
@@ -172,7 +167,7 @@ static void apply_mods(Lists *l, const char *dir, char names[64][128], int n) {
         for (int i = n - 1; i >= 0; i--) {
             char p[1200];
             struct stat st;
-            snprintf(p, sizeof p, "mods/%s/%s%s", names[i], g_mod_sub, rel);
+            snprintf(p, sizeof p, "mods/%s/romfs%s", names[i], rel);
             if (stat(p, &st) == 0 && !S_ISDIR(st.st_mode)) {
                 free(l->files[f]->path);
                 l->files[f]->path = strdup(p);
@@ -239,45 +234,10 @@ static void add_mod_files(Dir *root, char names[64][128], int n) {
     int added = 0;
     for (int i = 0; i < n; i++) {
         char p[400];
-        snprintf(p, sizeof p, "mods/%s/%s", names[i], g_mod_sub);
+        snprintf(p, sizeof p, "mods/%s/romfs", names[i]);
         added += add_tree(root, p, 0);
     }
     if (added) fprintf(stderr, "[mods] %d new file(s) from mods added\n", added);
-}
-
-// Settings that swap files (main.c fills it from the settings: "bounds+dark+fog" and the like, "" for none): a mod's
-// options/<that>/romfs/<path> in place of the file the image would serve. (Items > World: Lost Woods fog, Typhlo
-// Ruins' darkness, invisible walls - the merged data carries a variant for each combination.)
-char g_romfs_options[64];
-static void rel_of(const File *f, char *out, size_t cap) {
-    const Dir *chain[40];
-    int n = 0;
-    for (const Dir *d = f->parent; d && d->parent && n < 40; d = d->parent) chain[n++] = d;
-    size_t k = 0;
-    out[0] = 0;
-    for (int i = n - 1; i >= 0; i--) k += (size_t)snprintf(out + k, k < cap ? cap - k : 0, "/%s", chain[i]->name);
-    snprintf(out + (k < cap ? k : cap - 1), k < cap ? cap - k : 1, "/%s", f->name);
-}
-static void apply_options(Lists *l, const char *dir, char names[64][128], int n) {
-    if (!g_romfs_options[0] || strstr(dir, "aoc")) return;
-    int used = 0;
-    for (int f = 0; f < l->nf; f++) {
-        char rel[1000];
-        rel_of(l->files[f], rel, sizeof rel);
-        for (int i = n - 1; i >= 0; i--) {
-            char p[1300];
-            struct stat st;
-            snprintf(p, sizeof p, "mods/%s/options/%s/romfs%s", names[i], g_romfs_options, rel);
-            if (stat(p, &st) == 0 && S_ISREG(st.st_mode)) {
-                free(l->files[f]->path);
-                l->files[f]->path = strdup(p);
-                l->files[f]->size = (uint64_t)st.st_size;
-                used++;
-                break;
-            }
-        }
-    }
-    fprintf(stderr, "[mods] options %s: %d file(s)\n", g_romfs_options, used);
 }
 
 // The game's RomFS's Actor/ActorInfo.product.sbyml as the image serves it (a mod's, the merge, or the game's): for the
@@ -297,7 +257,6 @@ static void note_actorinfo(Lists *l, const char *dir) {
 // made in cache/ at every start.
 static void merge_actorinfo(Lists *l, const char *dir, char names[64][128], int n) {
     static const char rel[] = "/Actor/ActorInfo.product.sbyml";
-    if (strcmp(g_mod_sub, "romfs")) return;
     const char *files[64];
     char paths[64][400];
     int k = 0;
@@ -344,7 +303,6 @@ bool romfs_layout(const char *dir, RomfsLayout *out, char *why, size_t why_size)
     if (!l.nf) FAIL("no files in %s", dir);
     apply_mods(&l, dir, mods, nmods);
     merge_actorinfo(&l, dir, mods, nmods);
-    apply_options(&l, dir, mods, nmods);
     note_actorinfo(&l, dir);
 
     // entry offsets

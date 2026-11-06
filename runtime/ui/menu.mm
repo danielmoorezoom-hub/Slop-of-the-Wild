@@ -1060,12 +1060,8 @@ int spawner_armor_state(void);
 void spawner_time_set(float hour);
 float spawner_time_get(void);
 void spawner_time_freeze(int on);
-int spawner_noclip_on(void);
-void spawner_noclip_set(int on);
 int spawner_time_frozen(void);
 void spawner_warp_all(int on);
-void spawner_rune_nocd(int on);
-int spawner_rune_nocd_on(void);
 int spawner_warp_all_on(void);
 typedef struct { char id[64]; int cat, life; } ModItem;
 int spawner_mod_items(const ModItem **out);
@@ -1261,11 +1257,6 @@ static void tab_items(void) {
         snprintf(v, sizeof v, "%02d:%02d", (int)hour, (int)((hour - (int)hour) * 60 + 0.5f));
         if (opt_action("Set the time", v, "Moves the clock to the hour above, as sleeping at an inn does. Going back past midnight starts a new day.", false))
             spawner_time_set(hour);
-        bool fly = spawner_noclip_on() != 0;
-        if (opt_toggle("Noclip flying", &fly, false,
-                       "Link flies through anything: the left stick moves him, A up, B down, ZR faster. Holding R3 and "
-                       "d-pad down for a second also turns it on or off. While it is on he can't walk."))
-            spawner_noclip_set(fly);
         bool freeze = spawner_time_frozen() != 0;
         if (opt_toggle("Freeze time", &freeze, false, "Stops the clock where it is (the sky, the day and night). Off: it runs again."))
             spawner_time_freeze(freeze);
@@ -1275,35 +1266,6 @@ static void tab_items(void) {
                        "climbed, so their map regions show. Off: puts them back as they were when you turned this on "
                        "(this session only). Saving keeps whatever is on at the time."))
             spawner_warp_all(warp);
-        bool runes = spawner_rune_nocd_on() != 0;
-        if (opt_toggle("No rune cooldowns", &runes, false, "Remote bombs and Stasis are ready again at once, instead of after their countdown."))
-            spawner_rune_nocd(runes);
-        // these swap game files: from the next start (romfs_build.c options)
-        static const struct { const char *label, *desc; int *v; } swaps[] = {
-            {"No Lost Woods fog", "Takes away the Lost Woods' fog, and the way it sends you back to the entrance when you stray. From the next start.", &g_settings.no_woods_fog},
-            {"No Typhlo Ruins darkness", "Typhlo Ruins as light as the woods around them, and no dark cloud over them from afar. From the next start.", &g_settings.no_typhlo_dark},
-            {"No invisible walls", "Takes away the game's invisible walls (AirWall): the edge of the map and other places it fences off, the Great Plateau's too. Past the edge there may be nothing to stand on. From the next start.", &g_settings.no_map_bounds},
-            {"Hide the quiver", "Link without the quiver on his back (the arrows still work). From the next start.", &g_settings.hide_quiver},
-            {"Hide the Sheikah Slate", "Link without the Sheikah Slate at his hip (and in his hand when he uses it). From the next start.", &g_settings.hide_slate},
-        };
-        static const int boot_quiver = g_settings.hide_quiver, boot_slate = g_settings.hide_slate;  // (what this start serves)
-        for (const auto &sw : swaps) {
-            bool v = *sw.v != 0;
-            if (opt_toggle(sw.label, &v, false, sw.desc)) { *sw.v = v; settings_save(); }
-        }
-        {
-            extern char g_romfs_options[64];
-            char want[64];
-            snprintf(want, sizeof want, "%s%s%s%s%s", g_settings.no_map_bounds ? "bounds" : "",
-                     g_settings.no_map_bounds && (g_settings.no_typhlo_dark || g_settings.no_woods_fog) ? "+" : "",
-                     g_settings.no_typhlo_dark ? "dark" : "", g_settings.no_typhlo_dark && g_settings.no_woods_fog ? "+" : "",
-                     g_settings.no_woods_fog ? "fog" : "");
-            if (strcmp(want, g_romfs_options) || boot_quiver != g_settings.hide_quiver || boot_slate != g_settings.hide_slate) {
-                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.7f, 0.4f, 1));
-                ImGui::TextWrapped("Restart the game for these changes to take effect.");
-                ImGui::PopStyleColor();
-            }
-        }
     }
     // weapon stats: durability and a bonus (act::WeaponModifier), for weapons, bows and shields added from here
     static float durability = 0, amt[3] = {10, 1.5f, 5};

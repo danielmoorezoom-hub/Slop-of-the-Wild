@@ -166,13 +166,6 @@ static void boot(const char *root) {
     loader_load(exefs);
     { extern void fs_title_version_patch(void); fs_title_version_patch(); }  // (runtime/services/fs.c)
     { extern void settings_load(void); settings_load(); }
-    {   // (romfs_build.c: the file variants those settings pick, keys in name order)
-        extern char g_romfs_options[64];
-        snprintf(g_romfs_options, sizeof g_romfs_options, "%s%s%s%s%s", g_settings.no_map_bounds ? "bounds" : "",
-                 g_settings.no_map_bounds && (g_settings.no_typhlo_dark || g_settings.no_woods_fog) ? "+" : "",
-                 g_settings.no_typhlo_dark ? "dark" : "", g_settings.no_typhlo_dark && g_settings.no_woods_fog ? "+" : "",
-                 g_settings.no_woods_fog ? "fog" : "");
-    }
     { extern void language_booted(void); language_booted(); }  // (runtime/language.c)
     plat_cpu_placement();
     kernel_init();
