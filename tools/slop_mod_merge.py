@@ -525,8 +525,26 @@ for k, data in map_sizes.items():
     setmax(k, v)
 # every file the installed mods serve (inside packs too): an entry smaller than the file it sizes makes the game's load
 # fail (Relics' Event/EventInfo, null resource at the title screen). Each gets at least what the file needs.
+# (files the game has as they are keep the game's own entries: a raw table read to the end of its buffer, as
+# AnimationDrivenSpeed/AnimalUnitSpeed.bin, misreads a bigger one: Link and the animals slid instead of walking)
+import hashlib
+van_files = set()
+def note_van(rel, data, depth=0):
+    if data[:4] == b'Yaz0': data = bytes(oead.yaz0.decompress(data))
+    van_files.add((rel, hashlib.md5(data).digest()))
+    if data[:4] == b'SARC' and depth < 3:
+        try:
+            for f in oead.Sarc(data).get_files(): note_van(f.name, bytes(f.data), depth + 1)
+        except Exception: pass
+for vp in [VAN / 'Bootup.pack', Path('/home/claude/slopmods/van/TitleBG.pack'), VAN2 / 'romfs/Pack/Title.pack']:
+    if vp.exists(): note_van('Pack/' + vp.name, vp.read_bytes())
+for root in (VAN3 / 'romfs', VAN3 / 'aoc', VAN2 / 'romfs', VAN2 / 'aoc1'):
+    if root.exists():
+        for vp in root.rglob('*'):
+            if vp.is_file(): note_van(vp.relative_to(root).as_posix(), vp.read_bytes())
 def walk_sizes(rel, data, pre, depth=0):
     if data[:4] == b'Yaz0': data = bytes(oead.yaz0.decompress(data))
+    if (rel, hashlib.md5(data).digest()) in van_files: return  # (the game's own file, inside too)
     if data[:4] == b'SARC' and depth < 3:
         try: s = oead.Sarc(data)
         except Exception: s = None
