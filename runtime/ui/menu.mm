@@ -1065,6 +1065,7 @@ void spawner_warp_all(int on);
 int spawner_warp_all_on(void);
 typedef struct { char id[64]; int cat, life; } ModItem;
 int spawner_mod_items(const ModItem **out);
+int spawner_item_upgradable(const char *id);
 typedef struct { char name[64]; int type, value, equipped; } InvItem;
 int spawner_inventory(InvItem *out, int max);
 int spawner_slots_get(int which);
@@ -1202,6 +1203,15 @@ static void tab_items(void) {
                "Add: selecting an item puts it in your pouch. Remove: lists what is in your pouch; selecting one takes it out (the "
                "Amount from a stack, or that many slots of gear). Equipped items are kept: unequip them first.");
     opt_choice("Category", &cat, cats, 11, 0, "Shows only one kind of item. Unobtainable: things the game never lets you carry (NPC tools, boss weapons, unused gear). They need the Unobtainable items mod and may crash the game when equipped, dropped or shown. Added by mods: items your mods add to the game (listed by their IDs).");
+    static bool top_rank, not_owned, no_mod;
+    if (mode == 0) {
+        opt_toggle("Highest upgrade only", &top_rank, false,
+                   "Hides armour that a Great Fairy can still upgrade, so each piece shows once, at its highest level. "
+                   "Armour that never upgrades is always shown.");
+        opt_toggle("Hide what I have", &not_owned, false,
+                   "Hides items already in your pouch (any amount). Load your save first.");
+        opt_toggle("Hide mod items", &no_mod, false, "Hides the items your mods add, leaving the game's own.");
+    }
     opt_slider("Amount", &amount, 1, 999, 1, 1, "%g",
                "How many to add or remove. Things that stack (materials, food, arrows) go into one slot, up to 999. "
                "Weapons, bows, shields and armour take a slot each, up to 20 at a time when adding. Removing more than "
@@ -1346,8 +1356,21 @@ static void tab_items(void) {
         for (int k = 0; k < nm; k++)
             if (!known.count(mi[k].id)) all.push_back(SpawnItem{mi[k].id, mi[k].id, mi[k].cat, mi[k].life, 2});
     }
+    // what's in the pouch (for Hide what I have), looked up again every half second
+    static std::unordered_set<std::string> owned;
+    static double owned_at = -1;
+    if (not_owned && ImGui::GetTime() - owned_at > 0.5) {
+        static InvItem inv[600];
+        int n = spawner_inventory(inv, 600);
+        owned.clear();
+        for (int k = 0; k < n; k++) owned.insert(inv[k].name);
+        owned_at = ImGui::GetTime();
+    }
     auto listed = [&](const SpawnItem &it) {
         if (cat == 10 ? it.odd != 2 : cat == 9 ? it.odd != 1 : cat && (it.cat != cat - 1 || it.odd == 1)) return false;
+        if (top_rank && it.cat == 4 && spawner_item_upgradable(it.id)) return false;
+        if (no_mod && it.odd == 2) return false;
+        if (not_owned && owned.count(it.id)) return false;
         return ci_contains(it.name, query) || ci_contains(it.id, query);
     };
     // what selecting it sends: n of it, with the weapon stats above

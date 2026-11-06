@@ -28,6 +28,16 @@ static int kind_of(const char *profile, const char *name) {
     return 7;
 }
 
+// Armour that upgrades further (a fairy fountain's next rank: ActorInfo armorNextRankName), read with the list below
+static char (*g_lower)[64];
+static int g_nlower;
+static int cmp_name(const void *a, const void *b) { return strcmp(a, b); }
+int spawner_mod_items(const ModItem **out);
+int spawner_item_upgradable(const char *id) {
+    const ModItem *m;
+    spawner_mod_items(&m);
+    return g_nlower && bsearch(id, g_lower, (size_t)g_nlower, sizeof *g_lower, cmp_name) != NULL;
+}
 int spawner_mod_items(const ModItem **out) {
     if (g_n >= 0) { *out = g_items; return g_n; }
     g_n = 0;
@@ -37,6 +47,12 @@ int spawner_mod_items(const ModItem **out) {
     int cap = 0;
     for (int i = 0; acts && acts->type == BY_ARRAY && i < acts->n; i++) {
         const ByNode *a = &acts->items[i], *tags = byml_get(a, "tags"), *nm = byml_get(a, "name"), *pr = byml_get(a, "profile");
+        const ByNode *next = byml_get(a, "armorNextRankName");
+        if (nm && nm->type == BY_STR && next && next->type == BY_STR && next->v.s[0] && strlen(nm->v.s) < 64) {
+            static int lcap;
+            if (g_nlower == lcap) g_lower = realloc(g_lower, sizeof *g_lower * (size_t)(lcap = lcap ? lcap * 2 : 256));
+            snprintf(g_lower[g_nlower++], 64, "%s", nm->v.s);
+        }
         if (!tags || !nm || nm->type != BY_STR || !byml_get(tags, "tage0194f30")) continue;  // CanGetPouch
         if (strlen(nm->v.s) >= sizeof g_items[0].id) continue;
         if (g_n == cap) g_items = realloc(g_items, sizeof *g_items * (cap = cap ? cap * 2 : 512));
@@ -47,7 +63,8 @@ int spawner_mod_items(const ModItem **out) {
         m->life = life && life->type == BY_INT ? (int)life->v.u32 : 0;
     }
     byml_free(&b);
-    fprintf(stderr, "[spawner] %d pouch items in %s\n", g_n, g_romfs_actorinfo);
+    if (g_nlower) qsort(g_lower, (size_t)g_nlower, sizeof *g_lower, cmp_name);
+    fprintf(stderr, "[spawner] %d pouch items in %s (%d armour pieces upgrade further)\n", g_n, g_romfs_actorinfo, g_nlower);
     *out = g_items;
     return g_n;
 }
