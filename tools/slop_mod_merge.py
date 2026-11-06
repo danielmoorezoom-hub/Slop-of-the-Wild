@@ -30,7 +30,7 @@ PLAIN = [('OoT Zora Tunic', RAW / 'zora' / 'romfs'), ('OoT Goron Tunic', RAW / '
 OWN = [('Ancient Weaponry MkII', RAW3 / 'ancientweaponrymkii_5acf0/01007EF00011E000/romfs'),
        ('Magic Armor (Twilight Princess)', RAW3 / 'magic_armor_from_twilight_princess/48b66c60-magic_armor_from_twilight_princess/atmosphere/contents/01007EF00011E000/romfs'),
        ('Link II Shield', RAW3 / 'linkiishield'),
-       ('TP Master Sword and Shield', RAW3 / 'tpmasterswordandshield/romfs'),
+       # ('TP Master Sword and Shield', removed 2026-11-06)
        ('Epic Master Sword Enhanced', RAW3 / 'epic_mastersword_enhanced_-_dmg250/Epic MasterSword Enhanced - Dmg250/contents/01007EF00011E000/romfs'),
        ('Thunderstorm Rod', RAW3 / 'thunderstormrod_-_ganon_thunder_rod/ThunderstormRod - Ganon Thunder Rod/contents/01007EF00011E000/romfs')]
 NEWER = {n for n, *_ in BNP if 'raw3' in str(_[0])} | {n for n, _ in OWN}
