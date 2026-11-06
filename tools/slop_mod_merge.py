@@ -40,6 +40,9 @@ PLAIN = [('OoT Zora Tunic', RAW / 'zora' / 'romfs', None, 'old'),
          ('0 Relics of the Past', RAW3 / 'relics/01007EF00011E000/romfs', RAW3 / 'relics/01007EF00011F001/romfs', 'full')]
 ONLY_RELICS = os.environ.get('ONLY_RELICS') == '1'  # (just the overhaul: every other mod left out)
 if ONLY_RELICS: BNP = []; PLAIN = [m for m in PLAIN if m[3] == 'full']
+NO_RELICS = os.environ.get('NO_RELICS') == '1'  # (every mod but the overhaul)
+if NO_RELICS: PLAIN = [m for m in PLAIN if m[3] != 'full']
+REL_TBG = RAW3 / 'relics/01007EF00011E000/romfs/Pack/TitleBG.pack'
 SKIP = {'Pack/Bootup.pack', 'Actor/ActorInfo.product.sbyml', 'System/Resource/ResourceSizeTable.product.srsizetable',
         'Pack/TitleBG.pack', 'Pack/Title.pack', 'readme.txt', 'Pack/debug.log'}
 import re
@@ -143,7 +146,7 @@ for (sub, rel), who in owner.items():
     if h in actors and 'instSize' in actors[h]:
         actors[h]['instSize'] = oead.S32(int(int(actors[h]['instSize']) * 1.25)); bumped += 1
 _vt = {f.name: bytes(f.data) for f in oead.Sarc(Path('/home/claude/slopmods/van/TitleBG.pack').read_bytes()).get_files() if f.name.startswith('Actor/Pack/')}
-for f in oead.Sarc((RAW3 / 'relics/01007EF00011E000/romfs/Pack/TitleBG.pack').read_bytes()).get_files():
+for f in ([] if NO_RELICS else oead.Sarc(REL_TBG.read_bytes()).get_files()):
     if f.name in _vt and _vt[f.name] != bytes(f.data):
         h = crc(f.name[len('Actor/Pack/'):-len('.sbactorpack')])
         if h in actors and 'instSize' in actors[h]:
@@ -411,8 +414,9 @@ for rel, u in units.items():
     dst = MA / rel; dst.parent.mkdir(parents=True, exist_ok=True)
     dst.write_bytes(oead.yaz0.compress(data))
     map_sizes['Aoc/0010/' + rkey(rel)] = bytes(data)
-(MA / 'Pack').mkdir(parents=True, exist_ok=True)
-(MA / 'Pack/AocMainField.pack').write_bytes(b'')
+if units:  # (the loose units, read instead of the DLC's pack; with none the DLC keeps its own)
+    (MA / 'Pack').mkdir(parents=True, exist_ok=True)
+    (MA / 'Pack/AocMainField.pack').write_bytes(b'')
 print('map units merged:', len(units))
 
 # ---- packs two mods both change: the game's with each one's changed files (the overhaul first, so the rest win)
@@ -428,14 +432,13 @@ def merge_sarc(van_bytes, mods, removals=True):
                 if n not in m and n in w.files: del w.files[n]
     return bytes(w.write()[1])
 # TitleBG: the overhaul's changes, then the TOTK hair's
-tbg = merge_sarc(Path('/home/claude/slopmods/van/TitleBG.pack').read_bytes(),
-                 [('relics', (RAW3 / 'relics/01007EF00011E000/romfs/Pack/TitleBG.pack').read_bytes())])
+tbg = merge_sarc(Path('/home/claude/slopmods/van/TitleBG.pack').read_bytes(), [] if NO_RELICS else [('relics', REL_TBG.read_bytes())])
 if not ONLY_RELICS: tbg = merge_sarc(tbg, [('hair', Path('/home/claude/slopmods/raw/totkhair/01007EF00011E000/romfs/Pack/TitleBG.pack').read_bytes())], removals=False)
 (M / 'Pack/TitleBG.pack').write_bytes(tbg)
 # Title: the islands' title screen (the overhaul's changes the same file)
 # the title screen: the overhaul's (the Islands Expansion's is left out with it)
 rt = RAW3 / 'relics/01007EF00011E000/romfs/Pack/Title.pack'
-if rt.exists(): (M / 'Pack/Title.pack').write_bytes(merge_sarc((VAN2 / 'romfs/Pack/Title.pack').read_bytes(), [('relics', rt.read_bytes())]))
+if rt.exists() and not NO_RELICS: (M / 'Pack/Title.pack').write_bytes(merge_sarc((VAN2 / 'romfs/Pack/Title.pack').read_bytes(), [('relics', rt.read_bytes())]))
 elif (M / 'Pack/Title.pack').exists(): (M / 'Pack/Title.pack').unlink()
 # actor packs more than one of the user's own mods carry (the overhaul just loses those)
 conf = {}
