@@ -652,6 +652,8 @@ int spawner_inventory(InvItem *out, int max) {
 // starts with Link put at the flown position and still, so falling never builds up. hle/input.c noclip_take_input
 // takes the controls; nvn/vulkan/exec.c route_camera hands over the camera (noclip_camera).
 volatile int g_noclip_on;
+int spawner_noclip_on(void) { return g_noclip_on; }
+void spawner_noclip_set(int on) { g_noclip_on = on != 0; LOG("[noclip] %s (menu)\n", on ? "on" : "off"); }
 static _Atomic int32_t nc_lx, nc_ly;
 static atomic_int nc_up, nc_down, nc_fast;
 static _Atomic float nc_r[3] = {1, 0, 0}, nc_b[3] = {0, 0, 1};
@@ -659,9 +661,15 @@ static atomic_int nc_cam_seen;
 
 // (input thread) t: the combo; returns true when the game should not get the movement controls
 bool noclip_take_input(bool combo, int32_t lx, int32_t ly, bool a, bool b, bool zr) {
-    static bool was;
-    bool edge = combo && !was;
-    was = combo;
+    // the combo held for a second toggles it (crouching while whistling, R3 and d-pad down together, used to turn it
+    // on unnoticed: Link stuck sliding, the stick his flying)
+    static bool fired;
+    static uint64_t since;
+    uint64_t now = plat_now_ns();
+    bool edge = false;
+    if (!combo) since = 0, fired = false;
+    else if (!since) since = now;
+    else if (!fired && now - since >= 1000000000ull) edge = fired = true;
     if (edge && spawner_available()) {
         g_noclip_on = !g_noclip_on;
         LOG("[noclip] %s\n", g_noclip_on ? "on" : "off");

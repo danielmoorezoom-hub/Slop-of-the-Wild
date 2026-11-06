@@ -1060,6 +1060,8 @@ int spawner_armor_state(void);
 void spawner_time_set(float hour);
 float spawner_time_get(void);
 void spawner_time_freeze(int on);
+int spawner_noclip_on(void);
+void spawner_noclip_set(int on);
 int spawner_time_frozen(void);
 void spawner_warp_all(int on);
 void spawner_rune_nocd(int on);
@@ -1259,6 +1261,11 @@ static void tab_items(void) {
         snprintf(v, sizeof v, "%02d:%02d", (int)hour, (int)((hour - (int)hour) * 60 + 0.5f));
         if (opt_action("Set the time", v, "Moves the clock to the hour above, as sleeping at an inn does. Going back past midnight starts a new day.", false))
             spawner_time_set(hour);
+        bool fly = spawner_noclip_on() != 0;
+        if (opt_toggle("Noclip flying", &fly, false,
+                       "Link flies through anything: the left stick moves him, A up, B down, ZR faster. Holding R3 and "
+                       "d-pad down for a second also turns it on or off. While it is on he can't walk."))
+            spawner_noclip_set(fly);
         bool freeze = spawner_time_frozen() != 0;
         if (opt_toggle("Freeze time", &freeze, false, "Stops the clock where it is (the sky, the day and night). Off: it runs again."))
             spawner_time_freeze(freeze);
